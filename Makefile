@@ -1,29 +1,49 @@
 APP_NAME = test.app
-CC = g++
-VULKAN_SDK_PATH = $(VULKAN_SDK)
+BUILD_DIR = build
+BIN_DIR = bin
+CXX = g++
+SHADERSCOMPILER = glslangValidator
 
-CFLAGS = -std=c++2a -I$(VULKAN_SDK_PATH)/include
-LDFLAGS = -L$(VULKAN_SDK_PATH)/lib `pkg-config --static --libs glfw3` -lvulkan
+CXXFLAGS = -std=c++17 -fopenmp -O0 -g -Wall -Warray-bounds -Wdiv-by-zero -fno-omit-frame-pointer
+CXXFLAGS += -DDEBUG
+CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
+
+LDFLAGS = -lgomp -lvulkan
+
+VPATH += Vulkan
 
 SOURCE = main.cpp
-OBJECTS = $(SOURCE:.cpp=.o)
 
-all: prepere $(APP_NAME)
+SOURCE += $(wildcard Vulkan/*.cpp)
 
-$(APP_NAME): $(OBJECTS)
-	$(CC) -o $(APP_NAME) build/$(OBJECTS) $(CFLAGS) $(LDFLAGS)
+OBJECTS = $(notdir $(SOURCE:.cpp=.o))
 
-.cpp.o:
-	$(CC) $(CFLAGS) -c $< -o build/$@
+all: prepere $(BIN_DIR)/$(APP_NAME) shaders
 
-.PHONY: prepere test clean
+$(BIN_DIR)/$(APP_NAME): $(addprefix $(BUILD_DIR)/,$(OBJECTS))
+	$(CXX) -o $(BIN_DIR)/$(APP_NAME) $(addprefix $(BUILD_DIR)/,$(OBJECTS)) $(CXXFLAGS) $(LDFLAGS)
+
+$(BUILD_DIR)/%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
+
+.PHONY: prepere run clean dbg shaders multi
+
+multi:
+	$(MAKE) -j12 all
 
 prepere:
-	mkdir -p build
+	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BIN_DIR)
 
-test: $(APP_NAME)
-	./$(APP_NAME)
+shaders:
+	$(SHADERSCOMPILER) -V -o bin/comp.spv Shaders/CNN.comp
+
+run: all $(BIN_DIR)/$(APP_NAME)
+	./$(BIN_DIR)/$(APP_NAME)
 
 clean:
-	rm -r build
-	rm -f $(APP_NAME)
+	rm -rf $(BUILD_DIR)
+	rm -rf $(BIN_DIR)
+
+dbg: all $(BIN_DIR)/$(APP_NAME)
+	gdb ./$(BIN_DIR)/$(APP_NAME)

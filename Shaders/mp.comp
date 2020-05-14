@@ -1,0 +1,64 @@
+#version 450
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer buf
+{
+  float input_data[];
+};
+
+layout(std430, binding = 1) buffer buf1
+{
+  float weights[];
+};
+
+layout(std430, binding = 2) buffer buf2
+{
+  float output_data[];
+};
+
+/*
+  layers[0] - input size
+*/
+
+struct UniformData
+{
+  float nu;
+  float alpha;
+  uint pass;
+  uint layers_size;
+  uint layers[60];
+};
+
+layout(binding = 3) uniform buf3
+{
+  UniformData global_data;
+};
+
+float Act_Func(float x)
+{
+  return tanh(x * global_data.alpha);
+}
+
+void main()
+{
+  uint index = (gl_NumWorkGroups.x * gl_WorkGroupSize.x * gl_GlobalInvocationID.y) + gl_GlobalInvocationID.x;
+  float sum = 0;
+
+  if (pass == 0)
+  {
+    for (uint i = 0; i < layers[pass]; ++i)
+    {
+      sum += input_data[pass] * weights[pass] * nu;
+    }
+    output_data[index] = Act_Func(sum);
+  } 
+  else if (pass < layers_size)
+  {
+
+  } 
+  else 
+  {
+
+  }
+}

@@ -1,2 +1,2 @@
 # VK-nn
-Neural Networks with Vulkan
+Vulkan Compute Interface
