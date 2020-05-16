@@ -24,7 +24,8 @@ namespace Vulkan
     uint32_t buffer_size = 0;
     uint32_t family_queue = 0;
 
-    template <typename O> friend class Offload;
+    friend class StorageBuffer;
+    friend class Supply;
   public:
       IStorage() = default;
       ~IStorage()
@@ -39,19 +40,32 @@ namespace Vulkan
           device = VK_NULL_HANDLE;
         }
       }
-      void Update(const void *data) const
+      void Update(const void *data, std::size_t length) const
       {
         if (data == nullptr)
           throw std::runtime_error("Update data is empty.");
+        
+        if (length >= buffer_size)
+          throw std::runtime_error("length >= buffer_size");
         
         void *payload = nullptr;
         if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
     
-        std::memcpy(payload, data, buffer_size);
+        std::memcpy(payload, data, length);
         vkUnmapMemory(device, buffer_memory);
       }
+      
       StorageType Type() const { return type; }
+
+      void Extract(void *out, std::size_t &length) const
+      {
+        if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &out) != VK_SUCCESS)
+          throw std::runtime_error("Can't map memory.");
+    
+        vkUnmapMemory(device, buffer_memory);
+        length = buffer_size;
+      }
   };
 }
 

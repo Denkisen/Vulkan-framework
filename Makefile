@@ -6,7 +6,7 @@ SHADERSCOMPILER = glslangValidator
 
 CXXFLAGS = -std=c++17 -fopenmp -O0 -g -Wall -Warray-bounds -Wdiv-by-zero -fno-omit-frame-pointer
 CXXFLAGS += -DDEBUG
-CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
+#CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
 
 LDFLAGS = -lgomp -lvulkan
 
@@ -36,7 +36,7 @@ prepere:
 	mkdir -p $(BIN_DIR)
 
 shaders:
-	$(SHADERSCOMPILER) -V -o bin/comp.spv Shaders/CNN.comp
+	$(SHADERSCOMPILER) -V -o bin/comp.spv Shaders/test.comp
 
 run: all $(BIN_DIR)/$(APP_NAME)
 	./$(BIN_DIR)/$(APP_NAME)

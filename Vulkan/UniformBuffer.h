@@ -12,14 +12,13 @@ namespace Vulkan
   class UniformBuffer : public IStorage
   {
   private:
-    void Create(Device &dev, void *data, size_t len);
-    void Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, size_t len, uint32_t f_queue);
+    void Create(Device &dev, void *data, std::size_t len);
+    void Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, std::size_t len, uint32_t f_queue);
   public:
     UniformBuffer() = delete;
-    UniformBuffer(Device &dev, void *data, size_t len);
+    UniformBuffer(Device &dev, void *data, std::size_t len);
     UniformBuffer(const UniformBuffer &obj);
     UniformBuffer& operator= (const UniformBuffer &obj);
-    void Extract(void *out) const;
     ~UniformBuffer()
     {
 #ifdef DEBUG

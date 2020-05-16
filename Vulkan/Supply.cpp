@@ -175,3 +175,18 @@ int Vulkan::Supply::GetFamilyQueue(VkPhysicalDevice &device, VkQueueFlagBits bit
   }
   return ret;
 }
+
+bool Vulkan::Supply::IsDataVectorValid(const std::vector<IStorage*> &data)
+{
+  bool result = true;
+  if (data.size() == 0) return false;
+  VkDevice dev = data[0]->device;
+
+  for (std::size_t i = 0; i < data.size(); ++i)
+  {
+    if (data[i]->device != dev)
+      return false;
+  }
+
+  return result;
+}

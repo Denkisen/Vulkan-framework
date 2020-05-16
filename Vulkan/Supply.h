@@ -6,6 +6,8 @@
 #include <iostream>
 #include <vector>
 
+#include "IStorage.h"
+
 namespace Vulkan
 {
   class Supply
@@ -27,7 +29,8 @@ namespace Vulkan
     static std::vector<std::string> GetInstanceExtensions();
     static int GetFamilyQueue(VkPhysicalDevice &device, VkQueueFlagBits bit);
     static std::vector<const char *> ValidationLayers;
-} ;
+    static bool IsDataVectorValid(const std::vector<IStorage*> &data);
+  };
 }
 
 

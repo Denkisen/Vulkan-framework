@@ -9,10 +9,13 @@ namespace Vulkan
   template class Array<unsigned>;
 
   template <typename T>
-  void Array<T>::Create(VkDevice dev, VkPhysicalDevice p_dev, T *data, size_t len, uint32_t f_queue)
+  void Array<T>::Create(VkDevice dev, VkPhysicalDevice p_dev, T *data, std::size_t len, uint32_t f_queue)
   {
     if (len == 0 || data == nullptr || p_dev == VK_NULL_HANDLE)
       throw std::runtime_error("Data array is empty.");
+
+    this->data.resize(len);
+    std::copy(data, data + len, this->data.begin());
 
     buffer_size = len * sizeof(T);
     VkPhysicalDeviceMemoryProperties properties;
@@ -48,7 +51,7 @@ namespace Vulkan
     if (vkMapMemory(dev, buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
-    std::memcpy(payload, data, buffer_size);
+    std::memcpy(payload, this->data.data(), buffer_size);
     vkUnmapMemory(dev, buffer_memory);
 
     VkBufferCreateInfo buffer_create_info = {
@@ -80,7 +83,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  void Array<T>::Create(Device &dev, T *data, size_t len)
+  void Array<T>::Create(Device &dev, T *data, std::size_t len)
   {
     Create(dev.device, dev.p_device, data, len, dev.family_queue);
   }
@@ -91,13 +94,20 @@ namespace Vulkan
     if (data.size() == 0)
       throw std::runtime_error("Data array is empty.");
     
-    Create(dev, data.data(), data.size());
+    Create(dev, this->data.data(), this->data.size());
   }
 
   template <typename T>
-  Array<T>::Array(Device &dev, T *data, size_t len)
+  Array<T>::Array(Device &dev, T *data, std::size_t len)
   {
     Create(dev, data, len);
+  }
+
+  template <typename T>
+  Array<T>::Array(Device &dev)
+  {
+    this->data.resize(64, 0.0);
+    Create(dev, this->data.data(), this->data.size());
   }
 
   template <typename T> 
@@ -126,6 +136,34 @@ namespace Vulkan
     
     std::vector<T> data(obj.Extract());
     Create(obj.device, obj.p_device, data.data(), data.size(), obj.family_queue);
+
+    return *this;
+  }
+
+  template <typename T> 
+  Array<T>& Array<T>::operator= (const std::vector<T> &obj)
+  {
+    if (obj.size() > data.size())
+    {
+      if (device != VK_NULL_HANDLE)
+      {
+        vkFreeMemory(device, buffer_memory, nullptr);
+        vkDestroyBuffer(device, buffer, nullptr);
+        
+        Create(device, p_device, const_cast<T*> (obj.data()), obj.size(), family_queue);
+      }
+    }
+    else
+    {
+      this->data = obj;
+      void *payload = nullptr;
+      if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
+        throw std::runtime_error("Can't map memory.");
+    
+      buffer_size = this->data.size() * sizeof(T);
+      std::memcpy(payload, this->data.data(), buffer_size);
+      vkUnmapMemory(device, buffer_memory);
+    }
 
     return *this;
   }

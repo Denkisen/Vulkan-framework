@@ -3,12 +3,12 @@
 
 namespace Vulkan
 {
-  void UniformBuffer::Create(Device &dev, void *data, size_t len)
+  void UniformBuffer::Create(Device &dev, void *data, std::size_t len)
   {
     Create(dev.device, dev.p_device, data, len, dev.family_queue);
   }
 
-  void UniformBuffer::Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, size_t len, uint32_t f_queue)
+  void UniformBuffer::Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, std::size_t len, uint32_t f_queue)
   {
     if (len == 0 || data == nullptr || p_dev == VK_NULL_HANDLE)
       throw std::runtime_error("Data array is empty.");
@@ -17,9 +17,9 @@ namespace Vulkan
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
 
-    size_t memory_type_index = VK_MAX_MEMORY_TYPES;
+    std::size_t memory_type_index = VK_MAX_MEMORY_TYPES;
 
-    for (size_t i = 0; i < properties.memoryTypeCount; i++) 
+    for (std::size_t i = 0; i < properties.memoryTypeCount; i++) 
     {
       if ((VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & properties.memoryTypes[i].propertyFlags) &&
          (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT & properties.memoryTypes[i].propertyFlags) &&
@@ -78,7 +78,7 @@ namespace Vulkan
     type = StorageType::Uniform; // VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
   }
 
-  UniformBuffer::UniformBuffer(Device &dev, void *data, size_t len)
+  UniformBuffer::UniformBuffer(Device &dev, void *data, std::size_t len)
   {
     Create(dev, data, len);
   }
@@ -93,7 +93,8 @@ namespace Vulkan
     }
 
     char *tmp = new char[buffer_size];
-    Extract((void *) tmp);
+    std::size_t sz = 0;
+    Extract((void *) tmp, sz);
     Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
     delete tmp;
   }
@@ -108,20 +109,11 @@ namespace Vulkan
     }
     
     char *tmp = new char[buffer_size];
-    Extract((void *) tmp);
+    std::size_t sz = 0;
+    Extract((void *) tmp, sz);
     Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
     delete tmp;
     
     return *this;
-  }
-
-  void UniformBuffer::Extract(void *out) const
-  {
-    void *payload = nullptr;
-    if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
-      throw std::runtime_error("Can't map memory.");
-    
-    std::memcpy(out, payload, buffer_size);
-    vkUnmapMemory(device, buffer_memory);
   }
 }

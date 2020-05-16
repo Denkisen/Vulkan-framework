@@ -14,14 +14,17 @@ namespace Vulkan
   template <typename T> class Array : public IStorage
   {
   private:
-    void Create(Device &dev, T *data, size_t len);
-    void Create(VkDevice dev, VkPhysicalDevice p_dev, T *data, size_t len, uint32_t f_queue);
+    void Create(Device &dev, T *data, std::size_t len);
+    void Create(VkDevice dev, VkPhysicalDevice p_dev, T *data, std::size_t len, uint32_t f_queue);
+    std::vector<T> data;
   public:
     Array() = delete;
+    Array(Device &dev);
     Array(Device &dev, std::vector<T> &data);
-    Array(Device &dev, T *data, size_t len);
+    Array(Device &dev, T *data, std::size_t len);
     Array(const Array<T> &array);
     Array<T>& operator= (const Array<T> &obj);
+    Array<T>& operator= (const std::vector<T> &obj);
     std::vector<T> Extract() const;
     ~Array()
     {

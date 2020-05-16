@@ -32,8 +32,9 @@ namespace Vulkan
     template <typename T> friend class Array;
     template <typename T> friend class Offload;
     friend class UniformBuffer;
+    friend class StorageBuffer;
   public:
-    Device() = default;
+    Device() = delete;
     Device(const Device &obj) = delete;
     Device& operator= (const Device &obj) = delete;
     Device(Vulkan::Instance &instance, uint32_t device_index) { Create(instance, device_index); }
