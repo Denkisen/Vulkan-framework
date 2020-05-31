@@ -11,7 +11,21 @@ namespace Vulkan
   template class Offload<unsigned>;
 
   template <typename T>
-  Offload<T>::Offload(Device &dev, std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point)
+  Offload<T>::Offload(Device &dev, const std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point)
+  {
+    device = dev.device;
+    queue = dev.queue;
+    device_limits = dev.device_limits;
+    buffer = data;
+    family_queue = dev.family_queue;
+
+    compute_shader.shader_filepath = shader_path;
+    compute_shader.entry_point = entry_point;
+    compute_shader.shader = CreateShader(shader_path);
+  }
+
+  template <typename T>
+  Offload<T>::Offload(Device &dev, const StorageBuffer &data, const std::string shader_path, const std::string entry_point)
   {
     device = dev.device;
     queue = dev.queue;
@@ -137,8 +151,39 @@ namespace Vulkan
   } 
 
   template <typename T>
+  Offload<T>& Offload<T>::operator= (const StorageBuffer &obj)
+  {
+    stop = true;
+    std::lock_guard<std::mutex> lock(work_mutex);
+    if (device != VK_NULL_HANDLE)
+    {
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+      if (command_pool != VK_NULL_HANDLE)
+      {
+        vkDestroyCommandPool(device, command_pool, nullptr);
+        command_pool = VK_NULL_HANDLE;
+      }
+
+      buffer = obj;
+    }
+    else
+      std::runtime_error("No Device.");
+    return *this;
+  }
+
+  template <typename T>
   void Offload<T>::Run(std::size_t x, std::size_t y, std::size_t z)
   {
+    stop = false;
     std::lock_guard<std::mutex> lock(work_mutex);
 
     if (device == VK_NULL_HANDLE)
@@ -190,10 +235,9 @@ namespace Vulkan
       
       for (auto &opt : pipeline_options.DispatchEndEvents)
       {
-        void *ptr = nullptr;
         std::size_t len = 0;
-        buffer.Extract(ptr, len, opt.index);
-        opt.OnDispatchEndEvent(i, opt.index, ptr, len);
+        void *ptr = buffer.Extract(len, opt.index);
+        opt.OnDispatchEndEvent(i, opt.index, buffer.GetStorageTypeByIndex(opt.index), ptr, len);
         buffer.UpdateValue(ptr, len, opt.index);
         std::free(ptr);
       }
@@ -205,7 +249,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  void Offload<T>::SetPipelineOptions(OffloadPipelineOptions options)
+  void Offload<T>::SetPipelineOptions(const OffloadPipelineOptions options)
   {
     std::lock_guard<std::mutex> lock(work_mutex);
     pipeline_options.DispatchTimes = options.DispatchTimes > 0 ? options.DispatchTimes : 1;
@@ -213,16 +257,13 @@ namespace Vulkan
     {
       if (opt.OnDispatchEndEvent != nullptr)
       {
-        if (opt.index < buffer.Size())
-        {
-          pipeline_options.DispatchEndEvents.push_back(opt);
-        }
+        pipeline_options.DispatchEndEvents.push_back(opt);
       }
     }
   }
 
   template <typename T>
-  VkShaderModule Offload<T>::CreateShader(std::string shader_path)
+  VkShaderModule Offload<T>::CreateShader(const std::string shader_path)
   {
     VkShaderModule result = VK_NULL_HANDLE;
     Supply::LoadPrecompiledShaderFromFile(device, shader_path, result);
@@ -265,7 +306,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkPipelineLayout Offload<T>::CreatePipelineLayout(VkDescriptorSetLayout layout)
+  VkPipelineLayout Offload<T>::CreatePipelineLayout(const VkDescriptorSetLayout layout)
   {
     VkPipelineLayout result = VK_NULL_HANDLE;
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
@@ -300,7 +341,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkCommandPool Offload<T>::CreateCommandPool(uint32_t family_queue)
+  VkCommandPool Offload<T>::CreateCommandPool(const uint32_t family_queue)
   {
     VkCommandPool result = VK_NULL_HANDLE;
     VkCommandPoolCreateInfo command_pool_create_info = {};
@@ -315,7 +356,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkCommandBuffer Offload<T>::CreateCommandBuffer(VkCommandPool pool)
+  VkCommandBuffer Offload<T>::CreateCommandBuffer(const VkCommandPool pool)
   {
     VkCommandBuffer result = VK_NULL_HANDLE;
     VkCommandBufferAllocateInfo command_buffer_allocate_info = {};

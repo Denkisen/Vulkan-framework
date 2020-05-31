@@ -104,6 +104,8 @@ namespace Vulkan
       case StorageType::Uniform :
         descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         break;
+      default:
+        std::runtime_error("Unsupported storage type");
       }
       descriptor_set_layout_binding.descriptorCount = 1;
       descriptor_set_layout_binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -186,6 +188,8 @@ namespace Vulkan
         case StorageType::Uniform :
           write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
           break;
+        default:
+          std::runtime_error("Unsupported storage type");
       }
 
       write_descriptor.pBufferInfo = &descriptor_buffer_infos[i];
@@ -211,17 +215,20 @@ namespace Vulkan
         case StorageType::Uniform :
           result.uniform_buffers++;
           break;
+        default:
+          std::runtime_error("Unsupported storage type");
       }
     }
     return result;
   }
 
-  void StorageBuffer::Extract(void *data_ptr, std::size_t &length, const std::size_t index)
+  void* StorageBuffer::Extract(std::size_t &length, const std::size_t index)
   {
     if (index < buffers.size())
     {
-      buffers[index]->Extract(data_ptr, length);
+      return buffers[index]->Extract(length);
     }
+    return nullptr;
   }
 
   void StorageBuffer::UpdateValue(void *data_ptr, const std::size_t length, const std::size_t index)

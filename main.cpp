@@ -28,7 +28,25 @@ int main(int argc, char const *argv[])
     data.push_back(&input);
     data.push_back(&output);
     data.push_back(&global);
+    Vulkan::OffloadPipelineOptions opts;
+    opts.DispatchTimes = 3;
+    Vulkan::UpdateBufferOpt uni_opts;
+    uni_opts.index = data.size() - 1;
+    uni_opts.OnDispatchEndEvent = [](const std::size_t iteration, const std::size_t index, const Vulkan::StorageType type, void *buff, const std::size_t length)
+    {
+      std::cout << "EndEvent" << std::endl;
+      if (type == Vulkan::StorageType::Uniform)
+      {
+        UniformData *buffer = nullptr;
+        buffer = (UniformData*) buff;
+        if (buffer != nullptr)
+          buffer->mul += iteration;
+      }
+    };
+    opts.DispatchEndEvents.push_back(uni_opts);
+
     Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "bin/comp.spv", "main");
+    offload.SetPipelineOptions(opts);
     offload = data;
     offload.Run(64, 1, 1);
 

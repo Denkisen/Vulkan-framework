@@ -12,7 +12,7 @@
 
 namespace Vulkan
 {
-  typedef void (*DispatchEndEvent)(const std::size_t iteration, const std::size_t index, void *buff, const std::size_t length);
+  typedef void (*DispatchEndEvent)(const std::size_t iteration, const std::size_t index, const Vulkan::StorageType type, void *buff, const std::size_t length);
 
   struct UpdateBufferOpt
   {
@@ -49,22 +49,24 @@ namespace Vulkan
     VkPhysicalDeviceLimits device_limits = {};
     Vulkan::OffloadPipelineOptions pipeline_options = {};
     bool stop = false;
-    VkShaderModule CreateShader(std::string shader_path); 
-    VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout layout);
+    VkShaderModule CreateShader(const std::string shader_path); 
+    VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout layout);
     VkPipeline CreatePipeline(const VkShaderModule shader, const std::string entry_point, const VkPipelineLayout layout);
-    VkCommandPool CreateCommandPool(uint32_t family_queue);
-    VkCommandBuffer CreateCommandBuffer(VkCommandPool pool);
+    VkCommandPool CreateCommandPool(const uint32_t family_queue);
+    VkCommandBuffer CreateCommandBuffer(const VkCommandPool pool);
     void Free();
   public:
     Offload() = delete;
-    Offload(Device &dev, std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point);
+    Offload(Device &dev, const std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point);
+    Offload(Device &dev, const StorageBuffer &data, const std::string shader_path, const std::string entry_point);
     Offload(Device &dev, const std::string shader_path, const std::string entry_point);
     Offload(Device &dev);
     Offload(const Offload<T> &offload);
     Offload<T>& operator= (const Offload<T> &obj);
-    Offload<T>& operator= (const std::vector<IStorage*> &obj);   
+    Offload<T>& operator= (const std::vector<IStorage*> &obj);  
+    Offload<T>& operator= (const StorageBuffer &obj);  
     void Run(std::size_t x, std::size_t y, std::size_t z);
-    void SetPipelineOptions(OffloadPipelineOptions options);
+    void SetPipelineOptions(const OffloadPipelineOptions options);
     void SetShader(const std::string shader_path, const std::string entry_point);
     ~Offload()
     {

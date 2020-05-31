@@ -92,11 +92,10 @@ namespace Vulkan
       device = VK_NULL_HANDLE;
     }
 
-    char *tmp = new char[buffer_size];
     std::size_t sz = 0;
-    Extract((void *) tmp, sz);
-    Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
-    delete tmp;
+    void *tmp = Extract(sz);
+    Create(obj.device, obj.p_device, tmp, buffer_size, obj.family_queue);
+    std::free(tmp);
   }
 
   UniformBuffer& UniformBuffer::operator= (const UniformBuffer &obj)
@@ -108,11 +107,10 @@ namespace Vulkan
       device = VK_NULL_HANDLE;
     }
     
-    char *tmp = new char[buffer_size];
     std::size_t sz = 0;
-    Extract((void *) tmp, sz);
-    Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
-    delete tmp;
+    void *tmp = Extract(sz);
+    Create(obj.device, obj.p_device, tmp, buffer_size, obj.family_queue);
+    std::free(tmp);
     
     return *this;
   }

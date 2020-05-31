@@ -44,7 +44,8 @@ namespace Vulkan
     const VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
     const VkDescriptorSet GetDescriptorSet() { return descriptor_set; }
     const VkDevice GetDevice() { return device; }
-    void Extract(void *data_ptr, std::size_t &length, const std::size_t index);
+    const StorageType GetStorageTypeByIndex(const std::size_t index) { return index < buffers.size() ? buffers[index]->Type() : StorageType::None; }
+    void* Extract(std::size_t &length, const std::size_t index);
     void UpdateValue(void *data_ptr, const std::size_t length, const std::size_t index);
     const std::size_t Size() { return buffers.size(); }
 

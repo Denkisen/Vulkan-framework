@@ -9,6 +9,7 @@ namespace Vulkan
 {
   enum class StorageType
   {
+    None,
     Default,
     Uniform
   };
@@ -45,8 +46,8 @@ namespace Vulkan
         if (data == nullptr)
           throw std::runtime_error("Update data is empty.");
         
-        if (length >= buffer_size)
-          throw std::runtime_error("length >= buffer_size");
+        if (length > buffer_size)
+          throw std::runtime_error("length >= buffer_size " + std::to_string (length) + " " + std::to_string (buffer_size));
         
         void *payload = nullptr;
         if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
@@ -58,13 +59,18 @@ namespace Vulkan
       
       StorageType Type() const { return type; }
 
-      void Extract(void *out, std::size_t &length) const
+      void* Extract(std::size_t &length) const
       {
-        if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &out) != VK_SUCCESS)
+        void *payload = nullptr;
+        void *result = nullptr;
+        if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
-    
+
+        result = std::malloc(buffer_size);
+        std::memcpy(result, payload, buffer_size);
         vkUnmapMemory(device, buffer_memory);
         length = buffer_size;
+        return result;
       }
   };
 }
