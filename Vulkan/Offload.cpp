@@ -11,23 +11,149 @@ namespace Vulkan
   template class Offload<unsigned>;
 
   template <typename T>
-  Offload<T>::Offload(Device &dev, std::vector<IStorage*> &data, std::string shader_path)
+  Offload<T>::Offload(Device &dev, std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point)
   {
     device = dev.device;
     queue = dev.queue;
     device_limits = dev.device_limits;
     buffer = data;
+    family_queue = dev.family_queue;
 
-    pipeline_layout = CreatePipelineLayout(buffer.GetDescriptorSetLayout());
-    compute_shader = CreateShader(shader_path);
-    pipeline = CreatePipeline(compute_shader, "main", pipeline_layout);
-    command_pool = CreateCommandPool(dev.family_queue);  
-    command_buffer = CreateCommandBuffer(command_pool);
+    compute_shader.shader_filepath = shader_path;
+    compute_shader.entry_point = entry_point;
+    compute_shader.shader = CreateShader(shader_path);
   }
+
+  template <typename T>
+  Offload<T>::Offload(Device &dev, const std::string shader_path, const std::string entry_point)
+  {
+    device = dev.device;
+    queue = dev.queue;
+    device_limits = dev.device_limits;
+    family_queue = dev.family_queue;
+
+    compute_shader.shader_filepath = shader_path;
+    compute_shader.entry_point = entry_point;
+    compute_shader.shader = CreateShader(shader_path);
+  }
+
+  template <typename T>
+  Offload<T>::Offload(Device &dev)
+  {
+    device = dev.device;
+    queue = dev.queue;
+    device_limits = dev.device_limits;
+    family_queue = dev.family_queue;
+  }
+
+  template <typename T>
+  Offload<T>::Offload(const Offload<T> &offload)
+  {
+    device = offload.device;
+    family_queue = offload.family_queue;
+    device_limits = offload.device_limits;
+    queue = offload.queue;
+    buffer = offload.buffer;
+    pipeline_options = offload.pipeline_options;
+    compute_shader.shader_filepath = offload.compute_shader.shader_filepath;
+    compute_shader.entry_point = offload.compute_shader.entry_point;
+    if (compute_shader.shader_filepath != "")
+      compute_shader.shader = CreateShader(compute_shader.shader_filepath);
+  }
+
+  template <typename T>
+  Offload<T>& Offload<T>::operator= (const Offload<T> &obj)
+  {
+    stop = true;
+    std::lock_guard<std::mutex> lock(work_mutex);
+    if (device != VK_NULL_HANDLE)
+    {
+      if (compute_shader.shader != VK_NULL_HANDLE)
+      {
+        vkDestroyShaderModule(device, compute_shader.shader, nullptr);
+        compute_shader.shader = VK_NULL_HANDLE;
+        compute_shader.shader_filepath = "";
+      }
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+      if (command_pool != VK_NULL_HANDLE)
+      {
+        vkDestroyCommandPool(device, command_pool, nullptr);
+        command_pool = VK_NULL_HANDLE;
+      }
+
+      device = obj.device;
+      family_queue = obj.family_queue;
+      device_limits = obj.device_limits;
+      queue = obj.queue;
+      buffer = obj.buffer;
+      pipeline_options = obj.pipeline_options;
+      compute_shader.shader_filepath = obj.compute_shader.shader_filepath;
+      compute_shader.entry_point = obj.compute_shader.entry_point;
+      if (compute_shader.shader_filepath != "")
+        compute_shader.shader = CreateShader(compute_shader.shader_filepath);
+    }
+    else
+      std::runtime_error("No Device.");
+    return *this;
+  }
+
+  template <typename T>
+  Offload<T>& Offload<T>::operator= (const std::vector<IStorage*> &obj)
+  {
+    stop = true;
+    std::lock_guard<std::mutex> lock(work_mutex);
+    if (device != VK_NULL_HANDLE)
+    {
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+      if (command_pool != VK_NULL_HANDLE)
+      {
+        vkDestroyCommandPool(device, command_pool, nullptr);
+        command_pool = VK_NULL_HANDLE;
+      }
+
+      buffer = obj;
+    }
+    else
+      std::runtime_error("No Device.");
+    return *this;
+  } 
 
   template <typename T>
   void Offload<T>::Run(std::size_t x, std::size_t y, std::size_t z)
   {
+    std::lock_guard<std::mutex> lock(work_mutex);
+
+    if (device == VK_NULL_HANDLE)
+      std::runtime_error("No Device.");
+    if (compute_shader.shader == VK_NULL_HANDLE)
+      std::runtime_error("No Compute Shader.");
+
+    if (pipeline_layout == VK_NULL_HANDLE)
+    {
+      pipeline_layout = CreatePipelineLayout(buffer.GetDescriptorSetLayout());
+      pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
+      command_pool = CreateCommandPool(family_queue);  
+      command_buffer = CreateCommandBuffer(command_pool);
+    }
+
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -73,12 +199,15 @@ namespace Vulkan
       }
       
       vkDestroyFence(device, fence, nullptr);
+      if (stop) break;
     }
+    stop = false;
   }
 
   template <typename T>
   void Offload<T>::SetPipelineOptions(OffloadPipelineOptions options)
   {
+    std::lock_guard<std::mutex> lock(work_mutex);
     pipeline_options.DispatchTimes = options.DispatchTimes > 0 ? options.DispatchTimes : 1;
     for (Vulkan::UpdateBufferOpt opt : options.DispatchEndEvents)
     {
@@ -98,6 +227,41 @@ namespace Vulkan
     VkShaderModule result = VK_NULL_HANDLE;
     Supply::LoadPrecompiledShaderFromFile(device, shader_path, result);
     return result;
+  }
+
+  template <typename T>
+  void Offload<T>::SetShader(const std::string shader_path, const std::string entry_point)
+  {
+    compute_shader.shader_filepath = shader_path;
+    compute_shader.entry_point = entry_point;
+    if (compute_shader.shader == VK_NULL_HANDLE)
+      compute_shader.shader = CreateShader(shader_path);
+    else
+    {
+      std::lock_guard<std::mutex> lock(work_mutex);
+      if (compute_shader.shader != VK_NULL_HANDLE)
+      {
+        vkDestroyShaderModule(device, compute_shader.shader, nullptr);
+        compute_shader.shader = VK_NULL_HANDLE;
+      }
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+      if (command_pool != VK_NULL_HANDLE)
+      {
+        vkDestroyCommandPool(device, command_pool, nullptr);
+        command_pool = VK_NULL_HANDLE;
+      }
+
+      compute_shader.shader = CreateShader(shader_path);
+    }
   }
 
   template <typename T>
@@ -163,5 +327,37 @@ namespace Vulkan
       throw std::runtime_error("Can't allocate command buffers.");
     
     return result;
+  }
+
+  template <typename T>
+  void Offload<T>::Free()
+  {
+    stop = true;
+    std::lock_guard<std::mutex> lock(work_mutex);
+    if (device != VK_NULL_HANDLE)
+    {
+      if (compute_shader.shader != VK_NULL_HANDLE)
+      {
+        vkDestroyShaderModule(device, compute_shader.shader, nullptr);
+        compute_shader.shader = VK_NULL_HANDLE;
+        compute_shader.shader_filepath = "";
+      }
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+      if (command_pool != VK_NULL_HANDLE)
+      {
+        vkDestroyCommandPool(device, command_pool, nullptr);
+        command_pool = VK_NULL_HANDLE;
+      }
+    }
+    device = VK_NULL_HANDLE;
   }
 }

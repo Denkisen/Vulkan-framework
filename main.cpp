@@ -28,7 +28,8 @@ int main(int argc, char const *argv[])
     data.push_back(&input);
     data.push_back(&output);
     data.push_back(&global);
-    Vulkan::Offload<float> offload(device, data, "bin/comp.spv");
+    Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "bin/comp.spv", "main");
+    offload = data;
     offload.Run(64, 1, 1);
 
     auto out = output.Extract();

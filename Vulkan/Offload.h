@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <mutex>
 
 #include "Instance.h"
 #include "Device.h"
@@ -24,18 +25,27 @@ namespace Vulkan
     std::size_t DispatchTimes = 1;
     std::vector<Vulkan::UpdateBufferOpt> DispatchEndEvents;
   };
+
+  struct ShaderStruct
+  {
+    VkShaderModule shader = VK_NULL_HANDLE;
+    std::string shader_filepath = "";
+    std::string entry_point = "main";
+  };
   
   template <typename T> class Offload
   {
   private:
+    std::mutex work_mutex;
     StorageBuffer buffer;
     VkDevice device = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
-    VkShaderModule compute_shader = VK_NULL_HANDLE;
+    ShaderStruct compute_shader;
     VkCommandPool command_pool = VK_NULL_HANDLE;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
+    uint32_t family_queue = -1;
     VkPhysicalDeviceLimits device_limits = {};
     Vulkan::OffloadPipelineOptions pipeline_options = {};
     bool stop = false;
@@ -44,42 +54,25 @@ namespace Vulkan
     VkPipeline CreatePipeline(const VkShaderModule shader, const std::string entry_point, const VkPipelineLayout layout);
     VkCommandPool CreateCommandPool(uint32_t family_queue);
     VkCommandBuffer CreateCommandBuffer(VkCommandPool pool);
+    void Free();
   public:
-    Offload() = default;
-    Offload(Device &dev, std::vector<IStorage*> &data, std::string shader_path);
+    Offload() = delete;
+    Offload(Device &dev, std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point);
+    Offload(Device &dev, const std::string shader_path, const std::string entry_point);
+    Offload(Device &dev);
+    Offload(const Offload<T> &offload);
+    Offload<T>& operator= (const Offload<T> &obj);
+    Offload<T>& operator= (const std::vector<IStorage*> &obj);   
+    void Run(std::size_t x, std::size_t y, std::size_t z);
+    void SetPipelineOptions(OffloadPipelineOptions options);
+    void SetShader(const std::string shader_path, const std::string entry_point);
     ~Offload()
     {
 #ifdef DEBUG
       std::cout << __func__ << std::endl;
 #endif
-      if (device != VK_NULL_HANDLE)
-      {
-        stop = true;
-        if (compute_shader != VK_NULL_HANDLE)
-        {
-          vkDestroyShaderModule(device, compute_shader, nullptr);
-          compute_shader = VK_NULL_HANDLE;
-        }
-        if (pipeline_layout != VK_NULL_HANDLE)
-        {
-          vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
-          pipeline_layout = VK_NULL_HANDLE;
-        }
-        if (pipeline != VK_NULL_HANDLE)
-        {
-          vkDestroyPipeline(device, pipeline, nullptr);
-          pipeline = VK_NULL_HANDLE;
-        }
-        if (command_pool != VK_NULL_HANDLE)
-        {
-          vkDestroyCommandPool(device, command_pool, nullptr);
-          command_pool = VK_NULL_HANDLE;
-        }
-      }
-      device = VK_NULL_HANDLE;
+      Free();
     }
-    void Run(std::size_t x, std::size_t y, std::size_t z);
-    void SetPipelineOptions(OffloadPipelineOptions options);
   };
 }
 
