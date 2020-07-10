@@ -8,7 +8,7 @@ CXXFLAGS = -std=c++17 -fopenmp -O0 -g -Wall -Warray-bounds -Wdiv-by-zero -fno-om
 CXXFLAGS += -DDEBUG
 #CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
 
-LDFLAGS = -lgomp -lvulkan
+LDFLAGS = -lgomp -lvulkan `pkg-config --static --libs glfw3`
 
 VPATH += Vulkan
 

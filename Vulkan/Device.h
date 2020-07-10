@@ -4,9 +4,13 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <optional>
 
 #include "Supply.h"
 #include "Instance.h"
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 namespace Vulkan
 {
@@ -18,31 +22,77 @@ namespace Vulkan
     CPU = VK_PHYSICAL_DEVICE_TYPE_CPU
   };
 
+  enum QueueType
+  {
+    ComputeType = VK_QUEUE_COMPUTE_BIT,
+    DrawingType = VK_QUEUE_GRAPHICS_BIT
+  };
+
+  enum class QueuePurpose
+  {
+    ComputePurpose,
+    PresentationPurpose,
+    GraphicPurpose,
+    PresentationAndGraphicPurpose
+  };
+
+  struct PhysicalDevice
+  {
+    VkPhysicalDevice device = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties device_properties = {};
+    VkPhysicalDeviceFeatures device_features = {};
+    uint32_t device_index = 0;
+  };
+
+  struct Surface
+  {
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    GLFWwindow *window = nullptr;
+  };
+
+  struct Queue
+  {
+    VkQueueFamilyProperties props = {};
+    uint32_t family = 0;
+    float queue_priority = 1.0f;
+    Vulkan::QueuePurpose purpose = QueuePurpose::ComputePurpose;
+  };
+
   class Device
   {
-  private:
-    VkDevice device = VK_NULL_HANDLE;
-    VkPhysicalDevice p_device = VK_NULL_HANDLE;
-    VkQueueFlagBits queue_flag_bits = VK_QUEUE_COMPUTE_BIT;
-    VkQueue queue = VK_NULL_HANDLE;
-    VkPhysicalDeviceLimits device_limits = {};
-    uint32_t family_queue = 0;
-    void Create(Vulkan::Instance &instance, uint32_t device_index);
-    void Create(Vulkan::Instance &instance, Vulkan::PhysicalDeviceType type);
-    template <typename T> friend class Array;
-    template <typename T> friend class Offload;
-    friend class UniformBuffer;
-    friend class StorageBuffer;
-  public:
-    Device() = delete;
-    Device(const Device &obj) = delete;
-    Device& operator= (const Device &obj) = delete;
-    Device(Vulkan::Instance &instance, uint32_t device_index) { Create(instance, device_index); }
-    Device(Vulkan::Instance &instance, Vulkan::PhysicalDeviceType type) { Create(instance, type); }
-    static uint32_t AvaliableDevices(Vulkan::Instance &instance) { return Vulkan::Supply::GetPhisicalDevicesCount(instance.instance); }
-    VkPhysicalDeviceLimits GetLimits() { return device_limits; }
-    ~Device();
+    private:
+      Vulkan::Surface surface = {};
+      Vulkan::PhysicalDevice p_device = {};
+      VkDevice device = VK_NULL_HANDLE;
+      Vulkan::QueueType queue_flag_bits = QueueType::ComputeType;
+      std::vector<Queue> queues;
+      void Create();
+      void CreateSurface();
+      std::vector<Queue> FindFamilyQueues();
+    public:
+      Device() = delete;
+      Device(const Device &obj) = delete;
+      Device& operator= (const Device &obj) = delete;
+      Device(uint32_t device_index, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      Device(Vulkan::PhysicalDeviceType type, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      Device(std::string device_name, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      ~Device();      
+      VkQueue GetGraphicQueue();
+      VkQueue GetPresentQueue();
+      VkQueue GetComputeQueue();
+      std::optional<uint32_t> GetGraphicFamilyQueueIndex();
+      std::optional<uint32_t> GetPresentFamilyQueueIndex();
+      std::optional<uint32_t> GetComputeFamilyQueueIndex();
+      static uint32_t AvaliableDevices() 
+      { 
+        Vulkan::Instance instance; 
+        return Vulkan::Supply::GetPhisicalDevicesCount(instance.GetInstance()); 
+      }
+      VkPhysicalDeviceLimits GetLimits() { return p_device.device_properties.limits; }
+      VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
+      VkDevice GetDevice() { return device; }
   };
 }
+
 
 #endif

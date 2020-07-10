@@ -1,5 +1,6 @@
 #include "Array.h"
 #include <cstring>
+#include <optional>
 
 namespace Vulkan
 {
@@ -85,7 +86,10 @@ namespace Vulkan
   template <typename T>
   void Array<T>::Create(Device &dev, T *data, std::size_t len)
   {
-    Create(dev.device, dev.p_device, data, len, dev.family_queue);
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+    Create(dev.GetDevice(), dev.GetPhysicalDevice(), data, len, index.value());
   }
 
   template <typename T>

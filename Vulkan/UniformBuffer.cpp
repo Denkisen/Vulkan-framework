@@ -1,11 +1,16 @@
 #include "UniformBuffer.h"
 #include <cstring>
+#include <optional>
 
 namespace Vulkan
 {
   void UniformBuffer::Create(Device &dev, void *data, std::size_t len)
   {
-    Create(dev.device, dev.p_device, data, len, dev.family_queue);
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+
+    Create(dev.GetDevice(), dev.GetPhysicalDevice(), data, len, index.value());
   }
 
   void UniformBuffer::Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, std::size_t len, uint32_t f_queue)

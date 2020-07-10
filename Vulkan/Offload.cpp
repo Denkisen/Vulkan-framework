@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <thread>
+#include <optional>
 
 namespace Vulkan
 {
@@ -13,11 +14,15 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(Device &dev, const std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point)
   {
-    device = dev.device;
-    queue = dev.queue;
-    device_limits = dev.device_limits;
+    device = dev.GetDevice();
+    queue = dev.GetComputeQueue();
+    device_limits = dev.GetLimits();
     buffer = data;
-    family_queue = dev.family_queue;
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+
+    family_queue = index.value();
 
     compute_shader.shader_filepath = shader_path;
     compute_shader.entry_point = entry_point;
@@ -27,11 +32,15 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(Device &dev, const StorageBuffer &data, const std::string shader_path, const std::string entry_point)
   {
-    device = dev.device;
-    queue = dev.queue;
-    device_limits = dev.device_limits;
+    device = dev.GetDevice();
+    queue = dev.GetComputeQueue();
+    device_limits = dev.GetLimits();
     buffer = data;
-    family_queue = dev.family_queue;
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+
+    family_queue = index.value();
 
     compute_shader.shader_filepath = shader_path;
     compute_shader.entry_point = entry_point;
@@ -41,10 +50,14 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(Device &dev, const std::string shader_path, const std::string entry_point)
   {
-    device = dev.device;
-    queue = dev.queue;
-    device_limits = dev.device_limits;
-    family_queue = dev.family_queue;
+    device = dev.GetDevice();
+    queue = dev.GetComputeQueue();
+    device_limits = dev.GetLimits();
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+
+    family_queue = index.value();
 
     compute_shader.shader_filepath = shader_path;
     compute_shader.entry_point = entry_point;
@@ -54,10 +67,14 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(Device &dev)
   {
-    device = dev.device;
-    queue = dev.queue;
-    device_limits = dev.device_limits;
-    family_queue = dev.family_queue;
+    device = dev.GetDevice();
+    queue = dev.GetComputeQueue();
+    device_limits = dev.GetLimits();
+    auto index = dev.GetComputeFamilyQueueIndex();
+    if (!index.has_value())
+      throw std::runtime_error("No Compute family queue");
+
+    family_queue = index.value();
   }
 
   template <typename T>

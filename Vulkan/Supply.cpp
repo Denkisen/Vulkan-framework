@@ -47,14 +47,20 @@ VkPhysicalDeviceFeatures Vulkan::Supply::GetPhysicalDeviceFeatures(VkPhysicalDev
   return result;
 }
 
-VkPhysicalDevice Vulkan::Supply::FindPhysicalDevice(VkInstance &instance, VkPhysicalDeviceType type)
+std::vector<VkPhysicalDevice> Vulkan::Supply::GetAllPhysicalDevices(VkInstance &instance)
 {
-  uint32_t devices_count = GetPhisicalDevicesCount(instance);
-  if (devices_count == 0) return nullptr;
+  std::vector<VkPhysicalDevice> ret(GetPhisicalDevicesCount(instance), VK_NULL_HANDLE);
+  uint32_t count = (uint32_t) ret.size();
+  if (ret.empty() || vkEnumeratePhysicalDevices(instance, &count, ret.data()) != VK_SUCCESS) 
+    ret.clear();
 
-  std::vector<VkPhysicalDevice> devices(devices_count);
+  return ret;
+}
 
-  if (vkEnumeratePhysicalDevices(instance, &devices_count, devices.data()) != VK_SUCCESS) return nullptr;
+std::vector<VkPhysicalDevice> Vulkan::Supply::GetPhysicalDevicesByType(VkInstance &instance, VkPhysicalDeviceType type)
+{
+  std::vector<VkPhysicalDevice> ret;
+  std::vector<VkPhysicalDevice> devices = GetAllPhysicalDevices(instance);
 
   for (auto &dev : devices)
   {
@@ -62,11 +68,11 @@ VkPhysicalDevice Vulkan::Supply::FindPhysicalDevice(VkInstance &instance, VkPhys
     vkGetPhysicalDeviceProperties(dev, &device_properties);
     if (device_properties.deviceType == type)
     {
-      return dev;
+      ret.push_back(dev);
     }
   }
 
-  return VK_NULL_HANDLE;
+  return ret;
 }
 
 uint32_t Vulkan::Supply::GetPhisicalDevicesCount(VkInstance &instance)
@@ -157,25 +163,6 @@ std::vector<std::string> Vulkan::Supply::GetInstanceExtensions()
   return res;
 }
 
-int Vulkan::Supply::GetFamilyQueue(VkPhysicalDevice &device, VkQueueFlagBits bit)
-{
-  int ret = -1;
-  uint32_t family_queues_count = GetFamilyQueuesCount(device);
-
-  if (family_queues_count > 0)
-  {
-    for (uint32_t i = 0; i < family_queues_count; ++i)
-    {
-      if (CheckQueueBit(device, i, bit))
-      {
-        ret = i;
-        break;
-      }
-    }
-  }
-  return ret;
-}
-
 bool Vulkan::Supply::IsDataVectorValid(const std::vector<IStorage*> &data)
 {
   bool result = true;
@@ -189,4 +176,11 @@ bool Vulkan::Supply::IsDataVectorValid(const std::vector<IStorage*> &data)
   }
 
   return result;
+}
+
+VkQueue Vulkan::Supply::GetQueueFormFamilyIndex(const VkDevice &device, const uint32_t index)
+{
+  VkQueue q;
+  vkGetDeviceQueue(device, index, 0, &q);
+  return q;
 }

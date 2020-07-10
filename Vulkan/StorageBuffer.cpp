@@ -4,7 +4,7 @@ namespace Vulkan
 {
   StorageBuffer::StorageBuffer(Device &dev)
   {
-    device = dev.device;
+    device = dev.GetDevice();
   }
 
   StorageBuffer::StorageBuffer(const StorageBuffer &obj)
@@ -22,7 +22,7 @@ namespace Vulkan
   {
     if (!Supply::IsDataVectorValid(data))
       throw std::runtime_error(std::string(__func__) + ": Storage array is not valid.");
-    device = dev.device;
+    device = dev.GetDevice();
     DataLayout layout = GetDataLayout(data);
     descriptor_set_layout = CreateDescriptorSetLayout(layout);
     descriptor_pool = CreateDescriptorPool(layout);

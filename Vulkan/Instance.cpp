@@ -2,9 +2,11 @@
 #include "Supply.h"
 
 VkInstance Vulkan::Instance::instance = VK_NULL_HANDLE;
+size_t Vulkan::Instance::counter = 0;
 
 Vulkan::Instance::Instance()
 {
+  counter++;
   if (instance != VK_NULL_HANDLE) return;
 
   VkResult res = VK_SUCCESS;
@@ -51,6 +53,8 @@ Vulkan::Instance::Instance()
   
 Vulkan::Instance::~Instance()
 {
+  counter--;
+  if (counter > 0) return;
 #ifdef DEBUG
     std::cout << __func__ << std::endl;
 #endif

@@ -11,7 +11,7 @@ int main(int argc, char const *argv[])
   try
   {
     Vulkan::Instance instance;
-    Vulkan::Device device(instance, Vulkan::Discrete);
+    Vulkan::Device device(Vulkan::Discrete);
     Vulkan::Array<float> input(device);
     Vulkan::Array<float> output(device);
     input = std::vector<float>(64, 5.0);

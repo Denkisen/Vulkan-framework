@@ -14,15 +14,17 @@ namespace Vulkan
   {
   private:
     static VkInstance instance;
+    static size_t counter;
     VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
     std::string app_name = "Application";
     std::string engine_name = "MarisaCompute";
-    friend class Device;
     template <typename T> friend class Offload;
   public:
     Instance();
     Instance(const Instance &obj) = delete;
     Instance& operator= (const Instance &obj) = delete;
+    std::string AppName() { return app_name; }
+    VkInstance& GetInstance() { return instance; }
     ~Instance();
   };
 }
