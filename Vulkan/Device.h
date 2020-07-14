@@ -83,6 +83,8 @@ namespace Vulkan
       std::optional<uint32_t> GetGraphicFamilyQueueIndex();
       std::optional<uint32_t> GetPresentFamilyQueueIndex();
       std::optional<uint32_t> GetComputeFamilyQueueIndex();
+      std::pair<uint32_t, uint32_t> GetWindowSize();
+      SwapChainDetails GetSwapChainDetails() { return Vulkan::Supply::GetSwapChainDetails(p_device.device, surface.surface); }
       static uint32_t AvaliableDevices() 
       { 
         Vulkan::Instance instance; 
@@ -90,6 +92,7 @@ namespace Vulkan
       }
       VkPhysicalDeviceLimits GetLimits() { return p_device.device_properties.limits; }
       VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
+      VkSurfaceKHR GetSurface() { return surface.surface; }
       VkDevice GetDevice() { return device; }
   };
 }

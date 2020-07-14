@@ -210,10 +210,10 @@ namespace Vulkan
 
     if (pipeline_layout == VK_NULL_HANDLE)
     {
-      pipeline_layout = CreatePipelineLayout(buffer.GetDescriptorSetLayout());
+      pipeline_layout = Supply::CreatePipelineLayout(device, {buffer.GetDescriptorSetLayout()});
       pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
-      command_pool = CreateCommandPool(family_queue);  
-      command_buffer = CreateCommandBuffer(command_pool);
+      command_pool = Supply::CreateCommandPool(device, family_queue);  
+      command_buffer = Supply::CreateCommandBuffer(device, command_pool);
     }
 
     VkCommandBufferBeginInfo begin_info = {};
@@ -323,20 +323,6 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkPipelineLayout Offload<T>::CreatePipelineLayout(const VkDescriptorSetLayout layout)
-  {
-    VkPipelineLayout result = VK_NULL_HANDLE;
-    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
-    pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_create_info.setLayoutCount = 1;
-    pipeline_layout_create_info.pSetLayouts = &layout;
-    if (vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &result) != VK_SUCCESS)
-      throw std::runtime_error("Can't create pipeline layout.");
-
-    return result;
-  }
-
-  template <typename T>
   VkPipeline Offload<T>::CreatePipeline(const VkShaderModule shader, const std::string entry_point, const VkPipelineLayout layout)
   {
     VkPipeline result = VK_NULL_HANDLE;
@@ -354,36 +340,6 @@ namespace Vulkan
     if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &result) != VK_SUCCESS)
       throw std::runtime_error("Can't create compute pipelines.");
 
-    return result;
-  }
-
-  template <typename T>
-  VkCommandPool Offload<T>::CreateCommandPool(const uint32_t family_queue)
-  {
-    VkCommandPool result = VK_NULL_HANDLE;
-    VkCommandPoolCreateInfo command_pool_create_info = {};
-    command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    command_pool_create_info.queueFamilyIndex = family_queue;
-
-    if (vkCreateCommandPool(device, &command_pool_create_info, nullptr, &result) != VK_SUCCESS)
-      throw std::runtime_error("Can't create command pool."); 
-
-    return result;
-  }
-
-  template <typename T>
-  VkCommandBuffer Offload<T>::CreateCommandBuffer(const VkCommandPool pool)
-  {
-    VkCommandBuffer result = VK_NULL_HANDLE;
-    VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
-    command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    command_buffer_allocate_info.commandPool = pool; 
-    command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    command_buffer_allocate_info.commandBufferCount = 1; 
-    if (vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &result) != VK_SUCCESS)
-      throw std::runtime_error("Can't allocate command buffers.");
-    
     return result;
   }
 

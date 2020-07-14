@@ -50,10 +50,7 @@ namespace Vulkan
     Vulkan::OffloadPipelineOptions pipeline_options = {};
     bool stop = false;
     VkShaderModule CreateShader(const std::string shader_path); 
-    VkPipelineLayout CreatePipelineLayout(const VkDescriptorSetLayout layout);
     VkPipeline CreatePipeline(const VkShaderModule shader, const std::string entry_point, const VkPipelineLayout layout);
-    VkCommandPool CreateCommandPool(const uint32_t family_queue);
-    VkCommandBuffer CreateCommandBuffer(const VkCommandPool pool);
     void Free();
   public:
     Offload() = delete;

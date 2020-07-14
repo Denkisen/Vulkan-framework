@@ -6,8 +6,32 @@ namespace Vulkan
 {
   void Device::Create()
   {
-    if (queue_flag_bits == Vulkan::QueueType::DrawingType && !p_device.device_features.geometryShader)
-      throw std::runtime_error("Device has no geometry shader.");
+    
+    if (queue_flag_bits == Vulkan::QueueType::DrawingType)
+    {
+      if (!p_device.device_features.geometryShader)
+        throw std::runtime_error("Device has no geometry shader.");
+
+      std::vector<const char *> ext = Vulkan::Supply::GetPhysicalDeviceExtensions(p_device.device);
+      for (auto s : ext)
+      {
+        bool found = false;
+        for (auto e : Vulkan::Supply::RequiredGraphicDeviceExtensions)
+        {
+          if (std::string(e) == std::string(s))
+          {
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+          std::runtime_error("Extension (" + std::string(s) + ") not supported");
+      }
+
+      auto swap_chain_details = Vulkan::Supply::GetSwapChainDetails(p_device.device, surface.surface);
+      if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
+        throw std::runtime_error("Swap chain does not support any formats or presentation modes.");
+    }
 
     queues = FindFamilyQueues();
 
@@ -30,11 +54,21 @@ namespace Vulkan
     device_create_info.pQueueCreateInfos = queue_create_infos.data();
     device_create_info.queueCreateInfoCount = (uint32_t) queue_create_infos.size();
     device_create_info.pEnabledFeatures = &p_device.device_features;
+#ifdef DEBUG
     device_create_info.enabledLayerCount = (uint32_t) Vulkan::Supply::ValidationLayers.size();
     device_create_info.ppEnabledLayerNames = Vulkan::Supply::ValidationLayers.data();
-
+#endif
+    if (queue_flag_bits == Vulkan::QueueType::DrawingType)
+    {
+      device_create_info.enabledExtensionCount = (uint32_t) Vulkan::Supply::RequiredGraphicDeviceExtensions.size();
+      device_create_info.ppEnabledExtensionNames = Vulkan::Supply::RequiredGraphicDeviceExtensions.data();
+    }
+    
     if(vkCreateDevice(p_device.device, &device_create_info, nullptr, &device) != VK_SUCCESS)
       throw std::runtime_error("Can't create device.");
+#ifdef DEBUG
+      std::cout << "Device is ready." << std::endl;
+#endif
   }
 
   std::vector<Queue> Device::FindFamilyQueues()
@@ -77,7 +111,11 @@ namespace Vulkan
             q.family = i;
             q.props = queue_families[i];
             q.queue_priority = 1.0f;
-            vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface.surface, &present);
+            if (vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface.surface, &present) != VK_SUCCESS)
+            {
+              throw std::runtime_error("Can't check surface support.");
+            }
+
             if (present)
             {
               if (ret.empty())
@@ -362,6 +400,19 @@ namespace Vulkan
       }
     }
     
+    return ret;
+  }
+
+  std::pair<uint32_t, uint32_t> Device::GetWindowSize()
+  {
+    std::pair<uint32_t, uint32_t> ret;
+    if (surface.window == nullptr)
+      return ret;
+
+    int w, h;
+    glfwGetFramebufferSize(surface.window, &w, &h);
+    ret = std::make_pair<uint32_t, uint32_t> ((uint32_t) w, (uint32_t) h);
+
     return ret;
   }
 }

@@ -1,10 +1,16 @@
 #include "Supply.h"
 #include <fstream>
 #include <string.h>
+#include <algorithm>
 
 std::vector<const char *> Vulkan::Supply::ValidationLayers = 
 {
   "VK_LAYER_KHRONOS_validation"
+};
+
+std::vector<const char *> Vulkan::Supply::RequiredGraphicDeviceExtensions = 
+{
+  VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -108,7 +114,12 @@ std::vector<char> Vulkan::Supply::LoadShaderFromFile(std::string file_name)
 {
   std::ifstream f(file_name, std::ios::ate | std::ios::binary);
   std::vector<char> res;
-  if (!f.is_open()) return res;
+  if (!f.is_open())
+  {
+    std::cout << "Error: No shader file (" << file_name << ")" << std::endl;
+    return res;
+  }
+  
 
   res.resize((uint32_t) f.tellg());
   f.seekg(0);
@@ -130,7 +141,7 @@ VkShaderModule Vulkan::Supply::CreateShaderModule(VkDevice &dev, std::vector<cha
   return shader_module;
 }
 
-VkResult Vulkan::Supply::LoadPrecompiledShaderFromFile(VkDevice &dev, std::string file_name, VkShaderModule &shader)
+VkResult Vulkan::Supply::LoadPrecompiledShaderFromFile(VkDevice dev, std::string file_name, VkShaderModule &shader)
 {
   if (shader != VK_NULL_HANDLE)
     vkDestroyShaderModule(dev, shader, nullptr);
@@ -183,4 +194,123 @@ VkQueue Vulkan::Supply::GetQueueFormFamilyIndex(const VkDevice &device, const ui
   VkQueue q;
   vkGetDeviceQueue(device, index, 0, &q);
   return q;
+}
+
+std::vector<const char *> Vulkan::Supply::GetPhysicalDeviceExtensions(VkPhysicalDevice &device)
+{
+  uint32_t count;
+  if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr) != VK_SUCCESS)
+    throw std::runtime_error("Can't enumerate device extensions");
+  std::vector<VkExtensionProperties> available_extensions(count);
+  if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, available_extensions.data()) != VK_SUCCESS)
+    throw std::runtime_error("Can't enumerate device extensions");
+  std::vector<const char *> ret;
+
+  for (size_t i = 0; i < count; ++i)
+  {
+    ret.push_back(available_extensions[i].extensionName);
+  }
+
+  return ret;
+}
+
+Vulkan::SwapChainDetails Vulkan::Supply::GetSwapChainDetails(VkPhysicalDevice &device, VkSurfaceKHR &surface)
+{
+  Vulkan::SwapChainDetails ret;
+  if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &ret.capabilities) != VK_SUCCESS)
+    throw std::runtime_error("Can't get surface capabilities.");
+
+  uint32_t count;
+  if (vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, nullptr) != VK_SUCCESS)
+    throw std::runtime_error("Can't get surface formats.");
+
+  if (count != 0) 
+  {
+    ret.formats.resize(count);
+    if (vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, ret.formats.data()) != VK_SUCCESS)
+      throw std::runtime_error("Can't get surface formats.");
+  }
+
+  count = 0;
+  if (vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, nullptr) != VK_SUCCESS)
+    throw std::runtime_error("Can't get surface present modes.");
+
+  if (count != 0) 
+  {
+    ret.present_modes.resize(count);
+    if (vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, ret.present_modes.data()) != VK_SUCCESS)
+      throw std::runtime_error("Can't get surface present modes.");
+  }
+
+  return ret;
+}
+
+VkResult Vulkan::Supply::CreateShaderStageInfo(VkDevice device, Vulkan::ShaderInfo &info, VkShaderModule &module, VkShaderStageFlagBits stage, VkPipelineShaderStageCreateInfo &out)
+{
+  out.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  out.stage = stage;
+  out.pSpecializationInfo = nullptr;
+  if (Vulkan::Supply::LoadPrecompiledShaderFromFile(device, info.file_path, module) == VK_SUCCESS)
+  {
+      out.module = module;
+      out.pName = info.entry.c_str();
+      return VK_SUCCESS;
+  }
+
+  return VK_ERROR_FORMAT_NOT_SUPPORTED;
+}
+
+VkCommandBuffer Vulkan::Supply::CreateCommandBuffer(VkDevice device, const VkCommandPool pool, VkCommandBufferLevel level)
+{
+  VkCommandBuffer result = VK_NULL_HANDLE;
+  VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
+  command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  command_buffer_allocate_info.commandPool = pool; 
+  command_buffer_allocate_info.level = level;
+  command_buffer_allocate_info.commandBufferCount = 1; 
+  if (vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &result) != VK_SUCCESS)
+    throw std::runtime_error("Can't allocate command buffer.");
+    
+  return result;
+}
+
+std::vector<VkCommandBuffer> Vulkan::Supply::CreateCommandBuffers(VkDevice device, const VkCommandPool pool, const uint32_t count, VkCommandBufferLevel level)
+{
+  std::vector<VkCommandBuffer> result(count);
+  VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
+  command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  command_buffer_allocate_info.commandPool = pool; 
+  command_buffer_allocate_info.level = level;
+  command_buffer_allocate_info.commandBufferCount = count; 
+  if (vkAllocateCommandBuffers(device, &command_buffer_allocate_info, result.data()) != VK_SUCCESS)
+    throw std::runtime_error("Can't allocate command buffers.");
+    
+  return result;
+}
+
+VkCommandPool Vulkan::Supply::CreateCommandPool(VkDevice device, const uint32_t family_queue)
+{
+  VkCommandPool result = VK_NULL_HANDLE;
+  VkCommandPoolCreateInfo command_pool_create_info = {};
+  command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+  command_pool_create_info.queueFamilyIndex = family_queue;
+
+  if (vkCreateCommandPool(device, &command_pool_create_info, nullptr, &result) != VK_SUCCESS)
+    throw std::runtime_error("Can't create command pool."); 
+
+  return result;
+}
+
+VkPipelineLayout Vulkan::Supply::CreatePipelineLayout(VkDevice device, std::vector<VkDescriptorSetLayout> layouts)
+{
+  VkPipelineLayout result = VK_NULL_HANDLE;
+  VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
+  pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipeline_layout_create_info.setLayoutCount = layouts.empty() ? 0 : (uint32_t) layouts.size();
+  pipeline_layout_create_info.pSetLayouts = layouts.empty() ? nullptr : layouts.data();
+  if (vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &result) != VK_SUCCESS)
+    throw std::runtime_error("Can't create pipeline layout.");
+
+  return result;
 }
