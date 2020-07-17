@@ -4,6 +4,9 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <cstring>
+#include <memory>
+
+#include "Device.h"
 
 namespace Vulkan
 {
@@ -11,7 +14,8 @@ namespace Vulkan
   {
     None,
     Default,
-    Uniform
+    Uniform,
+    Vertex
   };
 
   class IStorage
@@ -20,13 +24,11 @@ namespace Vulkan
     StorageType type = StorageType::Default;
     VkBuffer buffer = VK_NULL_HANDLE;
     VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
-    VkPhysicalDevice p_device = VK_NULL_HANDLE;
+    std::shared_ptr<Vulkan::Device> device;
     uint32_t buffer_size = 0;
     uint32_t family_queue = 0;
 
     friend class StorageBuffer;
-    friend class Supply;
   public:
       IStorage() = default;
       ~IStorage()
@@ -34,11 +36,11 @@ namespace Vulkan
 #ifdef DEBUG
         std::cout << __func__ << std::endl;
 #endif
-        if (device != VK_NULL_HANDLE)
+        if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
         {
-          vkFreeMemory(device, buffer_memory, nullptr);
-          vkDestroyBuffer(device, buffer, nullptr);
-          device = VK_NULL_HANDLE;
+          vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+          vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
+          device.reset();
         }
       }
       void Update(const void *data, std::size_t length) const
@@ -50,11 +52,11 @@ namespace Vulkan
           throw std::runtime_error("length >= buffer_size " + std::to_string (length) + " " + std::to_string (buffer_size));
         
         void *payload = nullptr;
-        if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
+        if (vkMapMemory(device->GetDevice(), buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
     
         std::memcpy(payload, data, length);
-        vkUnmapMemory(device, buffer_memory);
+        vkUnmapMemory(device->GetDevice(), buffer_memory);
       }
       
       StorageType Type() const { return type; }
@@ -63,12 +65,12 @@ namespace Vulkan
       {
         void *payload = nullptr;
         void *result = nullptr;
-        if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
+        if (vkMapMemory(device->GetDevice(), buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
 
         result = std::malloc(buffer_size);
         std::memcpy(result, payload, buffer_size);
-        vkUnmapMemory(device, buffer_memory);
+        vkUnmapMemory(device->GetDevice(), buffer_memory);
         length = buffer_size;
         return result;
       }

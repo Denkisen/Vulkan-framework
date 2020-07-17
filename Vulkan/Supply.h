@@ -6,8 +6,6 @@
 #include <iostream>
 #include <vector>
 
-#include "IStorage.h"
-
 namespace Vulkan
 {
   struct SwapChainDetails
@@ -54,8 +52,6 @@ namespace Vulkan
 
     static VkResult CreateDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger);
     static void DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger);
-
-    static bool IsDataVectorValid(const std::vector<IStorage*> &data);
 
     static VkQueue GetQueueFormFamilyIndex(const VkDevice &device, const uint32_t index);
     static uint32_t GetFamilyQueuesCount(VkPhysicalDevice &dev);

@@ -13,12 +13,6 @@ namespace Vulkan
         vkDestroyImageView(device->GetDevice(), image_view, nullptr);
     }
     swapchain_image_views.clear();
-
-    if (swapchain != VK_NULL_HANDLE)
-    {
-      vkDestroySwapchainKHR(device->GetDevice(), swapchain, nullptr);
-      swapchain = VK_NULL_HANDLE;
-    }
   }
 
   SwapChain::~SwapChain()
@@ -26,7 +20,12 @@ namespace Vulkan
 #ifdef DEBUG
     std::cout << __func__ << std::endl;
 #endif
-  Destroy();
+    Destroy();
+    if (swapchain != VK_NULL_HANDLE)
+    {
+      vkDestroySwapchainKHR(device->GetDevice(), swapchain, nullptr);
+      swapchain = VK_NULL_HANDLE;
+    }
   }
 
   SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev)

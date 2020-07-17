@@ -1,9 +1,9 @@
-#ifndef __CPU_NW_LIBS_VULKAN_ARRAY_H
-#define __CPU_NW_LIBS_VULKAN_ARRAY_H
+#ifndef __CPU_NW_LIBS_VULKAN_VERTEXBUFFER_H
+#define __CPU_NW_LIBS_VULKAN_VERTEXBUFFER_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>
-#include <vector>
+#include <memory>
 #include <cstring>
 #include <optional>
 #include <cmath>
@@ -13,21 +13,21 @@
 
 namespace Vulkan
 {
-  template <typename T> class Array : public IStorage
+  template <class T> class VertexArray : public IStorage
   {
   private:
     void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t f_queue);
     std::vector<T> data;
   public:
-    Array() = delete;
-    Array(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q);
-    Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q);
-    Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q);
-    Array(const Array<T> &array);
-    Array<T>& operator= (const Array<T> &obj);
-    Array<T>& operator= (const std::vector<T> &obj);
+    VertexArray() = delete;
+    VertexArray(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q);
+    VertexArray(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q);
+    VertexArray(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q);
+    VertexArray(const VertexArray<T> &array);
+    VertexArray<T>& operator= (const VertexArray<T> &obj);
+    VertexArray<T>& operator= (const std::vector<T> &obj);
     std::vector<T> Extract() const;
-    ~Array()
+    ~VertexArray()
     {
 #ifdef DEBUG
       std::cout << __func__ << std::endl;
@@ -38,8 +38,8 @@ namespace Vulkan
 
 namespace Vulkan
 {
-  template <typename T>
-  void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t f_queue)
+  template <class T>
+  void VertexArray<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t f_queue)
   {
     if (len == 0 || data == nullptr || dev == nullptr)
       throw std::runtime_error("Data array is empty.");
@@ -53,7 +53,7 @@ namespace Vulkan
       0,
       0,
       buffer_size,
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
       VK_SHARING_MODE_EXCLUSIVE,
       1,
       &f_queue
@@ -93,7 +93,7 @@ namespace Vulkan
       buffer_size,
       (uint32_t) memory_type_index
     };
-
+    
     if (vkAllocateMemory(dev->GetDevice(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
       throw std::runtime_error("Can't allocate memory");
     
@@ -109,11 +109,11 @@ namespace Vulkan
 
     device = dev;
     family_queue = f_queue;
-    type = StorageType::Default; // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    type = StorageType::Vertex; // VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
   }
 
-  template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q)
+  template <class T>
+  VertexArray<T>::VertexArray(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q)
   {
     if (data.size() == 0)
       throw std::runtime_error("Data array is empty.");
@@ -121,21 +121,21 @@ namespace Vulkan
     Create(dev, this->data.data(), this->data.size(), family_q);
   }
 
-  template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q)
+  template <class T>
+  VertexArray<T>::VertexArray(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q)
   {
     Create(dev, data, len, family_q);
   }
 
-  template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q)
+  template <class T>
+  VertexArray<T>::VertexArray(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q)
   {
     this->data.resize(64, 0.0);
     Create(dev, this->data.data(), this->data.size(), family_q);
   }
 
-  template <typename T> 
-  Array<T>::Array(const Array<T> &array)
+  template <class T> 
+  VertexArray<T>::VertexArray(const VertexArray<T> &array)
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
@@ -148,8 +148,8 @@ namespace Vulkan
     Create(array.device, data.data(), data.size(), array.family_queue);
   }
 
-  template <typename T> 
-  Array<T>& Array<T>::operator= (const Array<T> &obj)
+  template <class T> 
+  VertexArray<T>& VertexArray<T>::operator= (const VertexArray<T> &obj)
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
@@ -164,8 +164,8 @@ namespace Vulkan
     return *this;
   }
 
-  template <typename T> 
-  Array<T>& Array<T>::operator= (const std::vector<T> &obj)
+  template <class T> 
+  VertexArray<T>& VertexArray<T>::operator= (const std::vector<T> &obj)
   {
     if (obj.size() > data.size())
     {
@@ -192,8 +192,8 @@ namespace Vulkan
     return *this;
   }
   
-  template <typename T> 
-  std::vector<T> Array<T>::Extract() const
+  template <class T> 
+  std::vector<T> VertexArray<T>::Extract() const
   {
     void *payload = nullptr;
     if (vkMapMemory(device->GetDevice(), buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)

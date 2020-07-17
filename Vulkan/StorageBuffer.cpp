@@ -2,9 +2,9 @@
 
 namespace Vulkan
 {
-  StorageBuffer::StorageBuffer(Device &dev)
+  StorageBuffer::StorageBuffer(std::shared_ptr<Vulkan::Device> dev)
   {
-    device = dev.GetDevice();
+    device = dev;
   }
 
   StorageBuffer::StorageBuffer(const StorageBuffer &obj)
@@ -18,11 +18,11 @@ namespace Vulkan
     buffers = UpdateDescriptorSet(descriptor_set, obj.buffers);
   }
 
-  StorageBuffer::StorageBuffer(Device &dev, std::vector<IStorage*> &data)
+  StorageBuffer::StorageBuffer(std::shared_ptr<Vulkan::Device> dev, std::vector<IStorage*> &data)
   {
-    if (!Supply::IsDataVectorValid(data))
+    if (!IsDataVectorValid(data))
       throw std::runtime_error(std::string(__func__) + ": Storage array is not valid.");
-    device = dev.GetDevice();
+    device = dev;
     DataLayout layout = GetDataLayout(data);
     descriptor_set_layout = CreateDescriptorSetLayout(layout);
     descriptor_pool = CreateDescriptorPool(layout);
@@ -45,7 +45,7 @@ namespace Vulkan
 
   StorageBuffer& StorageBuffer::operator= (const std::vector<IStorage*> &obj)
   {
-    if (!Supply::IsDataVectorValid(obj))
+    if (!IsDataVectorValid(obj))
       throw std::runtime_error(std::string(__func__) + ": Storage array is not valid.");
     DataLayout layout = GetDataLayout(obj);
     if (descriptor_set == VK_NULL_HANDLE || device != obj[0]->device)
@@ -72,20 +72,20 @@ namespace Vulkan
 
   void StorageBuffer::Clear()
   {
-    if (device != VK_NULL_HANDLE)
+    if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
       if (descriptor_pool != VK_NULL_HANDLE)
       {
-        vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
+        vkDestroyDescriptorPool(device->GetDevice(), descriptor_pool, nullptr);
         descriptor_pool = VK_NULL_HANDLE;
       }
       if (descriptor_set_layout != VK_NULL_HANDLE)
       {
-        vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(device->GetDevice(), descriptor_set_layout, nullptr);
         descriptor_set_layout = VK_NULL_HANDLE;
       }
     }
-    device = VK_NULL_HANDLE;
+    device.reset();
   }
 
   VkDescriptorSetLayout StorageBuffer::CreateDescriptorSetLayout(DataLayout data_layout)
@@ -104,6 +104,8 @@ namespace Vulkan
       case StorageType::Uniform :
         descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         break;
+      case StorageType::Vertex :
+        break;
       default:
         std::runtime_error("Unsupported storage type");
       }
@@ -117,7 +119,7 @@ namespace Vulkan
     descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size(); // only a single binding in this descriptor set layout. 
     descriptor_set_layout_create_info.pBindings = descriptor_set_layout_bindings.data(); 
 
-    if (vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &result) != VK_SUCCESS)
+    if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &result) != VK_SUCCESS)
       throw std::runtime_error("Can't create DescriptorSetLayout.");
     
     return result;
@@ -139,7 +141,7 @@ namespace Vulkan
     descriptor_pool_create_info.poolSizeCount = pool_sizes.size();
     descriptor_pool_create_info.pPoolSizes = pool_sizes.data();
 
-    if (vkCreateDescriptorPool(device, &descriptor_pool_create_info, nullptr, &result) != VK_SUCCESS)
+    if (vkCreateDescriptorPool(device->GetDevice(), &descriptor_pool_create_info, nullptr, &result) != VK_SUCCESS)
       throw std::runtime_error("Can't creat DescriptorPool.");
 
     return result;
@@ -154,7 +156,7 @@ namespace Vulkan
     descriptor_set_allocate_info.descriptorSetCount = 1; // allocate a single descriptor set.
     descriptor_set_allocate_info.pSetLayouts = &layout;
 
-    if (vkAllocateDescriptorSets(device, &descriptor_set_allocate_info, &result) != VK_SUCCESS)
+    if (vkAllocateDescriptorSets(device->GetDevice(), &descriptor_set_allocate_info, &result) != VK_SUCCESS)
       throw std::runtime_error("Can't allocate DescriptorSets.");
     
     return result;
@@ -196,7 +198,7 @@ namespace Vulkan
       write_descriptor_set[i] = write_descriptor;
     }
 
-    vkUpdateDescriptorSets(device, (uint32_t) write_descriptor_set.size(), write_descriptor_set.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device->GetDevice(), (uint32_t) write_descriptor_set.size(), write_descriptor_set.data(), 0, nullptr);
 
     return result;
   }
@@ -215,6 +217,8 @@ namespace Vulkan
         case StorageType::Uniform :
           result.uniform_buffers++;
           break;
+        case StorageType::Vertex :
+          result.vertex_buffers++;
         default:
           std::runtime_error("Unsupported storage type");
       }
@@ -237,5 +241,20 @@ namespace Vulkan
     {
       buffers[index]->Update(data_ptr, length);
     }
+  }
+
+  bool StorageBuffer::IsDataVectorValid(const std::vector<IStorage*> &data)
+  {
+    bool result = true;
+    if (data.size() == 0) return false;
+    VkDevice dev = data[0]->device->GetDevice();
+
+    for (std::size_t i = 0; i < data.size(); ++i)
+    {
+      if (data[i]->device->GetDevice() != dev)
+        return false;
+    }
+
+    return result;
   }
 }

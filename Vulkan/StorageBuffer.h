@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include "IStorage.h"
 #include "Device.h"
@@ -16,13 +17,14 @@ namespace Vulkan
     std::vector<StorageType> layout;
     std::size_t uniform_buffers = 0;
     std::size_t storage_buffers = 0;
+    std::size_t vertex_buffers = 0;
   };
   
   class StorageBuffer
   {
   private:
     std::vector<IStorage*> buffers;
-    VkDevice device = VK_NULL_HANDLE;
+    std::shared_ptr<Vulkan::Device> device = VK_NULL_HANDLE;
     VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
     VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -32,18 +34,19 @@ namespace Vulkan
     VkDescriptorSet CreateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout);
     std::vector<IStorage*> UpdateDescriptorSet(VkDescriptorSet set, const std::vector<IStorage*> &data);
     DataLayout GetDataLayout(const std::vector<IStorage*> &data);
+    bool IsDataVectorValid(const std::vector<IStorage*> &data);
     void Clear();
   public:
     StorageBuffer() = default;
-    StorageBuffer(Device &dev);
+    StorageBuffer(std::shared_ptr<Vulkan::Device> dev);
     StorageBuffer(const StorageBuffer &obj);
-    StorageBuffer(Device &dev, std::vector<IStorage*> &data);
+    StorageBuffer(std::shared_ptr<Vulkan::Device> dev, std::vector<IStorage*> &data);
     StorageBuffer& operator= (const StorageBuffer &obj);
     StorageBuffer& operator= (const std::vector<IStorage*> &obj);
     const VkDescriptorSetLayout GetDescriptorSetLayout() { return descriptor_set_layout; }
     const VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
     const VkDescriptorSet GetDescriptorSet() { return descriptor_set; }
-    const VkDevice GetDevice() { return device; }
+    const VkDevice GetDevice() { return device->GetDevice(); }
     const StorageType GetStorageTypeByIndex(const std::size_t index) { return index < buffers.size() ? buffers[index]->Type() : StorageType::None; }
     void* Extract(std::size_t &length, const std::size_t index);
     void UpdateValue(void *data_ptr, const std::size_t length, const std::size_t index);

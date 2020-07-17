@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <iostream>
+#include <memory>
 
 #include "IStorage.h"
 #include "Device.h"
@@ -12,11 +13,10 @@ namespace Vulkan
   class UniformBuffer : public IStorage
   {
   private:
-    void Create(Device &dev, void *data, std::size_t len);
-    void Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, std::size_t len, uint32_t f_queue);
+    void Create(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t f_queue);
   public:
     UniformBuffer() = delete;
-    UniformBuffer(Device &dev, void *data, std::size_t len);
+    UniformBuffer(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t family_q);
     UniformBuffer(const UniformBuffer &obj);
     UniformBuffer& operator= (const UniformBuffer &obj);
     ~UniformBuffer()
@@ -26,7 +26,6 @@ namespace Vulkan
 #endif
     }
   };
-
 }
 
 #endif
