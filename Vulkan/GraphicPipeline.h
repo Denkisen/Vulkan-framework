@@ -45,12 +45,15 @@ namespace Vulkan
     void FillGraphicPipelineStageStructs(GraphicPipelineStageStructs &pipeline_stage_struct);
     void BuildGraphicPipeline();
     std::vector<VkFramebuffer> CreateFrameBuffers();
+    void Create();
+    void Destroy();
   public:
     GraphicPipeline() = delete;
     GraphicPipeline(const GraphicPipeline &obj) = delete;
     GraphicPipeline& operator= (const GraphicPipeline &obj) = delete;
     GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass, std::vector<Vulkan::ShaderInfo> shader_infos);
     VkPipeline GetPipeline() { return pipeline; }
+    void ReBuildPipeline(std::vector<Vulkan::ShaderInfo> shader_infos);
     ~GraphicPipeline();
   };
 }

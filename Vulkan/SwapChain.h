@@ -31,6 +31,7 @@ namespace Vulkan
     VkExtent2D GetSwapChainExtent();
     void Create();
     void CreateImageViews();
+    void Destroy();
   public:
     SwapChain() = delete;
     SwapChain(const SwapChain &obj) = delete;
@@ -42,6 +43,7 @@ namespace Vulkan
     VkSurfaceFormatKHR GetSurfaceFormat() { return format; }
     std::vector<VkImageView> GetImageViews() { return swapchain_image_views; }
     size_t GetImageViewsCount() { return swapchain_image_views.size(); }
+    void ReBuildSwapChain();
   };
 }
 

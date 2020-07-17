@@ -20,6 +20,7 @@ namespace Vulkan
     std::vector<VkFramebuffer> frame_buffers;
     VkRenderPass CreateRenderPass();
     std::vector<VkFramebuffer> CreateFrameBuffers();
+    void Destroy();
   public:
     RenderPass() = delete;
     RenderPass(const RenderPass &obj) = delete;
@@ -28,6 +29,7 @@ namespace Vulkan
     VkRenderPass GetRenderPass() { return render_pass; }
     std::vector<VkFramebuffer> GetFrameBuffers() { return frame_buffers; }
     size_t GetFrameBuffersCount() { return frame_buffers.size(); }
+    void ReBuildRenderPass();
     ~RenderPass();
   };
 }

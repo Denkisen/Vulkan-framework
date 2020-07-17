@@ -2,21 +2,35 @@
 
 namespace Vulkan
 {
+  void GraphicPipeline::Destroy()
+  {
+    if (pipeline != VK_NULL_HANDLE)
+      vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
+    pipeline = VK_NULL_HANDLE;
+
+    if (pipeline_layout != VK_NULL_HANDLE)
+      vkDestroyPipelineLayout(device->GetDevice(), pipeline_layout, nullptr);
+    pipeline_layout = VK_NULL_HANDLE;
+
+    if (vertex_shader != VK_NULL_HANDLE)
+      vkDestroyShaderModule(device->GetDevice(), vertex_shader, nullptr);
+    vertex_shader = VK_NULL_HANDLE;
+
+    if (fragment_shader != VK_NULL_HANDLE)
+      vkDestroyShaderModule(device->GetDevice(), fragment_shader, nullptr);
+    fragment_shader = VK_NULL_HANDLE;
+
+    if (compute_shader != VK_NULL_HANDLE)
+      vkDestroyShaderModule(device->GetDevice(), compute_shader, nullptr);
+    compute_shader = VK_NULL_HANDLE;
+  }
+
   GraphicPipeline::~GraphicPipeline()
   {
 #ifdef DEBUG
     std::cout << __func__ << std::endl;
 #endif
-    if (pipeline != VK_NULL_HANDLE)
-      vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
-    if (pipeline_layout != VK_NULL_HANDLE)
-      vkDestroyPipelineLayout(device->GetDevice(), pipeline_layout, nullptr);
-    if (vertex_shader != VK_NULL_HANDLE)
-      vkDestroyShaderModule(device->GetDevice(), vertex_shader, nullptr);
-    if (fragment_shader != VK_NULL_HANDLE)
-      vkDestroyShaderModule(device->GetDevice(), fragment_shader, nullptr);
-    if (compute_shader != VK_NULL_HANDLE)
-      vkDestroyShaderModule(device->GetDevice(), compute_shader, nullptr);
+    Destroy();
   }
 
   void GraphicPipeline::CreateShaderStageInfos()
@@ -51,6 +65,25 @@ namespace Vulkan
     }
   }
 
+  void GraphicPipeline::Create()
+  {
+    CreateShaderStageInfos();
+    bool is_graphic = false;
+    if (vertex_shader != VK_NULL_HANDLE && fragment_shader != VK_NULL_HANDLE)
+      is_graphic = true;
+    else if (compute_shader == VK_NULL_HANDLE)
+      throw std::runtime_error("Can't recognise pipeline type");
+
+    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), std::vector<VkDescriptorSetLayout>());
+
+    if (is_graphic)
+    {
+      BuildGraphicPipeline();
+    }
+    else
+      throw std::runtime_error("Compute pipeline is not implemented.");
+  }
+
   GraphicPipeline::GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass, std::vector<Vulkan::ShaderInfo> shader_infos)
   {
     if (dev == nullptr)
@@ -70,21 +103,7 @@ namespace Vulkan
     this->shader_infos = shader_infos;
 
     device = dev;
-    CreateShaderStageInfos();
-    bool is_graphic = false;
-    if (vertex_shader != VK_NULL_HANDLE && fragment_shader != VK_NULL_HANDLE)
-      is_graphic = true;
-    else if (compute_shader == VK_NULL_HANDLE)
-      throw std::runtime_error("Can't recognise pipeline type");
-
-    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), std::vector<VkDescriptorSetLayout>());
-
-    if (is_graphic)
-    {
-      BuildGraphicPipeline();
-    }
-    else
-      throw std::runtime_error("Compute pipeline is not implemented.");
+    Create();
   }
 
   void GraphicPipeline::BuildGraphicPipeline()
@@ -206,5 +225,18 @@ namespace Vulkan
     pipeline_stage_struct.dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     pipeline_stage_struct.dynamic_state.dynamicStateCount = (uint32_t) pipeline_stage_struct.dynamic_states.size();
     pipeline_stage_struct.dynamic_state.pDynamicStates = pipeline_stage_struct.dynamic_states.data();
+  }
+
+  void GraphicPipeline::ReBuildPipeline(std::vector<Vulkan::ShaderInfo> shader_infos)
+  {
+    if (shader_infos.empty())
+      throw std::runtime_error("There are no shaders to create.");
+
+    vkDeviceWaitIdle(device->GetDevice());
+    Destroy();
+
+    this->shader_infos = shader_infos;
+
+    Create();
   }
 }

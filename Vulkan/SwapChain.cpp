@@ -5,11 +5,8 @@
 
 namespace Vulkan
 {
-  SwapChain::~SwapChain()
+  void SwapChain::Destroy()
   {
-#ifdef DEBUG
-    std::cout << __func__ << std::endl;
-#endif
     for (auto image_view : swapchain_image_views) 
     {
       if (image_view != VK_NULL_HANDLE)
@@ -22,6 +19,14 @@ namespace Vulkan
       vkDestroySwapchainKHR(device->GetDevice(), swapchain, nullptr);
       swapchain = VK_NULL_HANDLE;
     }
+  }
+
+  SwapChain::~SwapChain()
+  {
+#ifdef DEBUG
+    std::cout << __func__ << std::endl;
+#endif
+  Destroy();
   }
 
   SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev)
@@ -180,5 +185,12 @@ namespace Vulkan
 
       return actual_extent;
     }
+  }
+
+  void SwapChain::ReBuildSwapChain()
+  {
+    vkDeviceWaitIdle(device->GetDevice());
+    Destroy();
+    Create();
   }
 }

@@ -2,18 +2,25 @@
 
 namespace Vulkan
 {
+  void RenderPass::Destroy()
+  {
+    for (auto framebuffer : frame_buffers) 
+    {
+      if (framebuffer != VK_NULL_HANDLE)
+        vkDestroyFramebuffer(device->GetDevice(), framebuffer, nullptr);
+      framebuffer = VK_NULL_HANDLE;
+    }
+    if (render_pass != VK_NULL_HANDLE)
+      vkDestroyRenderPass(device->GetDevice(), render_pass, nullptr);
+    render_pass = VK_NULL_HANDLE;
+  }
+
   RenderPass::~RenderPass()
   {
 #ifdef DEBUG
     std::cout << __func__ << std::endl;
 #endif
-    for (auto framebuffer : frame_buffers) 
-    {
-      if (framebuffer != VK_NULL_HANDLE)
-        vkDestroyFramebuffer(device->GetDevice(), framebuffer, nullptr);
-    }
-    if (render_pass != VK_NULL_HANDLE)
-      vkDestroyRenderPass(device->GetDevice(), render_pass, nullptr);
+    Destroy();
   }
 
   RenderPass::RenderPass(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain)
@@ -98,5 +105,13 @@ namespace Vulkan
     }
 
     return frame_buffers;
+  }
+
+  void RenderPass::ReBuildRenderPass()
+  {
+    vkDeviceWaitIdle(device->GetDevice());
+    Destroy();
+    render_pass = CreateRenderPass();
+    frame_buffers = CreateFrameBuffers();
   }
 }
