@@ -13,10 +13,10 @@ namespace Vulkan
   class UniformBuffer : public IStorage
   {
   private:
-    void Create(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t f_queue);
+    void Create(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len);
   public:
     UniformBuffer() = delete;
-    UniformBuffer(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t family_q);
+    UniformBuffer(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len);
     UniformBuffer(const UniformBuffer &obj);
     UniformBuffer& operator= (const UniformBuffer &obj);
     ~UniformBuffer()

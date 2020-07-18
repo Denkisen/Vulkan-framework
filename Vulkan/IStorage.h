@@ -26,7 +26,7 @@ namespace Vulkan
     VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
     std::shared_ptr<Vulkan::Device> device;
     uint32_t buffer_size = 0;
-    uint32_t family_queue = 0;
+    uint32_t elements_count = 0;
 
     friend class StorageBuffer;
   public:
@@ -74,6 +74,9 @@ namespace Vulkan
         length = buffer_size;
         return result;
       }
+
+      VkBuffer GetBuffer() { return buffer; }
+      uint32_t GetElementsCount() { return elements_count; }
   };
 }
 

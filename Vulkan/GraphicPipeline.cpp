@@ -33,6 +33,41 @@ namespace Vulkan
     Destroy();
   }
 
+  GraphicPipeline::GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass)
+  {
+    if (dev == nullptr && dev->GetDevice() != VK_NULL_HANDLE)
+      throw std::runtime_error("Device pointer is not valid.");
+
+    this->swapchain = swapchain;
+    if (this->swapchain == nullptr && swapchain->GetSwapChain() != VK_NULL_HANDLE)
+      throw std::runtime_error("Swapchain pointer is not valid.");
+
+    this->render_pass = render_pass;
+    if (this->render_pass == nullptr && render_pass->GetRenderPass() != VK_NULL_HANDLE)
+      throw std::runtime_error("RenderPass pointer is not valid.");
+
+    device = dev;
+  }
+
+  void GraphicPipeline::Create()
+  {
+    CreateShaderStageInfos();
+    bool is_graphic = false;
+    if (vertex_shader != VK_NULL_HANDLE && fragment_shader != VK_NULL_HANDLE)
+      is_graphic = true;
+    else if (compute_shader == VK_NULL_HANDLE)
+      throw std::runtime_error("Can't recognise pipeline type");
+
+    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), std::vector<VkDescriptorSetLayout>());
+
+    if (is_graphic)
+    {
+      BuildGraphicPipeline();
+    }
+    else
+      throw std::runtime_error("Compute pipeline is not implemented.");
+  }
+
   void GraphicPipeline::CreateShaderStageInfos()
   {
     stage_infos.resize(0);
@@ -63,47 +98,6 @@ namespace Vulkan
           break;
       }
     }
-  }
-
-  void GraphicPipeline::Create()
-  {
-    CreateShaderStageInfos();
-    bool is_graphic = false;
-    if (vertex_shader != VK_NULL_HANDLE && fragment_shader != VK_NULL_HANDLE)
-      is_graphic = true;
-    else if (compute_shader == VK_NULL_HANDLE)
-      throw std::runtime_error("Can't recognise pipeline type");
-
-    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), std::vector<VkDescriptorSetLayout>());
-
-    if (is_graphic)
-    {
-      BuildGraphicPipeline();
-    }
-    else
-      throw std::runtime_error("Compute pipeline is not implemented.");
-  }
-
-  GraphicPipeline::GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass, std::vector<Vulkan::ShaderInfo> shader_infos)
-  {
-    if (dev == nullptr)
-      throw std::runtime_error("Device pointer is not valid.");
-
-    if (shader_infos.empty())
-      throw std::runtime_error("There are no shaders to create.");
-
-    this->swapchain = swapchain;
-    if (this->swapchain == nullptr)
-      throw std::runtime_error("Swapchain pointer is not valid.");
-
-    this->render_pass = render_pass;
-    if (this->render_pass == nullptr)
-      throw std::runtime_error("RenderPass pointer is not valid.");
-
-    this->shader_infos = shader_infos;
-
-    device = dev;
-    Create();
   }
 
   void GraphicPipeline::BuildGraphicPipeline()
@@ -146,10 +140,20 @@ namespace Vulkan
     pipeline_stage_struct = {};
 
     pipeline_stage_struct.vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    pipeline_stage_struct.vertex_input_info.vertexBindingDescriptionCount = 0;
-    pipeline_stage_struct.vertex_input_info.pVertexBindingDescriptions = nullptr;
-    pipeline_stage_struct.vertex_input_info.vertexAttributeDescriptionCount = 0;
-    pipeline_stage_struct.vertex_input_info.pVertexAttributeDescriptions = nullptr; 
+    if (!attribute_descriptions.empty() && !binding_description.empty())
+    {
+      pipeline_stage_struct.vertex_input_info.vertexBindingDescriptionCount = (uint32_t) binding_description.size();
+      pipeline_stage_struct.vertex_input_info.pVertexBindingDescriptions = binding_description.data();
+      pipeline_stage_struct.vertex_input_info.vertexAttributeDescriptionCount = (uint32_t) attribute_descriptions.size();
+      pipeline_stage_struct.vertex_input_info.pVertexAttributeDescriptions = attribute_descriptions.data(); 
+    }
+    else
+    {
+      pipeline_stage_struct.vertex_input_info.vertexBindingDescriptionCount = 0;
+      pipeline_stage_struct.vertex_input_info.pVertexBindingDescriptions = nullptr;
+      pipeline_stage_struct.vertex_input_info.vertexAttributeDescriptionCount = 0;
+      pipeline_stage_struct.vertex_input_info.pVertexAttributeDescriptions = nullptr;  
+    }
 
     pipeline_stage_struct.input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     pipeline_stage_struct.input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -227,16 +231,40 @@ namespace Vulkan
     pipeline_stage_struct.dynamic_state.pDynamicStates = pipeline_stage_struct.dynamic_states.data();
   }
 
-  void GraphicPipeline::ReBuildPipeline(std::vector<Vulkan::ShaderInfo> shader_infos)
+  void GraphicPipeline::ReBuildPipeline()
   {
-    if (shader_infos.empty())
-      throw std::runtime_error("There are no shaders to create.");
+    if (!shader_infos.empty())
+    {
+      vkDeviceWaitIdle(device->GetDevice());
+      Destroy();
+      Create();
+    }
+    else
+      std::cout << "There are no shaders to create." << std::endl;
+  }
 
-    vkDeviceWaitIdle(device->GetDevice());
-    Destroy();
+  VkPipeline GraphicPipeline::GetPipeline()
+  {
+    if (pipeline == VK_NULL_HANDLE)
+    {
+      Create();
+    }
 
+    return pipeline;
+  }
+
+  void GraphicPipeline::SetShaderInfos(std::vector<Vulkan::ShaderInfo> shader_infos)
+  {
     this->shader_infos = shader_infos;
+    if (pipeline != VK_NULL_HANDLE)
+      ReBuildPipeline();
+  }
 
-    Create();
+  void GraphicPipeline::SetVertexInputBindingDescription(std::vector<VkVertexInputBindingDescription> binding_description, std::vector<VkVertexInputAttributeDescription> attribute_descriptions)
+  {
+    this->binding_description = binding_description;
+    this->attribute_descriptions = attribute_descriptions;
+    if (pipeline != VK_NULL_HANDLE)
+      ReBuildPipeline();
   }
 }

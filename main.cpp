@@ -13,8 +13,8 @@ int main(int argc, char const *argv[])
   {
     Vulkan::Instance instance;
     std::shared_ptr<Vulkan::Device> device = std::make_shared<Vulkan::Device>(Vulkan::Discrete);
-    Vulkan::Array<float> input(device, device->GetComputeFamilyQueueIndex().value());
-    Vulkan::Array<float> output(device, device->GetComputeFamilyQueueIndex().value());
+    Vulkan::Array<float> input(device);
+    Vulkan::Array<float> output(device);
     input = std::vector<float>(64, 5.0);
     output = std::vector<float>(64, 0.0);
     struct UniformData
@@ -24,7 +24,7 @@ int main(int argc, char const *argv[])
     };
     UniformData global_data = {};
     global_data.mul = 4;
-    Vulkan::UniformBuffer global(device, &global_data, sizeof(UniformData), device->GetComputeFamilyQueueIndex().value());
+    Vulkan::UniformBuffer global(device, &global_data, sizeof(UniformData));
     std::vector<Vulkan::IStorage*> data;
     data.push_back(&input);
     data.push_back(&output);

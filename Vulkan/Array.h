@@ -16,13 +16,13 @@ namespace Vulkan
   template <typename T> class Array : public IStorage
   {
   private:
-    void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t f_queue);
+    void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len);
     std::vector<T> data;
   public:
     Array() = delete;
-    Array(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q);
-    Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q);
-    Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q);
+    Array(std::shared_ptr<Vulkan::Device> dev);
+    Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data);
+    Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len);
     Array(const Array<T> &array);
     Array<T>& operator= (const Array<T> &obj);
     Array<T>& operator= (const std::vector<T> &obj);
@@ -39,12 +39,13 @@ namespace Vulkan
 namespace Vulkan
 {
   template <typename T>
-  void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t f_queue)
+  void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
   {
     if (len == 0 || data == nullptr || dev == nullptr)
       throw std::runtime_error("Data array is empty.");
 
     buffer_size = len * sizeof(T);
+    elements_count = len;
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(dev->GetPhysicalDevice(), &properties);
 
@@ -56,7 +57,7 @@ namespace Vulkan
       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
       VK_SHARING_MODE_EXCLUSIVE,
       1,
-      &f_queue
+      nullptr
     };
 
     if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
@@ -108,30 +109,29 @@ namespace Vulkan
       throw std::runtime_error("Can't bind memory to buffer.");
 
     device = dev;
-    family_queue = f_queue;
     type = StorageType::Default; // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
   }
 
   template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, uint32_t family_q)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data)
   {
     if (data.size() == 0)
       throw std::runtime_error("Data array is empty.");
     
-    Create(dev, this->data.data(), this->data.size(), family_q);
+    Create(dev, data.data(), data.size());
   }
 
   template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, uint32_t family_q)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
   {
-    Create(dev, data, len, family_q);
+    Create(dev, data, len);
   }
 
   template <typename T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, uint32_t family_q)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev)
   {
     this->data.resize(64, 0.0);
-    Create(dev, this->data.data(), this->data.size(), family_q);
+    Create(dev, this->data.data(), this->data.size());
   }
 
   template <typename T> 
@@ -145,7 +145,7 @@ namespace Vulkan
     }
 
     std::vector<T> data(array.Extract());
-    Create(array.device, data.data(), data.size(), array.family_queue);
+    Create(array.device, data.data(), data.size());
   }
 
   template <typename T> 
@@ -159,7 +159,7 @@ namespace Vulkan
     }
     
     std::vector<T> data(obj.Extract());
-    Create(obj.device, data.data(), data.size(), obj.family_queue);
+    Create(obj.device, data.data(), data.size());
 
     return *this;
   }
@@ -174,7 +174,7 @@ namespace Vulkan
         vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
         vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
         
-        Create(device, const_cast<T*> (obj.data()), obj.size(), family_queue);
+        Create(device, const_cast<T*> (obj.data()), obj.size());
       }
     }
     else

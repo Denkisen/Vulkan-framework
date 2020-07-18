@@ -4,12 +4,13 @@
 
 namespace Vulkan
 {
-  void UniformBuffer::Create(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t f_queue)
+  void UniformBuffer::Create(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len)
   {
     if (len == 0 || data == nullptr || dev == nullptr)
       throw std::runtime_error("Data array is empty.");
 
     buffer_size = len;
+    elements_count = 1;
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(dev->GetPhysicalDevice(), &properties);
 
@@ -21,7 +22,7 @@ namespace Vulkan
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VK_SHARING_MODE_EXCLUSIVE,
       1,
-      &f_queue
+      nullptr
     };
 
     if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
@@ -70,13 +71,12 @@ namespace Vulkan
       throw std::runtime_error("Can't bind memory to buffer.");
 
     device = dev;
-    family_queue = f_queue;
     type = StorageType::Uniform; // VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
   }
 
-  UniformBuffer::UniformBuffer(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len, uint32_t family_q)
+  UniformBuffer::UniformBuffer(std::shared_ptr<Vulkan::Device> dev, void *data, std::size_t len)
   {
-    Create(dev, data, len, family_q);
+    Create(dev, data, len);
   }
 
   UniformBuffer::UniformBuffer(const UniformBuffer &obj)
@@ -90,7 +90,7 @@ namespace Vulkan
 
     std::size_t sz = 0;
     void *tmp = Extract(sz);
-    Create(obj.device, tmp, buffer_size, obj.family_queue);
+    Create(obj.device, tmp, buffer_size);
     std::free(tmp);
   }
 
@@ -105,7 +105,7 @@ namespace Vulkan
     
     std::size_t sz = 0;
     void *tmp = Extract(sz);
-    Create(obj.device, tmp, buffer_size, obj.family_queue);
+    Create(obj.device, tmp, buffer_size);
     std::free(tmp);
     
     return *this;
