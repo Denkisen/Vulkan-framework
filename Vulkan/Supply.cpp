@@ -181,7 +181,7 @@ VkQueue Vulkan::Supply::GetQueueFormFamilyIndex(const VkDevice &device, const ui
   return q;
 }
 
-std::vector<const char *> Vulkan::Supply::GetPhysicalDeviceExtensions(VkPhysicalDevice &device)
+std::vector<std::string> Vulkan::Supply::GetPhysicalDeviceExtensions(VkPhysicalDevice &device)
 {
   uint32_t count;
   if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr) != VK_SUCCESS)
@@ -189,7 +189,7 @@ std::vector<const char *> Vulkan::Supply::GetPhysicalDeviceExtensions(VkPhysical
   std::vector<VkExtensionProperties> available_extensions(count);
   if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, available_extensions.data()) != VK_SUCCESS)
     throw std::runtime_error("Can't enumerate device extensions");
-  std::vector<const char *> ret;
+  std::vector<std::string> ret;
 
   for (size_t i = 0; i < count; ++i)
   {

@@ -1,6 +1,7 @@
 #include "Device.h"
 
 #include <map>
+#include <cstring>
 
 namespace Vulkan
 {
@@ -12,13 +13,13 @@ namespace Vulkan
       if (!p_device.device_features.geometryShader)
         throw std::runtime_error("Device has no geometry shader.");
 
-      std::vector<const char *> ext = Vulkan::Supply::GetPhysicalDeviceExtensions(p_device.device);
+      auto ext = Vulkan::Supply::GetPhysicalDeviceExtensions(p_device.device);
       for (auto s : ext)
       {
         bool found = false;
-        for (auto e : Vulkan::Supply::RequiredGraphicDeviceExtensions)
+        for (auto &e : Vulkan::Supply::RequiredGraphicDeviceExtensions)
         {
-          if (std::string(e) == std::string(s))
+          if (std::string(e) == s)
           {
             found = true;
             break;

@@ -75,7 +75,7 @@ namespace Vulkan
 
     buffer_size = mem_req.size;
 
-    this->data.resize(std::ceil(buffer_size / (sizeof(T))));
+    this->data.resize(std::ceil((double) buffer_size / (sizeof(T))));
     std::copy(data, data + len, this->data.begin());
 
     size_t memory_type_index = VK_MAX_MEMORY_TYPES;

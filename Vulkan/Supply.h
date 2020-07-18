@@ -40,7 +40,7 @@ namespace Vulkan
     static std::vector<const char *> ValidationLayers;
     static std::vector<const char *> RequiredGraphicDeviceExtensions;
     static std::vector<std::string> GetInstanceExtensions();
-    static std::vector<const char *> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
+    static std::vector<std::string> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
     
     static std::vector<VkPhysicalDevice> GetPhysicalDevicesByType(VkInstance &instance, VkPhysicalDeviceType type);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices(VkInstance &instance);

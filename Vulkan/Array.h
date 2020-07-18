@@ -13,7 +13,7 @@
 
 namespace Vulkan
 {
-  template <typename T> class Array : public IStorage
+  template <class T> class Array : public IStorage
   {
   private:
     void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len);
@@ -38,7 +38,7 @@ namespace Vulkan
 
 namespace Vulkan
 {
-  template <typename T>
+  template <class T>
   void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
   {
     if (len == 0 || data == nullptr || dev == nullptr)
@@ -68,7 +68,7 @@ namespace Vulkan
 
     buffer_size = mem_req.size;
 
-    this->data.resize(std::ceil(buffer_size / (sizeof(T))));
+    this->data.resize(std::ceil((double) buffer_size / (sizeof(T))));
     std::copy(data, data + len, this->data.begin());
 
     size_t memory_type_index = VK_MAX_MEMORY_TYPES;
@@ -112,7 +112,7 @@ namespace Vulkan
     type = StorageType::Default; // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
   }
 
-  template <typename T>
+  template <class T>
   Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data)
   {
     if (data.size() == 0)
@@ -121,20 +121,20 @@ namespace Vulkan
     Create(dev, data.data(), data.size());
   }
 
-  template <typename T>
+  template <class T>
   Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
   {
     Create(dev, data, len);
   }
 
-  template <typename T>
+  template <class T>
   Array<T>::Array(std::shared_ptr<Vulkan::Device> dev)
   {
     this->data.resize(64, 0.0);
     Create(dev, this->data.data(), this->data.size());
   }
 
-  template <typename T> 
+  template <class T> 
   Array<T>::Array(const Array<T> &array)
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
@@ -148,7 +148,7 @@ namespace Vulkan
     Create(array.device, data.data(), data.size());
   }
 
-  template <typename T> 
+  template <class T> 
   Array<T>& Array<T>::operator= (const Array<T> &obj)
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
@@ -164,7 +164,7 @@ namespace Vulkan
     return *this;
   }
 
-  template <typename T> 
+  template <class T> 
   Array<T>& Array<T>::operator= (const std::vector<T> &obj)
   {
     if (obj.size() > data.size())
@@ -192,7 +192,7 @@ namespace Vulkan
     return *this;
   }
   
-  template <typename T> 
+  template <class T> 
   std::vector<T> Array<T>::Extract() const
   {
     void *payload = nullptr;
