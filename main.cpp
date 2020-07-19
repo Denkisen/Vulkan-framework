@@ -13,8 +13,8 @@ int main(int argc, char const *argv[])
   {
     Vulkan::Instance instance;
     std::shared_ptr<Vulkan::Device> device = std::make_shared<Vulkan::Device>(Vulkan::Discrete);
-    Vulkan::Array<float> input(device);
-    Vulkan::Array<float> output(device);
+    Vulkan::Array<float> input(device, Vulkan::StorageType::Default);
+    Vulkan::Array<float> output(device, Vulkan::StorageType::Default);
     input = std::vector<float>(64, 5.0);
     output = std::vector<float>(64, 0.0);
     struct UniformData

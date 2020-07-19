@@ -171,7 +171,7 @@ namespace Vulkan
     for (std::size_t i = 0; i < result.size(); ++i)
     {
       VkDescriptorBufferInfo descriptor_buffer_info = {};
-      descriptor_buffer_info.buffer = result[i]->buffer;
+      descriptor_buffer_info.buffer = result[i]->src_buffer;
       descriptor_buffer_info.offset = 0;
       descriptor_buffer_info.range = VK_WHOLE_SIZE;
       descriptor_buffer_infos[i] = descriptor_buffer_info;
@@ -217,8 +217,6 @@ namespace Vulkan
         case StorageType::Uniform :
           result.uniform_buffers++;
           break;
-        case StorageType::Vertex :
-          result.vertex_buffers++;
         default:
           std::runtime_error("Unsupported storage type");
       }

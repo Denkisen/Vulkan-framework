@@ -299,3 +299,26 @@ VkPipelineLayout Vulkan::Supply::CreatePipelineLayout(VkDevice device, std::vect
 
   return result;
 }
+
+std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, uint32_t &buffer_size, VkMemoryPropertyFlags flags)
+{
+  std::optional<size_t> res;
+  VkPhysicalDeviceMemoryProperties properties;
+  vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
+  VkMemoryRequirements mem_req = {};
+  vkGetBufferMemoryRequirements(dev, buffer, &mem_req);
+  buffer_size = mem_req.size;
+  
+  for (size_t i = 0; i < properties.memoryTypeCount; i++) 
+  {
+    if (mem_req.memoryTypeBits & (1 << i) && 
+        (properties.memoryTypes[i].propertyFlags & flags) &&
+        (buffer_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
+    {
+      res = i;
+      break;
+    }
+  }
+
+  return res;
+}

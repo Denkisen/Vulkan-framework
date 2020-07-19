@@ -17,7 +17,6 @@ namespace Vulkan
     std::vector<StorageType> layout;
     std::size_t uniform_buffers = 0;
     std::size_t storage_buffers = 0;
-    std::size_t vertex_buffers = 0;
   };
   
   class StorageBuffer

@@ -16,13 +16,13 @@ namespace Vulkan
   template <class T> class Array : public IStorage
   {
   private:
-    void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len);
+    void Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, Vulkan::StorageType storage_type);
     std::vector<T> data;
   public:
     Array() = delete;
-    Array(std::shared_ptr<Vulkan::Device> dev);
-    Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data);
-    Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len);
+    Array(std::shared_ptr<Vulkan::Device> dev, StorageType storage_type);
+    Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, Vulkan::StorageType storage_type);
+    Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, Vulkan::StorageType storage_type);
     Array(const Array<T> &array);
     Array<T>& operator= (const Array<T> &obj);
     Array<T>& operator= (const std::vector<T> &obj);
@@ -39,99 +39,89 @@ namespace Vulkan
 namespace Vulkan
 {
   template <class T>
-  void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
+  void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, Vulkan::StorageType storage_type)
   {
     if (len == 0 || data == nullptr || dev == nullptr)
       throw std::runtime_error("Data array is empty.");
 
     buffer_size = len * sizeof(T);
     elements_count = len;
-    VkPhysicalDeviceMemoryProperties properties;
-    vkGetPhysicalDeviceMemoryProperties(dev->GetPhysicalDevice(), &properties);
 
-    VkBufferCreateInfo buffer_create_info = {
-      VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      0,
-      0,
-      buffer_size,
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      VK_SHARING_MODE_EXCLUSIVE,
-      1,
-      nullptr
-    };
+    VkBufferCreateInfo buffer_create_info = {};
+    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_create_info.size = buffer_size;
+    switch (storage_type)
+    {
+      case StorageType::Default:
+        buffer_create_info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        break;
+      case StorageType::Uniform:
+        buffer_create_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        break;
+      case StorageType::Vertex:
+        buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        break;
+      default:
+        throw std::runtime_error("Unknown buffer type");
+    }
+    buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &src_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't create Buffer.");
 
-    VkMemoryRequirements mem_req = {};
-    vkGetBufferMemoryRequirements(dev->GetDevice(), buffer, &mem_req);
+    VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    auto memory_type_index = Vulkan::Supply::GetMemoryTypeIndex(dev->GetDevice(), dev->GetPhysicalDevice(), src_buffer, buffer_size, flags);
 
-    buffer_size = mem_req.size;
+    if (!memory_type_index.has_value())
+      throw std::runtime_error("Out of memory.");
 
     this->data.resize(std::ceil((double) buffer_size / (sizeof(T))));
     std::copy(data, data + len, this->data.begin());
-
-    size_t memory_type_index = VK_MAX_MEMORY_TYPES;
-
-    for (size_t i = 0; i < properties.memoryTypeCount; i++) 
-    {
-      if (mem_req.memoryTypeBits & (1 << i) && 
-         (properties.memoryTypes[i].propertyFlags & 
-            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) &&
-         (buffer_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
-      {
-        memory_type_index = i;
-        break;
-      }
-    }
-
-    if (memory_type_index == VK_MAX_MEMORY_TYPES)
-      throw std::runtime_error("Out of memory.");
 
     VkMemoryAllocateInfo memory_allocate_info = {
       VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       0,
       buffer_size,
-      (uint32_t) memory_type_index
+      (uint32_t) memory_type_index.value()
     };
 
-    if (vkAllocateMemory(dev->GetDevice(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
+    if (vkAllocateMemory(dev->GetDevice(), &memory_allocate_info, nullptr, &src_buffer_memory) != VK_SUCCESS)
       throw std::runtime_error("Can't allocate memory");
     
     void *payload = nullptr;
-    if (vkMapMemory(dev->GetDevice(), buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
+    if (vkMapMemory(dev->GetDevice(), src_buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
     std::memcpy(payload, this->data.data(), buffer_size);
-    vkUnmapMemory(dev->GetDevice(), buffer_memory);
+    vkUnmapMemory(dev->GetDevice(), src_buffer_memory);
 
-    if (vkBindBufferMemory(dev->GetDevice(), buffer, buffer_memory, 0) != VK_SUCCESS)
+    if (vkBindBufferMemory(dev->GetDevice(), src_buffer, src_buffer_memory, 0) != VK_SUCCESS)
       throw std::runtime_error("Can't bind memory to buffer.");
 
     device = dev;
-    type = StorageType::Default; // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    this->type = storage_type;
   }
 
   template <class T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, std::vector<T> &data, Vulkan::StorageType storage_type)
   {
     if (data.size() == 0)
       throw std::runtime_error("Data array is empty.");
     
-    Create(dev, data.data(), data.size());
+    Create(dev, data.data(), data.size(), storage_type);
   }
 
   template <class T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, Vulkan::StorageType storage_type)
   {
-    Create(dev, data, len);
+    Create(dev, data, len, storage_type);
   }
 
   template <class T>
-  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev)
+  Array<T>::Array(std::shared_ptr<Vulkan::Device> dev, Vulkan::StorageType storage_type)
   {
-    this->data.resize(64, 0.0);
-    Create(dev, this->data.data(), this->data.size());
+    this->data.resize(64);
+    Create(dev, this->data.data(), this->data.size(), storage_type);
   }
 
   template <class T> 
@@ -139,13 +129,13 @@ namespace Vulkan
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
-      vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
       device.reset();
     }
 
     std::vector<T> data(array.Extract());
-    Create(array.device, data.data(), data.size());
+    Create(array.device, data.data(), data.size(), array.type);
   }
 
   template <class T> 
@@ -153,13 +143,13 @@ namespace Vulkan
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
-      vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
       device.reset();
     }
     
     std::vector<T> data(obj.Extract());
-    Create(obj.device, data.data(), data.size());
+    Create(obj.device, data.data(), data.size(), obj.type);
 
     return *this;
   }
@@ -171,22 +161,22 @@ namespace Vulkan
     {
       if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
       {
-        vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
-        vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+        vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+        vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
         
-        Create(device, const_cast<T*> (obj.data()), obj.size());
+        Create(device, const_cast<T*> (obj.data()), obj.size(), type);
       }
     }
     else
     {
       this->data = obj;
       void *payload = nullptr;
-      if (vkMapMemory(device->GetDevice(), buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
+      if (vkMapMemory(device->GetDevice(), src_buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
         throw std::runtime_error("Can't map memory.");
     
       buffer_size = this->data.size() * sizeof(T);
       std::memcpy(payload, this->data.data(), buffer_size);
-      vkUnmapMemory(device->GetDevice(), buffer_memory);
+      vkUnmapMemory(device->GetDevice(), src_buffer_memory);
     }
 
     return *this;
@@ -196,12 +186,12 @@ namespace Vulkan
   std::vector<T> Array<T>::Extract() const
   {
     void *payload = nullptr;
-    if (vkMapMemory(device->GetDevice(), buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
+    if (vkMapMemory(device->GetDevice(), src_buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
     std::vector<T> data(buffer_size / sizeof(T));
     std::copy((T *)payload, &((T *)payload)[data.size()], data.begin());
-    vkUnmapMemory(device->GetDevice(), buffer_memory);
+    vkUnmapMemory(device->GetDevice(), src_buffer_memory);
 
     return data;
   }

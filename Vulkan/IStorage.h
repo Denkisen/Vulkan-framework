@@ -22,11 +22,15 @@ namespace Vulkan
   {
   protected:
     StorageType type = StorageType::Default;
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
+    VkBuffer src_buffer = VK_NULL_HANDLE;
+    VkBuffer dst_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory src_buffer_memory = VK_NULL_HANDLE;
+    VkDeviceMemory dst_buffer_memory = VK_NULL_HANDLE;
     std::shared_ptr<Vulkan::Device> device;
     uint32_t buffer_size = 0;
     uint32_t elements_count = 0;
+
+    VkBuffer GetDstBuffer() { return dst_buffer; }
 
     friend class StorageBuffer;
   public:
@@ -38,8 +42,20 @@ namespace Vulkan
 #endif
         if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
         {
-          vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
-          vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
+          if (src_buffer != VK_NULL_HANDLE)
+          {
+            vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
+            vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+            src_buffer = VK_NULL_HANDLE;
+          }
+
+          if (dst_buffer != VK_NULL_HANDLE)
+          {
+            vkDestroyBuffer(device->GetDevice(), dst_buffer, nullptr);
+            vkFreeMemory(device->GetDevice(), dst_buffer_memory, nullptr);
+            dst_buffer = VK_NULL_HANDLE;
+          }
+
           device.reset();
         }
       }
@@ -52,11 +68,11 @@ namespace Vulkan
           throw std::runtime_error("length >= buffer_size " + std::to_string (length) + " " + std::to_string (buffer_size));
         
         void *payload = nullptr;
-        if (vkMapMemory(device->GetDevice(), buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
+        if (vkMapMemory(device->GetDevice(), src_buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
     
         std::memcpy(payload, data, length);
-        vkUnmapMemory(device->GetDevice(), buffer_memory);
+        vkUnmapMemory(device->GetDevice(), src_buffer_memory);
       }
       
       StorageType Type() const { return type; }
@@ -65,17 +81,17 @@ namespace Vulkan
       {
         void *payload = nullptr;
         void *result = nullptr;
-        if (vkMapMemory(device->GetDevice(), buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
+        if (vkMapMemory(device->GetDevice(), src_buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
           throw std::runtime_error("Can't map memory.");
 
         result = std::malloc(buffer_size);
         std::memcpy(result, payload, buffer_size);
-        vkUnmapMemory(device->GetDevice(), buffer_memory);
+        vkUnmapMemory(device->GetDevice(), src_buffer_memory);
         length = buffer_size;
         return result;
       }
 
-      VkBuffer GetBuffer() { return buffer; }
+      VkBuffer GetBuffer() { return src_buffer; }
       uint32_t GetElementsCount() { return elements_count; }
   };
 }

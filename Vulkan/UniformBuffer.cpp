@@ -25,11 +25,11 @@ namespace Vulkan
       nullptr
     };
 
-    if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &src_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't create Buffer.");
 
     VkMemoryRequirements mem_req = {};
-    vkGetBufferMemoryRequirements(dev->GetDevice(), buffer, &mem_req);
+    vkGetBufferMemoryRequirements(dev->GetDevice(), src_buffer, &mem_req);
 
     buffer_size = mem_req.size;
 
@@ -57,17 +57,17 @@ namespace Vulkan
       (uint32_t) memory_type_index
     };
 
-    if (vkAllocateMemory(dev->GetDevice(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
+    if (vkAllocateMemory(dev->GetDevice(), &memory_allocate_info, nullptr, &src_buffer_memory) != VK_SUCCESS)
       throw std::runtime_error("Can't allocate memory");
     
     void *payload = nullptr;
-    if (vkMapMemory(dev->GetDevice(), buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
+    if (vkMapMemory(dev->GetDevice(), src_buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
     std::memcpy(payload, data, len);
-    vkUnmapMemory(dev->GetDevice(), buffer_memory);
+    vkUnmapMemory(dev->GetDevice(), src_buffer_memory);
 
-    if (vkBindBufferMemory(dev->GetDevice(), buffer, buffer_memory, 0) != VK_SUCCESS)
+    if (vkBindBufferMemory(dev->GetDevice(), src_buffer, src_buffer_memory, 0) != VK_SUCCESS)
       throw std::runtime_error("Can't bind memory to buffer.");
 
     device = dev;
@@ -83,8 +83,8 @@ namespace Vulkan
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
-      vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
       device.reset();
     }
 
@@ -98,8 +98,8 @@ namespace Vulkan
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
-      vkFreeMemory(device->GetDevice(), buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), buffer, nullptr);
+      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
+      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
       device.reset();
     }
     

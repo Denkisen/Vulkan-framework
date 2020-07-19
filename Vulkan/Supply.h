@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <optional>
 
 namespace Vulkan
 {
@@ -41,6 +42,7 @@ namespace Vulkan
     static std::vector<const char *> RequiredGraphicDeviceExtensions;
     static std::vector<std::string> GetInstanceExtensions();
     static std::vector<std::string> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
+    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, uint32_t &buffer_size, VkMemoryPropertyFlags flags);
     
     static std::vector<VkPhysicalDevice> GetPhysicalDevicesByType(VkInstance &instance, VkPhysicalDeviceType type);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices(VkInstance &instance);
