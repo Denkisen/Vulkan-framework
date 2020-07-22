@@ -43,6 +43,7 @@ namespace Vulkan
     VkSurfaceFormatKHR GetSurfaceFormat() { return format; }
     std::vector<VkImageView> GetImageViews() { return swapchain_image_views; }
     size_t GetImageViewsCount() { return swapchain_image_views.size(); }
+    uint32_t GetImagesCount() { return images_in_swapchain; }
     void ReBuildSwapChain();
   };
 }

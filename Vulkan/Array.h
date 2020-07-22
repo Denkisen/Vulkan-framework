@@ -61,6 +61,9 @@ namespace Vulkan
       case StorageType::Vertex:
         buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         break;
+      case StorageType::Index:
+        buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        break;
       default:
         throw std::runtime_error("Unknown buffer type");
     }

@@ -29,7 +29,7 @@ namespace Vulkan
     TransferArray<T>& operator= (const TransferArray<T> &obj);
     TransferArray<T>& operator= (const std::vector<T> &obj);
     void MoveData(VkCommandPool command_pool);
-    VkBuffer GetDstBuffer() { return IStorage::GetDstBuffer(); }
+    VkBuffer GetBuffer() { return IStorage::GetDstBuffer(); }
     ~TransferArray()
     {
 #ifdef DEBUG
@@ -91,6 +91,9 @@ namespace Vulkan
       case StorageType::Vertex:
         buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         break;
+      case StorageType::Index:
+        buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        break;
       default:
         throw std::runtime_error("Unknown buffer type");
     }
@@ -98,7 +101,7 @@ namespace Vulkan
     if (vkCreateBuffer(device->GetDevice(), &buffer_create_info, nullptr, &dst_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't create Buffer.");
 
-    VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     auto memory_type_index = Vulkan::Supply::GetMemoryTypeIndex(device->GetDevice(), device->GetPhysicalDevice(), dst_buffer, buffer_size, flags);
     if (!memory_type_index.has_value())
       throw std::runtime_error("Out of memory.");

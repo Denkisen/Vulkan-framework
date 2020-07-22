@@ -15,7 +15,8 @@ namespace Vulkan
     None,
     Default,
     Uniform,
-    Vertex
+    Vertex,
+    Index
   };
 
   class IStorage
