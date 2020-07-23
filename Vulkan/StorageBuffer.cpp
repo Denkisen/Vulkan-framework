@@ -53,7 +53,9 @@ namespace Vulkan
       Clear();
       device = obj[0]->device;
       descriptor_set_layout = CreateDescriptorSetLayout(layout);
+      std::cout << " Buff :" << layout.storage_buffers << std::endl;
       descriptor_pool = CreateDescriptorPool(layout);
+      std::cout << " Buff :" << layout.storage_buffers << std::endl;
       descriptor_set = CreateDescriptorSet(descriptor_pool, descriptor_set_layout);
     }
 
@@ -96,19 +98,7 @@ namespace Vulkan
     {
       VkDescriptorSetLayoutBinding descriptor_set_layout_binding = {};
       descriptor_set_layout_binding.binding = i;
-      switch (data_layout.layout[i])
-      {
-      case StorageType::Default :
-        descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        break;
-      case StorageType::Uniform :
-        descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        break;
-      case StorageType::Vertex :
-        break;
-      default:
-        std::runtime_error("Unsupported storage type");
-      }
+      descriptor_set_layout_binding.descriptorType = Vulkan::Supply::StorageTypeToDescriptorType(data_layout.layout[i]);
       descriptor_set_layout_binding.descriptorCount = 1;
       descriptor_set_layout_binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
       descriptor_set_layout_bindings[i] = descriptor_set_layout_binding;
@@ -116,7 +106,7 @@ namespace Vulkan
 
     VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
     descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size(); // only a single binding in this descriptor set layout. 
+    descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size();
     descriptor_set_layout_create_info.pBindings = descriptor_set_layout_bindings.data(); 
 
     if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &result) != VK_SUCCESS)
@@ -134,6 +124,8 @@ namespace Vulkan
 
     pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     pool_sizes[1].descriptorCount = (uint32_t) data_layout.storage_buffers;
+
+    std::cout << data_layout.uniform_buffers << " " << data_layout.storage_buffers << std::endl;
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info = {};
     descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -181,19 +173,7 @@ namespace Vulkan
       write_descriptor.dstSet = set;
       write_descriptor.dstBinding = i;
       write_descriptor.descriptorCount = 1;
-      
-      switch (result[i]->Type())
-      {
-        case StorageType::Default :
-          write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-          break;
-        case StorageType::Uniform :
-          write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-          break;
-        default:
-          std::runtime_error("Unsupported storage type");
-      }
-
+      write_descriptor.descriptorType = Vulkan::Supply::StorageTypeToDescriptorType(result[i]->Type());
       write_descriptor.pBufferInfo = &descriptor_buffer_infos[i];
       write_descriptor_set[i] = write_descriptor;
     }
@@ -211,7 +191,7 @@ namespace Vulkan
       result.layout[i] = data[i]->Type();
       switch (data[i]->Type())
       {
-        case StorageType::Default :
+        case StorageType::Storage :
           result.storage_buffers++;
           break;
         case StorageType::Uniform :

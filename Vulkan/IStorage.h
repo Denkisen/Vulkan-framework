@@ -10,19 +10,10 @@
 
 namespace Vulkan
 {
-  enum class StorageType
-  {
-    None,
-    Default,
-    Uniform,
-    Vertex,
-    Index
-  };
-
   class IStorage
   {
   protected:
-    StorageType type = StorageType::Default;
+    StorageType type = StorageType::Storage;
     VkBuffer src_buffer = VK_NULL_HANDLE;
     VkBuffer dst_buffer = VK_NULL_HANDLE;
     VkDeviceMemory src_buffer_memory = VK_NULL_HANDLE;

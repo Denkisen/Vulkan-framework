@@ -36,6 +36,15 @@ namespace Vulkan
     Vulkan::ShaderType type;
   };
 
+  enum class StorageType
+  {
+    None,
+    Storage,
+    Uniform,
+    Vertex,
+    Index
+  };
+
   class Supply
   {
   private:
@@ -67,6 +76,8 @@ namespace Vulkan
     static VkPipelineLayout CreatePipelineLayout(VkDevice device, std::vector<VkDescriptorSetLayout> layouts);
     template <class T>
     static void GetVertexInputBindingDescription(uint32_t binding, std::vector<VertexDescription> vertex_descriptions, VkVertexInputBindingDescription &out_binding_description, std::vector<VkVertexInputAttributeDescription> &out_attribute_descriptions);
+    static VkDescriptorType StorageTypeToDescriptorType(Vulkan::StorageType t);
+    static VkBufferUsageFlags StorageTypeToBufferUsageFlags(Vulkan::StorageType t);
   };
 }
 namespace Vulkan

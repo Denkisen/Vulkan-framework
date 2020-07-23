@@ -80,23 +80,7 @@ namespace Vulkan
     VkBufferCreateInfo buffer_create_info = {};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_create_info.size = buffer_size;
-    switch (this->type)
-    {
-      case StorageType::Default:
-        buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        break;
-      case StorageType::Uniform:
-        buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        break;
-      case StorageType::Vertex:
-        buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        break;
-      case StorageType::Index:
-        buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-        break;
-      default:
-        throw std::runtime_error("Unknown buffer type");
-    }
+    buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | Vulkan::Supply::StorageTypeToBufferUsageFlags(this->type);
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     if (vkCreateBuffer(device->GetDevice(), &buffer_create_info, nullptr, &dst_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't create Buffer.");
@@ -301,7 +285,6 @@ namespace Vulkan
 
     vkQueueSubmit(device->GetGraphicQueue(), 1, &submit_info, move_sync);
     vkWaitForFences(device->GetDevice(), 1, &move_sync, VK_TRUE, UINT64_MAX);
-    //vkQueueWaitIdle(graphicsQueue);
   }
 }
 

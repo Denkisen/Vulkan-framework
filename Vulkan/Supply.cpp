@@ -322,3 +322,37 @@ std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysica
 
   return res;
 }
+
+VkDescriptorType Vulkan::Supply::StorageTypeToDescriptorType(Vulkan::StorageType t)
+{
+  switch (t)
+  {
+    case StorageType::Storage:
+      return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case StorageType::Uniform:
+      return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    default:
+      break;
+  }
+
+  return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+}
+
+VkBufferUsageFlags Vulkan::Supply::StorageTypeToBufferUsageFlags(Vulkan::StorageType t)
+{
+  switch (t)
+  {
+    case StorageType::Storage:
+      return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    case StorageType::Uniform:
+      return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    case StorageType::Index:
+      return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    case StorageType::Vertex:
+      return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    default:
+      break;
+  }
+
+  return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+}

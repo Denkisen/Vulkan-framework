@@ -13,8 +13,8 @@ int main(int argc, char const *argv[])
   {
     Vulkan::Instance instance;
     std::shared_ptr<Vulkan::Device> device = std::make_shared<Vulkan::Device>(Vulkan::Discrete);
-    Vulkan::Array<float> input(device, Vulkan::StorageType::Default);
-    Vulkan::Array<float> output(device, Vulkan::StorageType::Default);
+    Vulkan::Array<float> input(device, Vulkan::StorageType::Storage);
+    Vulkan::Array<float> output(device, Vulkan::StorageType::Storage);
     input = std::vector<float>(64, 5.0);
     output = std::vector<float>(64, 0.0);
     struct UniformData
@@ -23,8 +23,9 @@ int main(int argc, char const *argv[])
       unsigned val[63];
     };
     UniformData global_data = {};
-    global_data.mul = 4;
-    Vulkan::UniformBuffer global(device, &global_data, sizeof(UniformData));
+    global_data.mul = 5;
+    Vulkan::UniformBuffer<UniformData> global(device);
+    global = global_data;
     std::vector<Vulkan::IStorage*> data;
     data.push_back(&input);
     data.push_back(&output);
@@ -61,7 +62,7 @@ int main(int argc, char const *argv[])
   }
   catch(const std::exception& e)
   {
-    std::cerr << e.what() << '\n';
+    std::cerr << "Error: " << e.what() << '\n';
   }
   return 0;
 }

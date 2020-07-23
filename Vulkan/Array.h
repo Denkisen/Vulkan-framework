@@ -46,27 +46,13 @@ namespace Vulkan
 
     buffer_size = len * sizeof(T);
     elements_count = len;
+    device = dev;
+    this->type = storage_type;
 
     VkBufferCreateInfo buffer_create_info = {};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_create_info.size = buffer_size;
-    switch (storage_type)
-    {
-      case StorageType::Default:
-        buffer_create_info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        break;
-      case StorageType::Uniform:
-        buffer_create_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        break;
-      case StorageType::Vertex:
-        buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        break;
-      case StorageType::Index:
-        buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-        break;
-      default:
-        throw std::runtime_error("Unknown buffer type");
-    }
+    buffer_create_info.usage = Vulkan::Supply::StorageTypeToBufferUsageFlags(this->type);;
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     if (vkCreateBuffer(dev->GetDevice(), &buffer_create_info, nullptr, &src_buffer) != VK_SUCCESS)
@@ -100,9 +86,6 @@ namespace Vulkan
 
     if (vkBindBufferMemory(dev->GetDevice(), src_buffer, src_buffer_memory, 0) != VK_SUCCESS)
       throw std::runtime_error("Can't bind memory to buffer.");
-
-    device = dev;
-    this->type = storage_type;
   }
 
   template <class T>
