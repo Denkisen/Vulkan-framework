@@ -20,7 +20,7 @@ namespace Vulkan
     std::vector<VkDescriptorSetLayout> layouts;
     std::vector<VkDescriptorSet> sets;
     std::vector<Vulkan::StorageType> types;
-    VkShaderStageFlagBits stage;
+    VkShaderStageFlags stage;
     bool multiple_layouts_one_binding = true;
   };
 
@@ -44,10 +44,11 @@ namespace Vulkan
     Descriptors(const Descriptors &obj) = delete;
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
-    void Add(std::vector<std::shared_ptr<IStorage>> data, VkShaderStageFlagBits stage, bool multiple_layouts_one_binding);
+    void Add(std::vector<std::shared_ptr<IStorage>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding);
     void Build();
     void Clear();
     VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
+    VkBuffer GetBuffer(size_t index, size_t element) { return (index < buffers_info.size() && element < buffers_info[index].buffers.size()) ? buffers_info[index].buffers[element] : VK_NULL_HANDLE; }
     std::vector<VkDescriptorSet> GetDescriptorSet(size_t index) { return index < buffers_info.size() ? buffers_info[index].sets : std::vector<VkDescriptorSet>(); }
     std::vector<VkDescriptorSetLayout> GetDescriptorSetLayout(size_t index) { return index < buffers_info.size() ? buffers_info[index].layouts : std::vector<VkDescriptorSetLayout>(); }
     ~Descriptors();

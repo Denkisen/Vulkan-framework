@@ -155,8 +155,8 @@ namespace Vulkan
 
     if (vkMapMemory(device->GetDevice(), src_buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
-    
-    std::copy((T *)payload, &((T *)payload)[sizeof(T)], &result);
+
+    std::memcpy(&result, payload, sizeof(T));
     vkUnmapMemory(device->GetDevice(), src_buffer_memory);
 
     return result;

@@ -6,16 +6,18 @@
 #include <vector>
 #include <mutex>
 #include <unistd.h>
-#include <thread>
 #include <optional>
+#include <memory>
+#include <functional>
 
 #include "Instance.h"
 #include "Device.h"
-#include "StorageBuffer.h"
+#include "Descriptors.h"
 
 namespace Vulkan
 {
-  typedef void (*DispatchEndEvent)(const std::size_t iteration, const std::size_t index, const Vulkan::StorageType type, void *buff, const std::size_t length);
+  typedef std::function<void(std::size_t iteration, std::size_t index, std::size_t element)> DispatchEndEvent;
+  //typedef void (*DispatchEndEvent)(const std::size_t iteration, const std::size_t index, const std::size_t element);
 
   struct UpdateBufferOpt
   {
@@ -40,8 +42,8 @@ namespace Vulkan
   {
   private:
     std::mutex work_mutex;
-    StorageBuffer buffer;
     std::shared_ptr<Vulkan::Device> device;
+    std::unique_ptr<Vulkan::Descriptors> descriptors;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     ShaderStruct compute_shader;
@@ -57,14 +59,11 @@ namespace Vulkan
     void Free();
   public:
     Offload() = delete;
-    Offload(std::shared_ptr<Vulkan::Device> dev, const std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point);
-    Offload(std::shared_ptr<Vulkan::Device> dev, const StorageBuffer &data, const std::string shader_path, const std::string entry_point);
     Offload(std::shared_ptr<Vulkan::Device> dev, const std::string shader_path, const std::string entry_point);
     Offload(std::shared_ptr<Vulkan::Device> dev);
     Offload(const Offload<T> &offload);
     Offload<T>& operator= (const Offload<T> &obj);
-    Offload<T>& operator= (const std::vector<IStorage*> &obj);  
-    Offload<T>& operator= (const StorageBuffer &obj);  
+    Offload<T>& operator= (const std::vector<std::shared_ptr<IStorage>> &obj);
     void Run(std::size_t x, std::size_t y, std::size_t z);
     void SetPipelineOptions(const OffloadPipelineOptions options);
     void SetShader(const std::string shader_path, const std::string entry_point);
@@ -81,45 +80,13 @@ namespace Vulkan
 namespace Vulkan
 {
   template <typename T>
-  Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev, const std::vector<IStorage*> &data, const std::string shader_path, const std::string entry_point)
-  {
-    device = dev;
-    queue = dev->GetComputeQueue();
-    device_limits = dev->GetLimits();
-    buffer = data;
-    auto index = dev->GetComputeFamilyQueueIndex();
-    if (!index.has_value())
-      throw std::runtime_error("No Compute family queue");
-
-    family_queue = index.value();
-
-    compute_shader.shader_filepath = shader_path;
-    compute_shader.entry_point = entry_point;
-    compute_shader.shader = CreateShader(shader_path);
-  }
-
-  template <typename T>
-  Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev, const StorageBuffer &data, const std::string shader_path, const std::string entry_point)
-  {
-    device = dev;
-    queue = dev->GetComputeQueue();
-    device_limits = dev->GetLimits();
-    buffer = data;
-    auto index = dev->GetComputeFamilyQueueIndex();
-    if (!index.has_value())
-      throw std::runtime_error("No Compute family queue");
-
-    family_queue = index.value();
-
-    compute_shader.shader_filepath = shader_path;
-    compute_shader.entry_point = entry_point;
-    compute_shader.shader = CreateShader(shader_path);
-  }
-
-  template <typename T>
   Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev, const std::string shader_path, const std::string entry_point)
   {
+    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+      std::runtime_error("Device is nullptr.");
+    
     device = dev;
+    descriptors = std::make_unique<Descriptors>(device);
     queue = dev->GetComputeQueue();
     device_limits = dev->GetLimits();
     auto index = dev->GetComputeFamilyQueueIndex();
@@ -136,8 +103,12 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev)
   {
+    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+      std::runtime_error("Device is nullptr.");
+
     device = dev;
     queue = dev->GetComputeQueue();
+    descriptors = std::make_unique<Descriptors>(device);
     device_limits = dev->GetLimits();
     auto index = dev->GetComputeFamilyQueueIndex();
     if (!index.has_value())
@@ -153,7 +124,7 @@ namespace Vulkan
     family_queue = offload.family_queue;
     device_limits = offload.device_limits;
     queue = offload.queue;
-    buffer = offload.buffer;
+    descriptors = std::move(offload.descriptors);
     pipeline_options = offload.pipeline_options;
     compute_shader.shader_filepath = offload.compute_shader.shader_filepath;
     compute_shader.entry_point = offload.compute_shader.entry_point;
@@ -194,7 +165,7 @@ namespace Vulkan
       family_queue = obj.family_queue;
       device_limits = obj.device_limits;
       queue = obj.queue;
-      buffer = obj.buffer;
+      descriptors = std::move(obj.descriptors);
       pipeline_options = obj.pipeline_options;
       compute_shader.shader_filepath = obj.compute_shader.shader_filepath;
       compute_shader.entry_point = obj.compute_shader.entry_point;
@@ -207,7 +178,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  Offload<T>& Offload<T>::operator= (const std::vector<IStorage*> &obj)
+  Offload<T>& Offload<T>::operator= (const std::vector<std::shared_ptr<IStorage>> &obj)
   {
     stop = true;
     std::lock_guard<std::mutex> lock(work_mutex);
@@ -228,43 +199,13 @@ namespace Vulkan
         vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
         command_pool = VK_NULL_HANDLE;
       }
-
-      buffer = obj;
+      descriptors->Clear();
+      descriptors->Add(obj, VK_SHADER_STAGE_COMPUTE_BIT, false);
     }
     else
       std::runtime_error("No Device.");
     return *this;
   } 
-
-  template <typename T>
-  Offload<T>& Offload<T>::operator= (const StorageBuffer &obj)
-  {
-    stop = true;
-    std::lock_guard<std::mutex> lock(work_mutex);
-    if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
-    {
-      if (pipeline_layout != VK_NULL_HANDLE)
-      {
-        vkDestroyPipelineLayout(device->GetDevice(), pipeline_layout, nullptr);
-        pipeline_layout = VK_NULL_HANDLE;
-      }
-      if (pipeline != VK_NULL_HANDLE)
-      {
-        vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-      }
-      if (command_pool != VK_NULL_HANDLE)
-      {
-        vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
-        command_pool = VK_NULL_HANDLE;
-      }
-
-      buffer = obj;
-    }
-    else
-      std::runtime_error("No Device.");
-    return *this;
-  }
 
   template <typename T>
   void Offload<T>::Run(std::size_t x, std::size_t y, std::size_t z)
@@ -279,7 +220,8 @@ namespace Vulkan
 
     if (pipeline_layout == VK_NULL_HANDLE)
     {
-      pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), {buffer.GetDescriptorSetLayout()});
+      descriptors->Build();
+      pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), descriptors->GetDescriptorSetLayout(0));
       pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
       command_pool = Supply::CreateCommandPool(device->GetDevice(), family_queue);  
       command_buffer = Supply::CreateCommandBuffer(device->GetDevice(), command_pool);
@@ -293,8 +235,8 @@ namespace Vulkan
       throw std::runtime_error("Can't begin command buffer.");
 
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-    VkDescriptorSet set = buffer.GetDescriptorSet();
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &set, 0, nullptr);
+    auto sets = descriptors->GetDescriptorSet(0);
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, (uint32_t) sets.size(), sets.data(), 0, nullptr);
     vkCmdDispatch(command_buffer, x, y, z);
     
     if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
@@ -321,11 +263,7 @@ namespace Vulkan
       
       for (auto &opt : pipeline_options.DispatchEndEvents)
       {
-        std::size_t len = 0;
-        void *ptr = buffer.Extract(len, opt.index);
-        opt.OnDispatchEndEvent(i, opt.index, buffer.GetStorageTypeByIndex(opt.index), ptr, len);
-        buffer.UpdateValue(ptr, len, opt.index);
-        std::free(ptr);
+        opt.OnDispatchEndEvent(i, 0, opt.index);
       }
       
       vkDestroyFence(device->GetDevice(), fence, nullptr);
