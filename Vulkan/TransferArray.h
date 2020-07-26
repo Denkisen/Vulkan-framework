@@ -139,8 +139,8 @@ namespace Vulkan
   template <class T>
   TransferArray<T>::TransferArray(std::shared_ptr<Vulkan::Device> dev, Vulkan::StorageType storage_type)
   {
-    this->data.resize(64);
-    Create(dev, this->data.data(), this->data.size(), storage_type);
+    std::vector<T> tmp(64);
+    Create(dev, tmp.data(), tmp.size(), storage_type);
   }
 
   template <class T>

@@ -58,7 +58,7 @@ namespace Vulkan
     else if (compute_shader == VK_NULL_HANDLE)
       throw std::runtime_error("Can't recognise pipeline type");
 
-    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), std::vector<VkDescriptorSetLayout>());
+    pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), descriptor_set_layouts);
 
     if (is_graphic)
     {
@@ -184,7 +184,7 @@ namespace Vulkan
     pipeline_stage_struct.rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     pipeline_stage_struct.rasterizer.lineWidth = 1.0f;
     pipeline_stage_struct.rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    pipeline_stage_struct.rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    pipeline_stage_struct.rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     pipeline_stage_struct.rasterizer.depthBiasEnable = VK_FALSE;
     pipeline_stage_struct.rasterizer.depthBiasConstantFactor = 0.0f;
     pipeline_stage_struct.rasterizer.depthBiasClamp = 0.0f;
@@ -264,6 +264,13 @@ namespace Vulkan
   {
     this->binding_description = binding_description;
     this->attribute_descriptions = attribute_descriptions;
+    if (pipeline != VK_NULL_HANDLE)
+      ReBuildPipeline();
+  }
+
+  void GraphicPipeline::SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts)
+  {
+    this->descriptor_set_layouts = layouts;
     if (pipeline != VK_NULL_HANDLE)
       ReBuildPipeline();
   }

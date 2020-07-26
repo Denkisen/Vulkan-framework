@@ -43,6 +43,7 @@ namespace Vulkan
     std::vector<Vulkan::ShaderInfo> shader_infos;
     std::vector<VkVertexInputBindingDescription> binding_description;
     std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
+    std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
     void CreateShaderStageInfos();
     void FillGraphicPipelineStageStructs(GraphicPipelineStageStructs &pipeline_stage_struct);
     void BuildGraphicPipeline();
@@ -55,9 +56,11 @@ namespace Vulkan
     GraphicPipeline& operator= (const GraphicPipeline &obj) = delete;
     GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass);
     VkPipeline GetPipeline();
+    VkPipelineLayout GetPipelineLayout() { return pipeline_layout; }
     void ReBuildPipeline();
     void SetShaderInfos(std::vector<Vulkan::ShaderInfo> shader_infos);
     void SetVertexInputBindingDescription(std::vector<VkVertexInputBindingDescription> binding_description, std::vector<VkVertexInputAttributeDescription> attribute_descriptions);
+    void SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts);
     ~GraphicPipeline();
   };
 }

@@ -6,7 +6,6 @@
 #include <vector>
 #include <memory>
 #include <map>
-#include <tuple>
 
 #include "Array.h"
 #include "UniformBuffer.h"
@@ -15,38 +14,42 @@
 
 namespace Vulkan
 {
-  struct SDataLayout
+  struct DescriptorInfo
   {
-    std::vector<std::tuple<Vulkan::StorageType, VkShaderStageFlagBits, uint32_t>> layout;
-    std::multimap<Vulkan::StorageType, uint32_t> buffers;
+    std::vector<VkBuffer> buffers;
+    std::vector<VkDescriptorSetLayout> layouts;
+    std::vector<VkDescriptorSet> sets;
+    std::vector<Vulkan::StorageType> types;
+    VkShaderStageFlagBits stage;
+    bool multiple_layouts_one_binding = true;
   };
 
   class Descriptors
   {
   private:
     std::shared_ptr<Vulkan::Device> device;
-    std::vector<std::tuple<Vulkan::StorageType, VkShaderStageFlagBits, uint32_t>> buffers;
+    std::vector<DescriptorInfo> buffers_info;
+    std::vector<DescriptorInfo> build_buffers_info;
+    std::multimap<Vulkan::StorageType, uint32_t> pool_config;
+    uint32_t sets_to_allocate = 0;
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> descriptor_sets;
-    std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
-    uint32_t descriptor_pool_capacity = 1;
 
-    VkDescriptorPool CreateDescriptorPool(SDataLayout layout);
-    std::vector<VkDescriptorSetLayout> CreateDescriptorSetLayout(SDataLayout data_layout, bool layout_per_set);
-    std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool pool, std::vector<VkDescriptorSetLayout> layouts);
+    VkDescriptorPool CreateDescriptorPool();
+    void CreateDescriptorSetLayouts(DescriptorInfo &info);
+    void CreateDescriptorSets(DescriptorInfo &info);
+    void UpdateDescriptorSet(DescriptorInfo &info);
     void Destroy();
   public:
     Descriptors() = delete;
     Descriptors(const Descriptors &obj) = delete;
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
-    void Add(std::shared_ptr<IStorage> buffer, VkShaderStageFlagBits stage);
-    void Build(bool set_per_buffer);
+    void Add(std::vector<std::shared_ptr<IStorage>> data, VkShaderStageFlagBits stage, bool multiple_layouts_one_binding);
+    void Build();
     void Clear();
     VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
-    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayout() { return descriptor_set_layouts; }
-    std::vector<VkDescriptorSet> GetDescriptorSets() { return descriptor_sets; }
-
+    std::vector<VkDescriptorSet> GetDescriptorSet(size_t index) { return index < buffers_info.size() ? buffers_info[index].sets : std::vector<VkDescriptorSet>(); }
+    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayout(size_t index) { return index < buffers_info.size() ? buffers_info[index].layouts : std::vector<VkDescriptorSetLayout>(); }
     ~Descriptors();
   };
 }
