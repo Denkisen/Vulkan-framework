@@ -6,15 +6,17 @@ SHADERSCOMPILER = glslangValidator
 
 CXXFLAGS = -std=c++17 -fopenmp -O0 -g -Wall -Warray-bounds -Wdiv-by-zero -fno-omit-frame-pointer
 CXXFLAGS += -DDEBUG
-#CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
+#CXXFLAGS += -fsanitize=address -fsanitize=bounds -fsanitize=bounds-strict
 
-LDFLAGS = -lgomp -lvulkan `pkg-config --static --libs glfw3`
+LDFLAGS = -lgomp -lvulkan -lglfw -lopencv2
 
 VPATH += Vulkan
+VPATH += libs
 
 SOURCE = main.cpp
 
 SOURCE += $(wildcard Vulkan/*.cpp)
+SOURCE += $(wildcard libs/*.cpp)
 
 OBJECTS = $(notdir $(SOURCE:.cpp=.o))
 

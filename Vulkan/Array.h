@@ -1,5 +1,5 @@
-#ifndef __CPU_NW_LIBS_VULKAN_ARRAY_H
-#define __CPU_NW_LIBS_VULKAN_ARRAY_H
+#ifndef __CPU_NW_VULKAN_ARRAY_H
+#define __CPU_NW_VULKAN_ARRAY_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>

@@ -1,5 +1,5 @@
-#ifndef __CPU_NW_LIBS_VULKAN_RENDERPASS_H
-#define __CPU_NW_LIBS_VULKAN_RENDERPASS_H
+#ifndef __CPU_NW_VULKAN_RENDERPASS_H
+#define __CPU_NW_VULKAN_RENDERPASS_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>

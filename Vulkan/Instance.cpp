@@ -18,7 +18,7 @@ Vulkan::Instance::Instance()
   app_info.applicationVersion = APP_VERSION;
   app_info.pEngineName = engine_name.c_str();
   app_info.engineVersion = ENGINE_VERSION;
-  app_info.apiVersion = VK_API_VERSION_1_0;
+  app_info.apiVersion = VK_API_VERSION_1_1;
 
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   if (Vulkan::Supply::ValidationLayers.size() > 0)

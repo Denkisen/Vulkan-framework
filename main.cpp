@@ -6,6 +6,7 @@
 #include "Vulkan/Instance.h"
 #include "Vulkan/Device.h"
 #include "Vulkan/Offload.h"
+#include "libs/Image.h"
 
 int main(int argc, char const *argv[])
 {

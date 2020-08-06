@@ -3,3 +3,7 @@ build/
 .vscode
 *.app
 bin/
+log.txt
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake

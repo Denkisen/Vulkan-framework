@@ -1,6 +1,6 @@
 
-#ifndef __CPU_NW_LIBS_VULKAN_SUPPLY_H
-#define __CPU_NW_LIBS_VULKAN_SUPPLY_H
+#ifndef __CPU_NW_VULKAN_SUPPLY_H
+#define __CPU_NW_VULKAN_SUPPLY_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>

@@ -1,5 +1,5 @@
-#ifndef __CPU_NW_LIBS_VULKAN_OFFLOAD_H
-#define __CPU_NW_LIBS_VULKAN_OFFLOAD_H
+#ifndef __CPU_NW_VULKAN_OFFLOAD_H
+#define __CPU_NW_VULKAN_OFFLOAD_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>
