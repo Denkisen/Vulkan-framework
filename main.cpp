@@ -47,7 +47,7 @@ int main(int argc, char const *argv[])
     };
     opts.DispatchEndEvents.push_back(uni_opts);
 
-    Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "bin/comp.spv", "main");
+    Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "test.comp.spv", "main");
     offload.SetPipelineOptions(opts);
     offload = data;
     offload.Run(64, 1, 1);
