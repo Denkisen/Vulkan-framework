@@ -8,7 +8,7 @@ namespace Vulkan
   void Device::Create()
   {
     
-    if (queue_flag_bits == Vulkan::QueueType::DrawingType)
+    if (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       if (!p_device.device_features.geometryShader)
         throw std::runtime_error("Device has no geometry shader.");
@@ -43,9 +43,10 @@ namespace Vulkan
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
     for (auto &family : queues)
     {
+      if (!family.family.has_value()) continue;
       VkDeviceQueueCreateInfo queue_create_info = {};  
       queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      queue_create_info.queueFamilyIndex = family.family;
+      queue_create_info.queueFamilyIndex = family.family.value();
       queue_create_info.queueCount = 1;
       queue_create_info.pQueuePriorities = &family.queue_priority;
       queue_create_infos.push_back(queue_create_info);
@@ -59,7 +60,7 @@ namespace Vulkan
     device_create_info.enabledLayerCount = (uint32_t) Vulkan::Supply::ValidationLayers.size();
     device_create_info.ppEnabledLayerNames = Vulkan::Supply::ValidationLayers.data();
 #endif
-    if (queue_flag_bits == Vulkan::QueueType::DrawingType)
+    if (queue_flag_bits == Vulkan::QueueType::DrawingType  || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       device_create_info.enabledExtensionCount = (uint32_t) Vulkan::Supply::RequiredGraphicDeviceExtensions.size();
       device_create_info.ppEnabledExtensionNames = Vulkan::Supply::RequiredGraphicDeviceExtensions.data();
@@ -83,70 +84,74 @@ namespace Vulkan
     std::vector<VkQueueFamilyProperties> queue_families(family_queues_count);
     vkGetPhysicalDeviceQueueFamilyProperties(p_device.device, &family_queues_count, queue_families.data());
 
-    switch (queue_flag_bits)
+    ret.resize(3);
+    ret[0].purpose = QueuePurpose::GraphicPurpose;
+    ret[1].purpose = QueuePurpose::PresentationPurpose;
+    ret[2].purpose = QueuePurpose::ComputePurpose;
+
+    for (uint32_t i = 0; i < family_queues_count; ++i)
     {
-      case QueueType::ComputeType:
+      if (queue_families[i].queueFlags & Vulkan::QueueType::ComputeType && !ret[2].family.has_value())
       {
-        for (uint32_t i = 0; i < family_queues_count; ++i)
-        {
-          if (queue_families[i].queueFlags & queue_flag_bits)
-          {
-            Vulkan::Queue q = {};
-            q.family = i;
-            q.purpose = QueuePurpose::ComputePurpose;
-            q.props = queue_families[i];
-            q.queue_priority = 1.0f;
-            ret.push_back(q);
-            break;
-          }
-        }
-      } break;
-      case QueueType::DrawingType:
-      {
-        for (uint32_t i = 0; i < family_queues_count; ++i)
-        {
-          if (queue_families[i].queueFlags & queue_flag_bits)
-          {
-            VkBool32 present = false;
-            Vulkan::Queue q = {};
-            q.family = i;
-            q.props = queue_families[i];
-            q.queue_priority = 1.0f;
-            if (vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface.surface, &present) != VK_SUCCESS)
-            {
-              throw std::runtime_error("Can't check surface support.");
-            }
+        ret[2].family = i;
+        ret[2].props = queue_families[i];
+        ret[2].queue_priority = 1.0f;
+      }
 
-            if (present)
-            {
-              if (ret.empty())
-              {
-                q.purpose = QueuePurpose::PresentationAndGraphicPurpose;
-                ret.push_back(q);
-                break;
-              }
-              else
-              {
-                q.purpose = QueuePurpose::PresentationPurpose;
-                ret.push_back(q);
-              }
-            }
-            else
-            {
-              if (ret.empty())
-              {
-                q.purpose = QueuePurpose::GraphicPurpose;
-                ret.push_back(q);
-              }
-            }
-          }
-          if (ret.size() == 2)
-            break;
+      if (queue_families[i].queueFlags & Vulkan::QueueType::DrawingType)
+      {
+        VkBool32 present = false;
+        if (!ret[0].family.has_value())
+        {
+          ret[0].family = i;
+          ret[0].props = queue_families[i];
+          ret[0].queue_priority = 1.0f;
+        }
+        
+        if (queue_flag_bits != Vulkan::QueueType::ComputeType && vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface.surface, &present) != VK_SUCCESS)
+        {
+          throw std::runtime_error("Can't check surface support.");
         }
 
-        if (ret.size() == 1 && ret[0].purpose != QueuePurpose::PresentationAndGraphicPurpose)
-          ret.clear();
-      } break;
+        if (present && !ret[1].family.has_value())
+        {
+          ret[1].family = i;
+          ret[1].props = queue_families[i];
+          ret[1].queue_priority = 1.0f;
+        }
+      }
+
+      bool done = true;
+      for(size_t j = 0; j < 3; ++j)
+      {
+        if (queue_flag_bits == QueueType::ComputeType)
+        {
+          if (j == 0 && j == 1) continue;
+        }
+        if (queue_flag_bits == QueueType::DrawingType)
+        {
+          if (j == 2) continue;
+        }
+        if (!ret[i].family.has_value())
+          done = false;
+      }
+      if (done) break;
+    }
+
+    if (queue_flag_bits == QueueType::ComputeType)
+    {
+      if (!ret[2].family.has_value())
+        ret.clear();
+    }
+    if (queue_flag_bits == QueueType::DrawingType)
+    {
+      if (!ret[0].family.has_value() || !ret[1].family.has_value())
+        ret.clear();
+    }
+    if (queue_flag_bits == QueueType::DrawingAndComputeType)
+    {
+      if (!ret[0].family.has_value() || !ret[1].family.has_value() || !ret[2].family.has_value())
+        ret.clear();
     }
 
     return ret;
@@ -163,7 +168,7 @@ namespace Vulkan
   {
     queue_flag_bits = queue_flags;
     surface.window = window;
-    if (surface.window != nullptr && queue_flag_bits == Vulkan::QueueType::DrawingType)
+    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
       CreateSurface();
     
     Instance instance;
@@ -185,7 +190,7 @@ namespace Vulkan
   {
     queue_flag_bits = queue_flags;
     surface.window = window;
-    if (surface.window != nullptr && queue_flag_bits == Vulkan::QueueType::DrawingType)
+    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
       CreateSurface();
 
     Instance instance;
@@ -216,6 +221,15 @@ namespace Vulkan
           break;
         case Vulkan::QueueType::ComputeType:
           rank++;
+          rank += p.device_properties.limits.maxComputeSharedMemorySize;
+          break;
+        case Vulkan::DrawingAndComputeType:
+          if (!p.device_features.geometryShader)
+          {
+            continue;
+          }
+          rank++;
+          rank += p.device_properties.limits.maxImageDimension2D;
           rank += p.device_properties.limits.maxComputeSharedMemorySize;
           break;
       }
@@ -254,7 +268,7 @@ namespace Vulkan
   {
     queue_flag_bits = queue_flags;
     surface.window = window;
-    if (surface.window != nullptr && queue_flag_bits == Vulkan::QueueType::DrawingType)
+    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
       CreateSurface();
 
     Instance instance;
@@ -299,14 +313,14 @@ namespace Vulkan
 
   VkQueue Device::GetGraphicQueue()
   {
-    if (queue_flag_bits == QueueType::DrawingType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
-            q.purpose == QueuePurpose::GraphicPurpose)
+        if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
+            q.purpose == QueuePurpose::GraphicPurpose) && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family);
+          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
         }
       }
     }
@@ -316,14 +330,14 @@ namespace Vulkan
 
   VkQueue Device::GetPresentQueue()
   {
-    if (queue_flag_bits == QueueType::DrawingType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
-            q.purpose == QueuePurpose::PresentationPurpose)
+        if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
+            q.purpose == QueuePurpose::PresentationPurpose) && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family);
+          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
         }
       }
     }
@@ -333,13 +347,13 @@ namespace Vulkan
 
   VkQueue Device::GetComputeQueue()
   {
-    if (queue_flag_bits == QueueType::ComputeType)
+    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::ComputePurpose)
+        if (q.purpose == QueuePurpose::ComputePurpose && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family);
+          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
         }
       }
     }
@@ -350,14 +364,14 @@ namespace Vulkan
   std::optional<uint32_t> Device::GetGraphicFamilyQueueIndex()
   {
     std::optional<uint32_t> ret;
-    if (queue_flag_bits == QueueType::DrawingType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
-            q.purpose == QueuePurpose::GraphicPurpose)
+        if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
+            q.purpose == QueuePurpose::GraphicPurpose) && q.family.has_value())
         {
-          ret = q.family;
+          ret = q.family.value();
           break;
         }
       }
@@ -369,14 +383,14 @@ namespace Vulkan
   std::optional<uint32_t> Device::GetPresentFamilyQueueIndex()
   {
     std::optional<uint32_t> ret;
-    if (queue_flag_bits == QueueType::DrawingType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
-            q.purpose == QueuePurpose::PresentationPurpose)
+        if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
+            q.purpose == QueuePurpose::PresentationPurpose) && q.family.has_value())
         {
-          ret = q.family;
+          ret = q.family.value();
           break;
         }
       }
@@ -389,13 +403,13 @@ namespace Vulkan
   {
     std::optional<uint32_t> ret;
 
-    if (queue_flag_bits == QueueType::ComputeType)
+    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
-        if (q.purpose == QueuePurpose::ComputePurpose)
+        if (q.purpose == QueuePurpose::ComputePurpose && q.family.has_value())
         {
-          ret = q.family;
+          ret = q.family.value();
           break;
         }
       }

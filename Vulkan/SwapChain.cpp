@@ -30,7 +30,7 @@ namespace Vulkan
 
   SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev)
   {
-    if (dev == nullptr)
+    if (dev.get() == nullptr)
       throw std::runtime_error("Device pointer is not valid.");
     device = dev;
     Create();

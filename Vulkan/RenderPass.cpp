@@ -25,7 +25,7 @@ namespace Vulkan
 
   RenderPass::RenderPass(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain)
   {
-    if (dev == nullptr)
+    if (dev.get() == nullptr)
       throw std::runtime_error("Device pointer is not valid.");
     device = dev;
 

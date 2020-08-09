@@ -6,7 +6,7 @@
 #include "Vulkan/Instance.h"
 #include "Vulkan/Device.h"
 #include "Vulkan/Offload.h"
-#include "libs/Image.h"
+#include "libs/ImageBuffer.h"
 
 int main(int argc, char const *argv[])
 {
@@ -59,10 +59,21 @@ int main(int argc, char const *argv[])
       std::cout << out[i] << " ";
     }
     std::cout << std::endl;
+
+    offload.Run(64, 1, 1);
+
+    out = output->Extract();
+    std::cout << "Output:" << std::endl;
+    for (size_t i = 0; i < out.size(); ++i)
+    {
+      std::cout << out[i] << " ";
+    }
+    std::cout << std::endl;
   }
   catch(const std::exception& e)
   {
     std::cerr << "Error: " << e.what() << '\n';
   }
+  
   return 0;
 }

@@ -27,6 +27,8 @@ namespace Vulkan
     friend class StorageBuffer;
   public:
       IStorage() = default;
+      IStorage(const IStorage &obj) = delete;
+      IStorage& operator=(const IStorage &obj) = delete;
       ~IStorage()
       {
 #ifdef DEBUG

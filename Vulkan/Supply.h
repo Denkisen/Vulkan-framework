@@ -58,6 +58,7 @@ namespace Vulkan
     static std::vector<std::string> GetInstanceExtensions();
     static std::vector<std::string> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
     static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, uint32_t &buffer_size, VkMemoryPropertyFlags flags);
+    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkImage image, uint32_t &buffer_size, VkMemoryPropertyFlags flags);
     static std::vector<VkPhysicalDevice> GetPhysicalDevicesByType(VkInstance &instance, VkPhysicalDeviceType type);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices(VkInstance &instance);
     static VkPhysicalDeviceFeatures GetPhysicalDeviceFeatures(VkPhysicalDevice &dev);

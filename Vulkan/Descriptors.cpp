@@ -38,7 +38,7 @@ namespace Vulkan
 
   Descriptors::Descriptors(std::shared_ptr<Vulkan::Device> dev)
   {
-    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Devise is nullptr");
     device = dev;
   }

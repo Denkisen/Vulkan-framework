@@ -4,8 +4,8 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
-#include <cstring>
 #include <optional>
+#include <memory>
 #include <cmath>
 
 #include "IStorage.h"
@@ -41,7 +41,7 @@ namespace Vulkan
   template <class T>
   void Array<T>::Create(std::shared_ptr<Vulkan::Device> dev, T *data, std::size_t len, Vulkan::StorageType storage_type)
   {
-    if (len == 0 || data == nullptr || dev == nullptr)
+    if (len == 0 || data == nullptr || dev.get() == nullptr)
       throw std::runtime_error("Data array is empty.");
 
     buffer_size = len * sizeof(T);
@@ -113,13 +113,6 @@ namespace Vulkan
   template <class T> 
   Array<T>::Array(const Array<T> &array)
   {
-    if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
-    {
-      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
-      device.reset();
-    }
-
     std::vector<T> data(array.Extract());
     Create(array.device, data.data(), data.size(), array.type);
   }

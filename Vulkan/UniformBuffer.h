@@ -38,7 +38,7 @@ namespace Vulkan
   template <class T>
   void UniformBuffer<T>::Create(std::shared_ptr<Vulkan::Device> dev, T &data)
   {
-    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Device is nullptr.");
 
     device = dev;
@@ -103,13 +103,6 @@ namespace Vulkan
   template <class T>
   UniformBuffer<T>::UniformBuffer(const UniformBuffer &obj)
   {
-    if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
-    {
-      vkFreeMemory(device->GetDevice(), src_buffer_memory, nullptr);
-      vkDestroyBuffer(device->GetDevice(), src_buffer, nullptr);
-      device.reset();
-    }
-
     std::size_t sz = 0;
     T *tmp = (T*) Extract(sz);
     Create(obj.device, tmp);

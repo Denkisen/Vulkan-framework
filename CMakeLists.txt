@@ -7,6 +7,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -O0 -g -Wall -Warray-bounds -Wd
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=bounds -fsanitize=bounds-strict")
 
+add_definitions(-DMAGICKCORE_QUANTUM_DEPTH=16)
+add_definitions(-DMAGICKCORE_HDRI_ENABLE=0)
+
 # Clean
 set_directory_properties(PROPERTIES
   ADDITIONAL_MAKE_CLEAN_FILES "${PROJECT_BINARY_DIR}/bin/"
@@ -15,6 +18,9 @@ set_directory_properties(PROPERTIES
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(OpenCV REQUIRED)
+
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Main
 add_executable(${RUNTIME_OUTPUT_NAME} main.cpp)
@@ -42,6 +48,10 @@ target_link_libraries(${RUNTIME_OUTPUT_NAME}
   ${OpenMP_LIBRARIES}
   ${Vulkan_LIBRARIES}
   ${glfw3_LIBRARIES}
+  opencv_core
+  opencv_imgproc
+  opencv_imgcodecs
+  stdc++fs
 )
 
 #Shaders
@@ -67,13 +77,13 @@ add_custom_target(
 add_dependencies(${RUNTIME_OUTPUT_NAME} Shaders)
 
 # Parallel
-add_custom_target(p)
-add_custom_command(TARGET p
-  COMMAND make -j12
+add_custom_target(Parallel)
+add_custom_command(TARGET Parallel
+  COMMAND make -j
 )
 
 # Run
-add_custom_target(run DEPENDS p)
+add_custom_target(run DEPENDS Parallel)
 add_custom_command(TARGET run
   COMMAND cd bin && ./${RUNTIME_OUTPUT_NAME}
 )

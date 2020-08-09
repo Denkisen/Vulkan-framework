@@ -13,11 +13,11 @@
 #include "Instance.h"
 #include "Device.h"
 #include "Descriptors.h"
+#include "CommandPool.h"
 
 namespace Vulkan
 {
   typedef std::function<void(std::size_t iteration, std::size_t index, std::size_t element)> DispatchEndEvent;
-  //typedef void (*DispatchEndEvent)(const std::size_t iteration, const std::size_t index, const std::size_t element);
 
   struct UpdateBufferOpt
   {
@@ -44,14 +44,10 @@ namespace Vulkan
     std::mutex work_mutex;
     std::shared_ptr<Vulkan::Device> device;
     std::unique_ptr<Vulkan::Descriptors> descriptors;
+    std::unique_ptr<Vulkan::CommandPool> command_pool;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     ShaderStruct compute_shader;
-    VkCommandPool command_pool = VK_NULL_HANDLE;
-    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
-    VkQueue queue = VK_NULL_HANDLE;
-    uint32_t family_queue = -1;
-    VkPhysicalDeviceLimits device_limits = {};
     Vulkan::OffloadPipelineOptions pipeline_options = {};
     bool stop = false;
     VkShaderModule CreateShader(const std::string shader_path); 
@@ -82,18 +78,12 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev, const std::string shader_path, const std::string entry_point)
   {
-    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       std::runtime_error("Device is nullptr.");
     
     device = dev;
     descriptors = std::make_unique<Descriptors>(device);
-    queue = dev->GetComputeQueue();
-    device_limits = dev->GetLimits();
-    auto index = dev->GetComputeFamilyQueueIndex();
-    if (!index.has_value())
-      throw std::runtime_error("No Compute family queue");
-
-    family_queue = index.value();
+    command_pool = std::make_unique<CommandPool>(device, dev->GetComputeFamilyQueueIndex().value());
 
     compute_shader.shader_filepath = shader_path;
     compute_shader.entry_point = entry_point;
@@ -103,28 +93,20 @@ namespace Vulkan
   template <typename T>
   Offload<T>::Offload(std::shared_ptr<Vulkan::Device> dev)
   {
-    if (dev == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       std::runtime_error("Device is nullptr.");
 
     device = dev;
-    queue = dev->GetComputeQueue();
     descriptors = std::make_unique<Descriptors>(device);
-    device_limits = dev->GetLimits();
-    auto index = dev->GetComputeFamilyQueueIndex();
-    if (!index.has_value())
-      throw std::runtime_error("No Compute family queue");
-
-    family_queue = index.value();
+    command_pool = std::make_unique<CommandPool>(device, dev->GetComputeFamilyQueueIndex().value());
   }
 
   template <typename T>
   Offload<T>::Offload(const Offload<T> &offload)
   {
     device = offload.device;
-    family_queue = offload.family_queue;
-    device_limits = offload.device_limits;
-    queue = offload.queue;
     descriptors = std::move(offload.descriptors);
+    command_pool = std::move(offload.command_pool);
     pipeline_options = offload.pipeline_options;
     compute_shader.shader_filepath = offload.compute_shader.shader_filepath;
     compute_shader.entry_point = offload.compute_shader.entry_point;
@@ -155,17 +137,10 @@ namespace Vulkan
         vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
       }
-      if (command_pool != VK_NULL_HANDLE)
-      {
-        vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
-        command_pool = VK_NULL_HANDLE;
-      }
 
       device = obj.device;
-      family_queue = obj.family_queue;
-      device_limits = obj.device_limits;
-      queue = obj.queue;
       descriptors = std::move(obj.descriptors);
+      command_pool = std::move(obj.command_pool);
       pipeline_options = obj.pipeline_options;
       compute_shader.shader_filepath = obj.compute_shader.shader_filepath;
       compute_shader.entry_point = obj.compute_shader.entry_point;
@@ -194,11 +169,7 @@ namespace Vulkan
         vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
       }
-      if (command_pool != VK_NULL_HANDLE)
-      {
-        vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
-        command_pool = VK_NULL_HANDLE;
-      }
+
       descriptors->Clear();
       descriptors->Add(obj, VK_SHADER_STAGE_COMPUTE_BIT, false);
     }
@@ -223,31 +194,21 @@ namespace Vulkan
       descriptors->Build();
       pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), descriptors->GetDescriptorSetLayout(0));
       pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
-      command_pool = Supply::CreateCommandPool(device->GetDevice(), family_queue);  
-      command_buffer = Supply::CreateCommandBuffer(device->GetDevice(), command_pool);
     }
 
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-    if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
-      throw std::runtime_error("Can't begin command buffer.");
-
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     auto sets = descriptors->GetDescriptorSet(0);
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, (uint32_t) sets.size(), sets.data(), 0, nullptr);
-    vkCmdDispatch(command_buffer, x, y, z);
-    
-    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
-      throw std::runtime_error("Can't end command buffer.");
+    command_pool->BeginCommandBuffer(0, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    command_pool->BindPipeline(0, pipeline, VK_PIPELINE_BIND_POINT_COMPUTE);
+    command_pool->BindDescriptorSets(0, pipeline_layout, VK_PIPELINE_BIND_POINT_COMPUTE, sets, {}, 0);
+    command_pool->Dispatch(0, x, y, z);
+    command_pool->EndCommandBuffer(0);
 
     for (size_t i = 0; i < pipeline_options.DispatchTimes; ++i)
     {
       VkSubmitInfo submit_info = {};
       submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
       submit_info.commandBufferCount = 1;
-      submit_info.pCommandBuffers = &command_buffer;
+      submit_info.pCommandBuffers = &(*command_pool)[0];
 
       VkFence fence;
       VkFenceCreateInfo fence_create_info = {};
@@ -256,7 +217,7 @@ namespace Vulkan
 
       if (vkCreateFence(device->GetDevice(), &fence_create_info, nullptr, &fence) != VK_SUCCESS)
         throw std::runtime_error("Can't create fence.");
-      if (vkQueueSubmit(queue, 1, &submit_info, fence) != VK_SUCCESS)
+      if (vkQueueSubmit(device->GetComputeQueue(), 1, &submit_info, fence) != VK_SUCCESS)
         throw std::runtime_error("Can't submit queue.");
       if (vkWaitForFences(device->GetDevice(), 1, &fence, VK_TRUE, 100000000000) != VK_SUCCESS)
         throw std::runtime_error("WaitForFences error");
@@ -319,11 +280,6 @@ namespace Vulkan
         vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
       }
-      if (command_pool != VK_NULL_HANDLE)
-      {
-        vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
-        command_pool = VK_NULL_HANDLE;
-      }
 
       compute_shader.shader = CreateShader(shader_path);
     }
@@ -373,12 +329,9 @@ namespace Vulkan
         vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
       }
-      if (command_pool != VK_NULL_HANDLE)
-      {
-        vkDestroyCommandPool(device->GetDevice(), command_pool, nullptr);
-        command_pool = VK_NULL_HANDLE;
-      }
     }
+    command_pool.reset();
+    descriptors.reset();
     device.reset();
   }
 }

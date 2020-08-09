@@ -35,7 +35,7 @@ namespace Vulkan
 
   GraphicPipeline::GraphicPipeline(std::shared_ptr<Vulkan::Device> dev, std::shared_ptr<Vulkan::SwapChain> swapchain, std::shared_ptr<Vulkan::RenderPass> render_pass)
   {
-    if (dev == nullptr && dev->GetDevice() != VK_NULL_HANDLE)
+    if (dev.get() == nullptr && dev->GetDevice() != VK_NULL_HANDLE)
       throw std::runtime_error("Device pointer is not valid.");
 
     this->swapchain = swapchain;

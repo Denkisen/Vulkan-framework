@@ -25,7 +25,8 @@ namespace Vulkan
   enum QueueType
   {
     ComputeType = VK_QUEUE_COMPUTE_BIT,
-    DrawingType = VK_QUEUE_GRAPHICS_BIT
+    DrawingType = VK_QUEUE_GRAPHICS_BIT,
+    DrawingAndComputeType = (VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT)
   };
 
   enum class QueuePurpose
@@ -53,8 +54,8 @@ namespace Vulkan
   struct Queue
   {
     VkQueueFamilyProperties props = {};
-    uint32_t family = 0;
-    float queue_priority = 1.0f;
+    std::optional<uint32_t> family;
+    float queue_priority = 0.0f;
     Vulkan::QueuePurpose purpose = QueuePurpose::ComputePurpose;
   };
 
@@ -73,10 +74,10 @@ namespace Vulkan
       Device() = delete;
       Device(const Device &obj) = delete;
       Device& operator= (const Device &obj) = delete;
-      Device(uint32_t device_index, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
-      Device(Vulkan::PhysicalDeviceType type, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
-      Device(std::string device_name, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
-      ~Device();      
+      explicit Device(uint32_t device_index, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      explicit Device(Vulkan::PhysicalDeviceType type, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      explicit Device(std::string device_name, Vulkan::QueueType queue_flags = QueueType::ComputeType, GLFWwindow *window = nullptr);
+      ~Device();
       VkQueue GetGraphicQueue();
       VkQueue GetPresentQueue();
       VkQueue GetComputeQueue();
