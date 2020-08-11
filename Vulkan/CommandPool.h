@@ -39,6 +39,7 @@ namespace Vulkan
     void DrawIndexed(const uint32_t index, const uint32_t index_count, const uint32_t first_index, const uint32_t vertex_offset = 0, const uint32_t instance_count = 1, const uint32_t first_instance = 0);
     void Draw(const uint32_t index, const uint32_t vertex_count, const uint32_t first_vertex = 0, const uint32_t instance_count = 1, const uint32_t first_instance = 0);
     void Dispatch(const uint32_t index, const uint32_t x, const uint32_t y, const uint32_t z);
+    void CopyBuffer(const uint32_t index, const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions);
     ~CommandPool();
   };
 }

@@ -165,4 +165,12 @@ namespace Vulkan
 
     vkCmdDispatch(command_buffers[index].second, x, y, z);
   }
+
+  void CommandPool::CopyBuffer(const uint32_t index, const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions)
+  {
+    if (index >= command_buffers.size())
+      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    
+    vkCmdCopyBuffer(command_buffers[index].second, src, dst, (uint32_t) regions.size(), regions.data());
+  }
 }

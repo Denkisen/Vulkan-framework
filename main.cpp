@@ -1,11 +1,10 @@
 #include <iostream>
 #include <memory>
 
-#include "Vulkan/Array.h"
-#include "Vulkan/UniformBuffer.h"
 #include "Vulkan/Instance.h"
 #include "Vulkan/Device.h"
 #include "Vulkan/Offload.h"
+#include "Vulkan/Buffer.h"
 #include "libs/ImageBuffer.h"
 
 int main(int argc, char const *argv[])
@@ -14,9 +13,11 @@ int main(int argc, char const *argv[])
   {
     Vulkan::Instance instance;
     std::shared_ptr<Vulkan::Device> device = std::make_shared<Vulkan::Device>(Vulkan::Discrete);
-    std::shared_ptr<Vulkan::Array<float>> input = std::make_shared<Vulkan::Array<float>>(device, Vulkan::StorageType::Storage);
-    std::shared_ptr<Vulkan::Array<float>> output = std::make_shared<Vulkan::Array<float>>(device, Vulkan::StorageType::Storage);
-    *input = std::vector<float>(64, 5.0);
+    std::shared_ptr<Vulkan::Buffer<float>> input_src = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::BufferUsage::Transfer_src);
+    std::shared_ptr<Vulkan::Buffer<float>> input_dst = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::BufferUsage::Transfer_dst);
+    std::shared_ptr<Vulkan::Buffer<float>> output = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::BufferUsage::Transfer_src);
+    *input_src = std::vector<float>(64, 5.0);
+    input_dst->AllocateBuffer(64);
     *output = std::vector<float>(64, 0.0);
     struct UniformData
     {
@@ -25,10 +26,10 @@ int main(int argc, char const *argv[])
     };
     UniformData global_data = {};
     global_data.mul = 5;
-    std::shared_ptr<Vulkan::UniformBuffer<UniformData>> global = std::make_shared<Vulkan::UniformBuffer<UniformData>>(device);
+    std::shared_ptr<Vulkan::Buffer<UniformData>> global = std::make_shared<Vulkan::Buffer<UniformData>>(device, Vulkan::StorageType::Uniform, Vulkan::BufferUsage::Transfer_src);
     *global = global_data;
-    std::vector<std::shared_ptr<Vulkan::IStorage>> data;
-    data.push_back(input);
+    std::vector<std::shared_ptr<Vulkan::IBuffer>> data;
+    data.push_back(input_dst);
     data.push_back(output);
     data.push_back(global);
     Vulkan::OffloadPipelineOptions opts;
@@ -40,20 +41,21 @@ int main(int argc, char const *argv[])
       std::cout << "EndEvent" << std::endl;
       if (data[element]->Type() == Vulkan::StorageType::Uniform)
       {
-        auto t = ((Vulkan::UniformBuffer<UniformData>*) data[element].get())->Extract();
+        auto t = ((Vulkan::Buffer<UniformData>*) data[element].get())->Extract(0);
         t.mul += iteration;
-        *((Vulkan::UniformBuffer<UniformData>*) data[element].get()) = t;
+        *((Vulkan::Buffer<UniformData>*) data[element].get()) = t;
       }
     };
     opts.DispatchEndEvents.push_back(uni_opts);
 
     Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "test.comp.spv", "main");
+    Vulkan::IBuffer::MoveData(device->GetDevice(), offload.GetCommandPool(), device->GetComputeQueue(), input_src, input_dst);
     offload.SetPipelineOptions(opts);
     offload = data;
     offload.Run(64, 1, 1);
 
     auto out = output->Extract();
-    std::cout << "Output:" << std::endl;
+    std::cout << "Output:" << out.size() << std::endl;
     for (size_t i = 0; i < out.size(); ++i)
     {
       std::cout << out[i] << " ";
@@ -63,7 +65,7 @@ int main(int argc, char const *argv[])
     offload.Run(64, 1, 1);
 
     out = output->Extract();
-    std::cout << "Output:" << std::endl;
+    std::cout << "Output:" << out.size() << std::endl;
     for (size_t i = 0; i < out.size(); ++i)
     {
       std::cout << out[i] << " ";

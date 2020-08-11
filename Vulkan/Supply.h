@@ -39,10 +39,10 @@ namespace Vulkan
   enum class StorageType
   {
     None,
-    Storage,
-    Uniform,
-    Vertex,
-    Index
+    Storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    Uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    Vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    Index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT
   };
 
   class Supply

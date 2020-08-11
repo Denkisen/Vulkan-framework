@@ -308,7 +308,9 @@ std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysica
   VkMemoryRequirements mem_req = {};
   vkGetBufferMemoryRequirements(dev, buffer, &mem_req);
   buffer_size = mem_req.size;
-  
+#ifdef DEBUG
+  std::cout << "Align:" << mem_req.alignment << std::endl;
+#endif
   for (size_t i = 0; i < properties.memoryTypeCount; i++) 
   {
     if (mem_req.memoryTypeBits & (1 << i) && 

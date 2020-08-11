@@ -177,7 +177,7 @@ namespace Vulkan
     vkUpdateDescriptorSets(device->GetDevice(), (uint32_t) descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
   }
 
-  void Descriptors::Add(std::vector<std::shared_ptr<IStorage>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding)
+  void Descriptors::Add(std::vector<std::shared_ptr<IBuffer>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding)
   {
     build_buffers_info.push_back({});
     build_buffers_info[build_buffers_info.size() - 1].stage = stage;

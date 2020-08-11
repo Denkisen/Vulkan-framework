@@ -59,10 +59,11 @@ namespace Vulkan
     Offload(std::shared_ptr<Vulkan::Device> dev);
     Offload(const Offload<T> &offload);
     Offload<T>& operator= (const Offload<T> &obj);
-    Offload<T>& operator= (const std::vector<std::shared_ptr<IStorage>> &obj);
+    Offload<T>& operator= (const std::vector<std::shared_ptr<IBuffer>> &obj);
     void Run(std::size_t x, std::size_t y, std::size_t z);
     void SetPipelineOptions(const OffloadPipelineOptions options);
     void SetShader(const std::string shader_path, const std::string entry_point);
+    VkCommandPool GetCommandPool() { return command_pool->GetCommandPool(); }
     ~Offload()
     {
 #ifdef DEBUG
@@ -153,7 +154,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  Offload<T>& Offload<T>::operator= (const std::vector<std::shared_ptr<IStorage>> &obj)
+  Offload<T>& Offload<T>::operator= (const std::vector<std::shared_ptr<IBuffer>> &obj)
   {
     stop = true;
     std::lock_guard<std::mutex> lock(work_mutex);

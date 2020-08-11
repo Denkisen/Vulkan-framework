@@ -7,9 +7,7 @@
 #include <memory>
 #include <map>
 
-#include "Array.h"
-#include "UniformBuffer.h"
-#include "TransferArray.h"
+#include "Buffer.h"
 #include "Device.h"
 
 namespace Vulkan
@@ -44,7 +42,7 @@ namespace Vulkan
     Descriptors(const Descriptors &obj) = delete;
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
-    void Add(std::vector<std::shared_ptr<IStorage>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding);
+    void Add(std::vector<std::shared_ptr<IBuffer>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding);
     void Build();
     void Clear();
     VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
