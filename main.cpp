@@ -48,7 +48,9 @@ int main(int argc, char const *argv[])
     };
     opts.DispatchEndEvents.push_back(uni_opts);
 
-    Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, "test.comp.spv", "main");
+    std::string path = Vulkan::Supply::GetExecDirectory(argv[0]);
+
+    Vulkan::Offload<float> offload = Vulkan::Offload<float>(device, path + "test.comp.spv", "main");
     Vulkan::IBuffer::MoveData(device->GetDevice(), offload.GetCommandPool(), device->GetComputeQueue(), input_src, input_dst);
     offload.SetPipelineOptions(opts);
     offload = data;

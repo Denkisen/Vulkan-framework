@@ -79,6 +79,7 @@ namespace Vulkan
     static void GetVertexInputBindingDescription(uint32_t binding, std::vector<VertexDescription> vertex_descriptions, VkVertexInputBindingDescription &out_binding_description, std::vector<VkVertexInputAttributeDescription> &out_attribute_descriptions);
     static VkDescriptorType StorageTypeToDescriptorType(Vulkan::StorageType t);
     static VkBufferUsageFlags StorageTypeToBufferUsageFlags(Vulkan::StorageType t);
+    static std::string GetExecDirectory(const std::string argc_path);
   };
 }
 namespace Vulkan

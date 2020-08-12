@@ -381,3 +381,18 @@ VkBufferUsageFlags Vulkan::Supply::StorageTypeToBufferUsageFlags(Vulkan::Storage
 
   return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 }
+
+std::string Vulkan::Supply::GetExecDirectory(const std::string argc_path)
+{
+  std::string path = argc_path;
+
+  for (size_t i = path.size() - 1; i >= 0; --i)
+  {
+    if (path[i] != '/')
+      path.pop_back();
+    else
+      break;
+  }
+
+  return path;
+}
