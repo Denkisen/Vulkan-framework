@@ -2,6 +2,7 @@
 
 #include <map>
 #include <cstring>
+#include <algorithm>
 
 namespace Vulkan
 {
@@ -39,16 +40,18 @@ namespace Vulkan
     if (queues.empty())
       throw std::runtime_error("No suitable family queues");
 
+    std::map<uint32_t, Vulkan::Queue> min_queues;
+    std::for_each(queues.begin(), queues.end(), [&min_queues](Vulkan::Queue &t) { if (t.family.has_value()) min_queues.insert({t.family.value(), t}); });
+
     VkDeviceCreateInfo device_create_info = {};
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    for (auto &family : queues)
+    for (auto &family : min_queues)
     {
-      if (!family.family.has_value()) continue;
       VkDeviceQueueCreateInfo queue_create_info = {};  
       queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      queue_create_info.queueFamilyIndex = family.family.value();
+      queue_create_info.queueFamilyIndex = family.first;
       queue_create_info.queueCount = 1;
-      queue_create_info.pQueuePriorities = &family.queue_priority;
+      queue_create_info.pQueuePriorities = &family.second.queue_priority;
       queue_create_infos.push_back(queue_create_info);
     }
 
@@ -91,14 +94,14 @@ namespace Vulkan
 
     for (uint32_t i = 0; i < family_queues_count; ++i)
     {
-      if (queue_families[i].queueFlags & Vulkan::QueueType::ComputeType && !ret[2].family.has_value())
+      if (queue_families[i].queueFlags & (VkQueueFlags) Vulkan::QueueType::ComputeType && !ret[2].family.has_value())
       {
         ret[2].family = i;
         ret[2].props = queue_families[i];
         ret[2].queue_priority = 1.0f;
       }
 
-      if (queue_families[i].queueFlags & Vulkan::QueueType::DrawingType)
+      if (queue_families[i].queueFlags & (VkQueueFlags) Vulkan::QueueType::DrawingType)
       {
         VkBool32 present = false;
         if (!ret[0].family.has_value())
@@ -211,26 +214,20 @@ namespace Vulkan
 
       switch (queue_flag_bits)
       {
-        case Vulkan::QueueType::DrawingType:      
-          if (!p.device_features.geometryShader)
-          {
-            continue;
-          }
-          rank++;
-          rank += p.device_properties.limits.maxImageDimension2D;
-          break;
         case Vulkan::QueueType::ComputeType:
           rank++;
           rank += p.device_properties.limits.maxComputeSharedMemorySize;
           break;
-        case Vulkan::DrawingAndComputeType:
-          if (!p.device_features.geometryShader)
+        case Vulkan::QueueType::DrawingAndComputeType:
+          rank += p.device_properties.limits.maxComputeSharedMemorySize;
+        case Vulkan::QueueType::DrawingType:
+          if (!p.device_features.geometryShader || !p.device_features.samplerAnisotropy)
           {
+            rank = 0;
             continue;
           }
           rank++;
           rank += p.device_properties.limits.maxImageDimension2D;
-          rank += p.device_properties.limits.maxComputeSharedMemorySize;
           break;
       }
       rank += p.device_properties.limits.maxUniformBufferRange;

@@ -14,7 +14,7 @@
 
 namespace Vulkan
 {
-  enum PhysicalDeviceType
+  enum class PhysicalDeviceType
   {
     Discrete = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
     Integrated = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
@@ -22,7 +22,7 @@ namespace Vulkan
     CPU = VK_PHYSICAL_DEVICE_TYPE_CPU
   };
 
-  enum QueueType
+  enum class QueueType
   {
     ComputeType = VK_QUEUE_COMPUTE_BIT,
     DrawingType = VK_QUEUE_GRAPHICS_BIT,

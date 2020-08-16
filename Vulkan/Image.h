@@ -16,12 +16,11 @@ namespace Vulkan
     Optimal = VK_IMAGE_TILING_OPTIMAL,
     Linear = VK_IMAGE_TILING_LINEAR
   };
-  enum class ImageUsage
+
+  enum class ImageType
   {
-    Transfer_Dst_Sampled = (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
-    Transfer_Dst_Storage = (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT),
-    Transfer_Src = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-    Storage = VK_IMAGE_USAGE_STORAGE_BIT
+    Storage = VK_IMAGE_USAGE_STORAGE_BIT,
+    Sampled = VK_IMAGE_USAGE_SAMPLED_BIT
   };
 
   class Image
@@ -30,28 +29,37 @@ namespace Vulkan
     std::shared_ptr<Vulkan::Device> device;
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory image_memory = VK_NULL_HANDLE;
+    VkImageView image_view = VK_NULL_HANDLE;
     size_t height = 0;
     size_t width = 0;
     size_t channels = 4;
     uint32_t buffer_size = 0;
+    VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+    VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     Vulkan::ImageTiling tiling;
-    Vulkan::ImageUsage usage;
-    void Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, const size_t channels, Vulkan::ImageTiling tiling, Vulkan::ImageUsage usage);
+    Vulkan::HostVisibleMemory access;
+    Vulkan::ImageType type;
+    void Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, Vulkan::ImageType type);
     void Destroy();
   public:
     Image() = delete;
     Image(const Image &obj) = delete;
-    explicit Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
-                  const size_t channels = 4, 
+    explicit Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
                   Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
-                  Vulkan::ImageUsage usage = Vulkan::ImageUsage::Transfer_Dst_Sampled);
+                  Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
+                  Vulkan::ImageType type = Vulkan::ImageType::Sampled);
     Image& operator= (const Image &obj) = delete;
     size_t Width() const { return width; }
     size_t Height() const { return height; }
     size_t Channels() const { return channels; }
-    Vulkan::ImageUsage Usage() const { return usage; }
+    Vulkan::HostVisibleMemory MemoryAccess() const { return access; }
     Vulkan::ImageTiling Tiling() const { return tiling; }
+    Vulkan::ImageType Type() const { return type; }
     VkImage GetImage() const { return image; }
+    VkFormat GetFormat() const { return format; }
+    VkImageLayout GetLayout() const { return layout; }
+    VkImageView GetImageView() const { return image_view; }
+    void SetLayout(const VkImageLayout l) { layout = l; }
 
     ~Image();
   };

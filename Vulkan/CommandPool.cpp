@@ -33,6 +33,26 @@ namespace Vulkan
     this->family_queue_index = family_queue_index;
   }
 
+  void CommandPool::ExecuteBuffer(const uint32_t index)
+  {
+    VkFence move_sync = VK_NULL_HANDLE;
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = 0;
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffers[index].second;
+
+    vkCreateFence(device->GetDevice(), &fence_info, nullptr, &move_sync);
+    vkQueueSubmit(Vulkan::Supply::GetQueueFormFamilyIndex(device->GetDevice(), family_queue_index), 1, &submit_info, move_sync);
+    vkWaitForFences(device->GetDevice(), 1, &move_sync, VK_TRUE, UINT64_MAX);
+
+    if (device != VK_NULL_HANDLE && move_sync != VK_NULL_HANDLE)
+      vkDestroyFence(device->GetDevice(), move_sync, nullptr);
+  }
+
   void CommandPool::BeginCommandBuffer(const uint32_t index, const VkCommandBufferLevel level)
   {
     if (command_buffers.size() <= index)
@@ -166,11 +186,100 @@ namespace Vulkan
     vkCmdDispatch(command_buffers[index].second, x, y, z);
   }
 
-  void CommandPool::CopyBuffer(const uint32_t index, const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions)
+  void CommandPool::CopyBuffer(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions)
   {
     if (index >= command_buffers.size())
       throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+
+    if (regions.empty())
+      throw std::runtime_error("It must be atleast one VkBufferCopy region.");
+
+    if (src.get() == nullptr || dst.get() == nullptr || src->GetBuffer() == VK_NULL_HANDLE || dst->GetBuffer() == VK_NULL_HANDLE)
+      throw std::runtime_error("Invalid buffer pointer");
     
-    vkCmdCopyBuffer(command_buffers[index].second, src, dst, (uint32_t) regions.size(), regions.data());
+    vkCmdCopyBuffer(command_buffers[index].second, src->GetBuffer(), dst->GetBuffer(), (uint32_t) regions.size(), regions.data());
+  }
+
+  void CommandPool::CopyBufferToImage(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, std::vector<VkBufferImageCopy> regions)
+  {
+    if (index >= command_buffers.size())
+      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+
+    VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    if (dst->GetLayout() == VK_IMAGE_LAYOUT_UNDEFINED || dst->GetLayout() == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+      layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    else
+      layout = dst->GetLayout();
+    
+    TransitionPipelineBarrier(index, dst, layout);
+    vkCmdCopyBufferToImage(command_buffers[index].second, src->GetBuffer(), dst->GetImage(), layout, (uint32_t) regions.size(), regions.data());
+    TransitionPipelineBarrier(index, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  }
+
+  void CommandPool::TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
+  {
+    if (index >= command_buffers.size())
+      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+
+    VkPipelineStageFlags src_stage;
+    VkPipelineStageFlags dst_stage;
+    VkImageMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = image->GetLayout();
+    barrier.newLayout = new_layout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image->GetImage();
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+    {
+      barrier.srcAccessMask = 0;
+      barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+      src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    } 
+    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+    {
+      barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+      src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+      dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } 
+    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+      barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+      src_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else 
+    {
+      throw std::invalid_argument("Unsupported layout transition!");
+    }
+
+    image->SetLayout(new_layout);
+    vkCmdPipelineBarrier(command_buffers[index].second, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+  }
+
+  void CommandPool::TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<IBuffer> buffer)
+  {
+    // VkBufferMemoryBarrier barrier = {};
+    // barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    // barrier.pNext = nullptr;
+    // barrier.buffer = buffer->GetBuffer();
+    // barrier.size = buffer->BufferLength();
+    // barrier.offset = 0;
+    // barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    // barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   }
 }

@@ -8,47 +8,68 @@
 #include <map>
 
 #include "Buffer.h"
+#include "Image.h"
+#include "Sampler.h"
 #include "Device.h"
 
 namespace Vulkan
-{
+{  
+  enum class DescriptorType
+  {
+    BufferStorage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    BufferUniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    ImageSamplerCombined = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    ImageSampled = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    ImageStorage = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    Sampler = VK_DESCRIPTOR_TYPE_SAMPLER
+  };
+
+  struct DescriptorSetLayout
+  {
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> sets;
+    uint32_t sets_count = 0;
+    VkShaderStageFlags stage;
+  };
+
   struct DescriptorInfo
   {
-    std::vector<VkBuffer> buffers;
-    std::vector<VkDescriptorSetLayout> layouts;
-    std::vector<VkDescriptorSet> sets;
-    std::vector<Vulkan::StorageType> types;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkSampler sampler = VK_NULL_HANDLE;
+    VkImageView image_view = VK_NULL_HANDLE;
+    uint32_t binding = 0;
     VkShaderStageFlags stage;
-    bool multiple_layouts_one_binding = true;
+    Vulkan::DescriptorType type;
   };
 
   class Descriptors
   {
   private:
     std::shared_ptr<Vulkan::Device> device;
-    std::vector<DescriptorInfo> buffers_info;
-    std::vector<DescriptorInfo> build_buffers_info;
-    std::multimap<Vulkan::StorageType, uint32_t> pool_config;
-    uint32_t sets_to_allocate = 0;
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+    std::vector<DescriptorSetLayout> layouts;
+    std::vector<std::pair<bool, std::vector<DescriptorInfo>>> build_info;
+    std::map<Vulkan::DescriptorType, uint32_t> pool_config;
+    VkDescriptorPool CreateDescriptorPool(std::map<Vulkan::DescriptorType, uint32_t> pool_conf);
 
-    VkDescriptorPool CreateDescriptorPool();
-    void CreateDescriptorSetLayouts(DescriptorInfo &info);
-    void CreateDescriptorSets(DescriptorInfo &info);
-    void UpdateDescriptorSet(DescriptorInfo &info);
+    void CreateDescriptorSetLayout(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info);
+    void CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &info);
+    void UpdateDescriptorSet(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info);
+    Vulkan::DescriptorType MapStorageType(Vulkan::StorageType type);
     void Destroy();
   public:
     Descriptors() = delete;
     Descriptors(const Descriptors &obj) = delete;
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
-    void Add(std::vector<std::shared_ptr<IBuffer>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding);
-    void Build();
-    void Clear();
-    VkDescriptorPool GetDescriptorPool() { return descriptor_pool; }
-    VkBuffer GetBuffer(size_t index, size_t element) { return (index < buffers_info.size() && element < buffers_info[index].buffers.size()) ? buffers_info[index].buffers[element] : VK_NULL_HANDLE; }
-    std::vector<VkDescriptorSet> GetDescriptorSet(size_t index) { return index < buffers_info.size() ? buffers_info[index].sets : std::vector<VkDescriptorSet>(); }
-    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayout(size_t index) { return index < buffers_info.size() ? buffers_info[index].layouts : std::vector<VkDescriptorSetLayout>(); }
+    void ClearDescriptorSetLayout(const uint32_t index);
+    void Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding);
+    void Add(const uint32_t index, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage, const uint32_t binding);
+    void BuildAll();
+    size_t GetLayoutsCount() const { return layouts.size(); }
+    VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) const { return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }
+    std::vector<VkDescriptorSet> GetDescriptorSet(const size_t layout_index) const { return layout_index < layouts.size() ? layouts[layout_index].sets : std::vector<VkDescriptorSet>(); }
     ~Descriptors();
   };
 }

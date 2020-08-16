@@ -99,5 +99,6 @@ void ImageBuffer::SetChannels(const int channals)
       cv::cvtColor(image, dest, cv::COLOR_GRAY2RGBA, channals);
     else if (channals == 3 && image.channels() == 1)
       cv::cvtColor(image, dest, cv::COLOR_GRAY2RGB, channals);
+    image = dest;
   }
 }

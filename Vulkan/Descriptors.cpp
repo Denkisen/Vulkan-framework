@@ -2,22 +2,34 @@
 
 namespace Vulkan
 {
+  Vulkan::DescriptorType Descriptors::MapStorageType(Vulkan::StorageType type)
+  {
+    switch (type)
+    {
+      case Vulkan::StorageType::Storage:
+      case Vulkan::StorageType::Index:
+      case Vulkan::StorageType::Vertex:
+        return Vulkan::DescriptorType::BufferStorage;
+      case Vulkan::StorageType::Uniform:
+        return Vulkan::DescriptorType::BufferUniform;
+      default:
+        throw std::runtime_error("Unknown StorageType");
+    }
+  }
+
   void Descriptors::Destroy()
   {
     if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
     {
-      for (auto &info : buffers_info)
+      for (auto &layout : layouts)
       {
-        for (auto descriptor_set_layout : info.layouts)
+        if (layout.layout != VK_NULL_HANDLE)
         {
-          if (descriptor_set_layout != VK_NULL_HANDLE)
-          {
-            vkDestroyDescriptorSetLayout(device->GetDevice(), descriptor_set_layout, nullptr);
-            descriptor_set_layout = VK_NULL_HANDLE;
-          }
+          vkDestroyDescriptorSetLayout(device->GetDevice(), layout.layout, nullptr);
+          layout.layout = VK_NULL_HANDLE;
         }
       }
-      buffers_info.clear();
+      layouts.clear();
 
       if (descriptor_pool != VK_NULL_HANDLE)
       {
@@ -43,25 +55,27 @@ namespace Vulkan
     device = dev;
   }
 
-  VkDescriptorPool Descriptors::CreateDescriptorPool()
+  VkDescriptorPool Descriptors::CreateDescriptorPool(std::map<Vulkan::DescriptorType, uint32_t> pool_conf)
   {
     VkDescriptorPool result = VK_NULL_HANDLE;
 
-    if (pool_config.empty())
-      throw std::runtime_error("Error: pool_config.empty()");
+    if (pool_conf.empty())
+      throw std::runtime_error("Error: pool_conf.empty()");
     
     std::vector<VkDescriptorPoolSize> pool_sizes;
-    for (auto i = pool_config.begin(); i != pool_config.end(); ++i)
+    uint32_t max_sets = 0;
+    for (auto i = pool_conf.begin(); i != pool_conf.end(); ++i)
     {
       VkDescriptorPoolSize sz = {};
-      sz.type = Vulkan::Supply::StorageTypeToDescriptorType(i->first);
+      sz.type = (VkDescriptorType) i->first;
       sz.descriptorCount = i->second;
+      max_sets += i->second;
       pool_sizes.push_back(sz);
     }
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info = {};
     descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptor_pool_create_info.maxSets = sets_to_allocate;
+    descriptor_pool_create_info.maxSets = max_sets;
     descriptor_pool_create_info.pPoolSizes = pool_sizes.data();
     descriptor_pool_create_info.poolSizeCount = (uint32_t) pool_sizes.size();
 
@@ -71,149 +85,196 @@ namespace Vulkan
     return result;
   }
 
-  void Descriptors::CreateDescriptorSetLayouts(DescriptorInfo &info)
+  void Descriptors::CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &info)
   {
-    if (info.multiple_layouts_one_binding)
-    {
-      info.layouts.resize(info.buffers.size());
-      for (size_t i = 0; i < info.layouts.size(); ++i)
-      {
-        VkDescriptorSetLayoutBinding descriptor_set_layout_binding;
-        descriptor_set_layout_binding.binding = 0;
-        descriptor_set_layout_binding.descriptorType = Vulkan::Supply::StorageTypeToDescriptorType(info.types[i]);
-        descriptor_set_layout_binding.descriptorCount = 1;
-        descriptor_set_layout_binding.stageFlags = info.stage;
-        
-        VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
-        descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        descriptor_set_layout_create_info.bindingCount = 1;
-        descriptor_set_layout_create_info.pBindings = &descriptor_set_layout_binding;
-
-        if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &info.layouts[i]) != VK_SUCCESS)
-          throw std::runtime_error("Can't create DescriptorSetLayout.");
-      }
-    }
-    else
-    {
-      info.layouts.resize(1);
-      std::vector<VkDescriptorSetLayoutBinding> descriptor_set_layout_bindings(info.buffers.size());
-
-      for (size_t i = 0; i < descriptor_set_layout_bindings.size(); ++i)
-      {
-        descriptor_set_layout_bindings[i].binding = i;
-        descriptor_set_layout_bindings[i].descriptorType = Vulkan::Supply::StorageTypeToDescriptorType(info.types[i]);
-        descriptor_set_layout_bindings[i].descriptorCount = 1;
-        descriptor_set_layout_bindings[i].stageFlags = info.stage;
-      }
-
-      VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
-      descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-      descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size();
-      descriptor_set_layout_create_info.pBindings = descriptor_set_layout_bindings.data();
-
-      if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &info.layouts[0]) != VK_SUCCESS)
-        throw std::runtime_error("Can't create DescriptorSetLayout.");
-    }
-
-    sets_to_allocate += info.layouts.size();
-
-    for (size_t i = 0; i < info.types.size(); ++i)
-    {
-      auto it = pool_config.find(info.types[i]);
-      if (it == pool_config.end())
-      {
-        pool_config.insert(std::make_pair(info.types[i], 1));
-      }
-      else
-      {
-        it->second += 1;
-      }
-    }
-  }
-
-  void Descriptors::CreateDescriptorSets(DescriptorInfo &info)
-  {
-    info.sets.resize(info.layouts.size());
+    info.sets.resize(info.sets_count, VK_NULL_HANDLE);
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool = descriptor_pool;
-    alloc_info.descriptorSetCount = (uint32_t) info.layouts.size();
-    alloc_info.pSetLayouts = info.layouts.data();
+    alloc_info.descriptorPool = pool;
+    alloc_info.descriptorSetCount = info.sets_count;
+    alloc_info.pSetLayouts = &info.layout;
 
     if (vkAllocateDescriptorSets(device->GetDevice(), &alloc_info, info.sets.data()) != VK_SUCCESS)
       throw std::runtime_error("failed to allocate descriptor sets!");
   }
 
-  void Descriptors::UpdateDescriptorSet(DescriptorInfo &info)
+  void Descriptors::CreateDescriptorSetLayout(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info)
   {
-    std::vector<VkDescriptorBufferInfo> buffer_infos;
-    std::vector<VkWriteDescriptorSet> descriptor_writes;
-
-    buffer_infos.resize(info.buffers.size());
-    descriptor_writes.resize(info.buffers.size());
-    for (size_t i = 0; i < info.buffers.size(); ++i)
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
+    std::vector<VkDescriptorSetLayoutBinding> descriptor_set_layout_bindings;
+    layout.sets_count = 1;
+    for (auto &t : info)
     {
-      buffer_infos[i].buffer = info.buffers[i];
-      buffer_infos[i].offset = 0;
-      buffer_infos[i].range = VK_WHOLE_SIZE;
+      VkDescriptorSetLayoutBinding descriptor_set_layout_binding = {};
+      descriptor_set_layout_binding.binding = t.binding;
+      descriptor_set_layout_binding.descriptorType = (VkDescriptorType) t.type;
+      descriptor_set_layout_binding.stageFlags = t.stage;
+      descriptor_set_layout_binding.pImmutableSamplers = nullptr;
+      descriptor_set_layout_binding.descriptorCount = 1;
+      descriptor_set_layout_bindings.push_back(descriptor_set_layout_binding);
+      // layout.sets_count++;
+    }
 
+    descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size();
+    descriptor_set_layout_create_info.pBindings = descriptor_set_layout_bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &layout.layout) != VK_SUCCESS)
+      throw std::runtime_error("Can't create DescriptorSetLayout.");
+  }
+
+  void Descriptors::UpdateDescriptorSet(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info)
+  {
+    std::vector<VkWriteDescriptorSet> descriptor_writes(info.size());
+    std::vector<VkDescriptorBufferInfo> buffer_infos(info.size());
+    std::vector<VkDescriptorImageInfo> image_infos(info.size());
+
+    for (size_t i = 0; i < info.size(); ++i)
+    { 
       descriptor_writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      if (info.multiple_layouts_one_binding)
+      descriptor_writes[i].dstSet = layout.sets[0];
+      descriptor_writes[i].dstBinding = info[i].binding;
+      descriptor_writes[i].dstArrayElement = 0; // index in binding
+      descriptor_writes[i].descriptorCount = 1; //  <= binding.descriptorCount
+      descriptor_writes[i].descriptorType = (VkDescriptorType) info[i].type;
+
+      if (info[i].buffer != VK_NULL_HANDLE)
       {
-        descriptor_writes[i].dstSet = info.sets[i];
-        descriptor_writes[i].dstBinding = 0;
+        buffer_infos[i].buffer = info[i].buffer;
+        buffer_infos[i].offset = 0;
+        buffer_infos[i].range = VK_WHOLE_SIZE;
+
+        descriptor_writes[i].pBufferInfo = &buffer_infos[i];
+        descriptor_writes[i].pImageInfo = VK_NULL_HANDLE;
+      }
+      else if (info[i].image_view != VK_NULL_HANDLE && info[i].sampler != VK_NULL_HANDLE)
+      {
+        image_infos[i].imageView = info[i].image_view;
+        image_infos[i].imageLayout = info[i].image_layout;
+        image_infos[i].sampler = info[i].sampler;
+
+        descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
+        descriptor_writes[i].pImageInfo = &image_infos[i];
+      }
+      else if (info[i].image_view != VK_NULL_HANDLE)
+      {
+        image_infos[i].imageView = info[i].image_view;
+        image_infos[i].imageLayout = info[i].image_layout;
+        image_infos[i].sampler = VK_NULL_HANDLE;
+
+        descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
+        descriptor_writes[i].pImageInfo = &image_infos[i];
+      }
+      else if (info[i].sampler != VK_NULL_HANDLE)
+      {
+        throw std::runtime_error("Not implemented.");
       }
       else
       {
-        descriptor_writes[i].dstSet = info.sets[0];
-        descriptor_writes[i].dstBinding = i;
+        throw std::runtime_error("No suitable objects for VkWriteDescriptorSet");
       }
-      descriptor_writes[i].dstArrayElement = 0; // index in binding
-      descriptor_writes[i].descriptorCount = 1; //  <= binding.descriptorCount
-      descriptor_writes[i].descriptorType = Vulkan::Supply::StorageTypeToDescriptorType(info.types[i]);
-      descriptor_writes[i].pBufferInfo = &buffer_infos[i]; // array of descriptorCount
     }
 
     vkUpdateDescriptorSets(device->GetDevice(), (uint32_t) descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
   }
 
-  void Descriptors::Add(std::vector<std::shared_ptr<IBuffer>> data, VkShaderStageFlags stage, bool multiple_layouts_one_binding)
+  void Descriptors::ClearDescriptorSetLayout(const uint32_t index)
   {
-    build_buffers_info.push_back({});
-    build_buffers_info[build_buffers_info.size() - 1].stage = stage;
-    build_buffers_info[build_buffers_info.size() - 1].multiple_layouts_one_binding = multiple_layouts_one_binding;
-    build_buffers_info[build_buffers_info.size() - 1].buffers.resize(data.size());
-    build_buffers_info[build_buffers_info.size() - 1].types.resize(data.size());
-
-    for (size_t i = 0; i < data.size(); ++i)
+    if (index < build_info.size())
     {
-      build_buffers_info[build_buffers_info.size() - 1].buffers[i] = data[i]->GetBuffer();
-      build_buffers_info[build_buffers_info.size() - 1].types[i] = data[i]->Type();
+      build_info[index] = std::make_pair(true, std::vector<DescriptorInfo>());
+    }
+    else
+    {
+      build_info.resize(index + 1, std::make_pair(true, std::vector<DescriptorInfo>()));
     }
   }
 
-  void Descriptors::Clear()
+  void Descriptors::Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding)
   {
-    build_buffers_info.clear();
+    if (index >= build_info.size())
+      throw std::runtime_error("build_info count is less then " + std::to_string(index));
+
+    if (build_info[index].first == false)
+      throw std::runtime_error("Layout is not editable.");
+
+    DescriptorInfo info = {};
+    info.buffer = buffer->GetBuffer();
+    info.binding = binding;
+    info.stage = stage;
+    info.type = MapStorageType(buffer->Type());
+    build_info[index].second.push_back(info);
   }
 
-  void Descriptors::Build()
+  void Descriptors::Add(const uint32_t index, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage, const uint32_t binding)
   {
+    if (index >= build_info.size())
+      throw std::runtime_error("build_info count is less then " + std::to_string(index));
+    
+    if (build_info[index].first == false)
+      throw std::runtime_error("Layout is not editable.");
+
+    DescriptorInfo info = {};
+    info.image_view = image->GetImageView();
+    info.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    info.stage = stage;
+    info.binding = binding;
+    if (image->Type() == ImageType::Sampled)
+    {
+      if (sampler->GetSampler() == VK_NULL_HANDLE)
+      {
+        info.type = DescriptorType::ImageSampled;
+      }
+      else
+      {
+        info.sampler = sampler->GetSampler();
+        info.type = DescriptorType::ImageSamplerCombined;
+      }
+    }
+    else
+      info.type = DescriptorType::ImageStorage;
+
+    build_info[index].second.push_back(info);
+  }
+
+  void Descriptors::BuildAll()
+  {
+    std::map<Vulkan::DescriptorType, uint32_t> config;
+    for (auto &info : build_info)
+    {
+      if (info.first == true && !info.second.empty())
+      {
+        for (auto &item : info.second)
+        {
+          auto it = config.find(item.type);
+          if (it == config.end())
+          {
+            config.insert(std::make_pair(item.type, 1));
+          }
+          else
+          {
+            it->second += 1;
+          }
+        }
+      }
+    }
+
+    if (config.empty()) return;
     Destroy();
-    pool_config.clear();
-    buffers_info = build_buffers_info;
+    pool_config = config;
+    descriptor_pool = CreateDescriptorPool(pool_config);
 
-    for (size_t i = 0; i < buffers_info.size(); ++i)
+    for (size_t i = 0; i < build_info.size(); ++i)
     {
-      CreateDescriptorSetLayouts(buffers_info[i]);
-    }
-
-    descriptor_pool = CreateDescriptorPool();
-
-    for (size_t i = 0; i < buffers_info.size(); ++i)
-    {
-      CreateDescriptorSets(buffers_info[i]);
-      UpdateDescriptorSet(buffers_info[i]);
+      if (build_info[i].first == true && !build_info[i].second.empty())
+      {
+        DescriptorSetLayout layout = {};
+        CreateDescriptorSetLayout(layout, build_info[i].second);
+        CreateDescriptorSets(descriptor_pool, layout);
+        UpdateDescriptorSet(layout, build_info[i].second);
+        layouts.push_back(layout);
+        build_info[i].first = false;
+      }
     }
   }
 }

@@ -36,13 +36,10 @@ namespace Vulkan
     Vulkan::ShaderType type;
   };
 
-  enum class StorageType
+  enum class HostVisibleMemory
   {
-    None,
-    Storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-    Uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    Vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-    Index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+    HostVisible = (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+    HostInvisible = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
   };
 
   class Supply
@@ -77,8 +74,6 @@ namespace Vulkan
     static VkPipelineLayout CreatePipelineLayout(VkDevice device, std::vector<VkDescriptorSetLayout> layouts);
     template <class T>
     static void GetVertexInputBindingDescription(uint32_t binding, std::vector<VertexDescription> vertex_descriptions, VkVertexInputBindingDescription &out_binding_description, std::vector<VkVertexInputAttributeDescription> &out_attribute_descriptions);
-    static VkDescriptorType StorageTypeToDescriptorType(Vulkan::StorageType t);
-    static VkBufferUsageFlags StorageTypeToBufferUsageFlags(Vulkan::StorageType t);
     static std::string GetExecDirectory(const std::string argc_path);
   };
 }

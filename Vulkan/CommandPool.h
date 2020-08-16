@@ -9,6 +9,8 @@
 
 #include "Device.h"
 #include "Supply.h"
+#include "Buffer.h"
+#include "Image.h"
 
 namespace Vulkan
 {
@@ -20,6 +22,8 @@ namespace Vulkan
     std::vector<std::pair<VkCommandBufferLevel, VkCommandBuffer>> command_buffers;
     uint32_t family_queue_index = 0;
     void Destroy();
+    void TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout);
+    void TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<IBuffer> buffer);
   public:
     CommandPool() = delete;
     CommandPool(const CommandPool &obj) = delete;
@@ -28,6 +32,8 @@ namespace Vulkan
     const VkCommandBuffer& operator[] (const uint32_t index) const { return command_buffers[index].second; }
     VkCommandPool GetCommandPool() const { return command_pool; }
     size_t GetCommandBuffersCount() const { return command_buffers.size(); }
+    void ExecuteBuffer(const uint32_t index);
+
     void BeginCommandBuffer(const uint32_t index, const VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     void EndCommandBuffer(const uint32_t index);
     void BindPipeline(const uint32_t index, const VkPipeline pipeline, const VkPipelineBindPoint bind_point);
@@ -39,7 +45,9 @@ namespace Vulkan
     void DrawIndexed(const uint32_t index, const uint32_t index_count, const uint32_t first_index, const uint32_t vertex_offset = 0, const uint32_t instance_count = 1, const uint32_t first_instance = 0);
     void Draw(const uint32_t index, const uint32_t vertex_count, const uint32_t first_vertex = 0, const uint32_t instance_count = 1, const uint32_t first_instance = 0);
     void Dispatch(const uint32_t index, const uint32_t x, const uint32_t y, const uint32_t z);
-    void CopyBuffer(const uint32_t index, const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions);
+    void CopyBuffer(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions);
+    void CopyBufferToImage(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, const std::vector<VkBufferImageCopy> regions);
+    
     ~CommandPool();
   };
 }
