@@ -62,48 +62,6 @@ int main(int argc, char const *argv[])
       std::cout << out[i] << " ";
     }
     std::cout << std::endl;
-
-    // Vulkan::CommandPool pool(device, device->GetComputeFamilyQueueIndex().value());
-    // std::shared_ptr<Vulkan::Buffer<float>> b1_src = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostVisible);
-    // std::shared_ptr<Vulkan::Buffer<float>> b2_dst = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostInvisible);
-    // std::shared_ptr<Vulkan::Buffer<float>> b3_dst = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostInvisible);
-    // std::shared_ptr<Vulkan::Buffer<float>> b4_src = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostVisible);
-
-    // *b1_src = std::vector<float>(64, 5.0);
-    // *b2_dst = std::vector<float>(64, 0.0);
-    // *b3_dst = std::vector<float>(64, 0.0);
-    // *b4_src = std::vector<float>(64, 0.0);
-
-    // VkBufferCopy copy_region = {};
-    // copy_region.srcOffset = 0;
-    // copy_region.dstOffset = 0;
-    
-
-    // pool.BeginCommandBuffer(0);
-    // copy_region.size = std::min(b1_src->BufferLength(), b2_dst->BufferLength());
-    // pool.CopyBuffer(0, b1_src, b2_dst, { copy_region });
-    // pool.EndCommandBuffer(0);
-    // pool.ExecuteBuffer(0);
-
-    // pool.BeginCommandBuffer(0);
-    // copy_region.size = std::min(b2_dst->BufferLength(), b3_dst->BufferLength());
-    // pool.CopyBuffer(0, b2_dst, b3_dst, { copy_region });
-    // pool.EndCommandBuffer(0);
-    // pool.ExecuteBuffer(0);
-
-    // pool.BeginCommandBuffer(0);
-    // copy_region.size = std::min(b3_dst->BufferLength(), b4_src->BufferLength());
-    // pool.CopyBuffer(0, b3_dst, b4_src, { copy_region });
-    // pool.EndCommandBuffer(0);
-    // pool.ExecuteBuffer(0);
-
-    // out = b4_src->Extract();
-    // std::cout << "Output:" << out.size() << std::endl;
-    // for (size_t i = 0; i < out.size(); ++i)
-    // {
-    //   std::cout << out[i] << " ";
-    // }
-    // std::cout << std::endl;
   }
   catch(const std::exception& e)
   {

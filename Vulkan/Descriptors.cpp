@@ -1,5 +1,7 @@
 #include "Descriptors.h"
 
+#include <algorithm>
+
 namespace Vulkan
 {
   Vulkan::DescriptorType Descriptors::MapStorageType(Vulkan::StorageType type)
@@ -55,7 +57,7 @@ namespace Vulkan
     device = dev;
   }
 
-  VkDescriptorPool Descriptors::CreateDescriptorPool(std::map<Vulkan::DescriptorType, uint32_t> pool_conf)
+  VkDescriptorPool Descriptors::CreateDescriptorPool(const std::map<Vulkan::DescriptorType, uint32_t> pool_conf, const uint32_t max_sets)
   {
     VkDescriptorPool result = VK_NULL_HANDLE;
 
@@ -63,13 +65,11 @@ namespace Vulkan
       throw std::runtime_error("Error: pool_conf.empty()");
     
     std::vector<VkDescriptorPoolSize> pool_sizes;
-    uint32_t max_sets = 0;
     for (auto i = pool_conf.begin(); i != pool_conf.end(); ++i)
     {
       VkDescriptorPoolSize sz = {};
       sz.type = (VkDescriptorType) i->first;
       sz.descriptorCount = i->second;
-      max_sets += i->second;
       pool_sizes.push_back(sz);
     }
 
@@ -85,24 +85,26 @@ namespace Vulkan
     return result;
   }
 
-  void Descriptors::CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &info)
+  DescriptorSetLayout Descriptors::CreateDescriptorSets(const VkDescriptorPool pool, const DescriptorSetLayout layout)
   {
-    info.sets.resize(info.sets_count, VK_NULL_HANDLE);
+    DescriptorSetLayout result = layout;
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.descriptorPool = pool;
-    alloc_info.descriptorSetCount = info.sets_count;
-    alloc_info.pSetLayouts = &info.layout;
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts = &result.layout;
 
-    if (vkAllocateDescriptorSets(device->GetDevice(), &alloc_info, info.sets.data()) != VK_SUCCESS)
+    if (vkAllocateDescriptorSets(device->GetDevice(), &alloc_info, &result.set) != VK_SUCCESS)
       throw std::runtime_error("failed to allocate descriptor sets!");
+
+    return result;
   }
 
-  void Descriptors::CreateDescriptorSetLayout(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info)
+  DescriptorSetLayout Descriptors::CreateDescriptorSetLayout(const std::vector<DescriptorInfo> info)
   {
+    DescriptorSetLayout result = {};
     VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
     std::vector<VkDescriptorSetLayoutBinding> descriptor_set_layout_bindings;
-    layout.sets_count = 1;
     for (auto &t : info)
     {
       VkDescriptorSetLayoutBinding descriptor_set_layout_binding = {};
@@ -112,66 +114,88 @@ namespace Vulkan
       descriptor_set_layout_binding.pImmutableSamplers = nullptr;
       descriptor_set_layout_binding.descriptorCount = 1;
       descriptor_set_layout_bindings.push_back(descriptor_set_layout_binding);
-      // layout.sets_count++;
     }
 
     descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptor_set_layout_create_info.bindingCount = (uint32_t) descriptor_set_layout_bindings.size();
     descriptor_set_layout_create_info.pBindings = descriptor_set_layout_bindings.data();
 
-    if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &layout.layout) != VK_SUCCESS)
+    if (vkCreateDescriptorSetLayout(device->GetDevice(), &descriptor_set_layout_create_info, nullptr, &result.layout) != VK_SUCCESS)
       throw std::runtime_error("Can't create DescriptorSetLayout.");
+
+    return result;
   }
 
-  void Descriptors::UpdateDescriptorSet(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info)
+  void Descriptors::UpdateDescriptorSet(const DescriptorSetLayout layout, const std::vector<DescriptorInfo> info)
   {
     std::vector<VkWriteDescriptorSet> descriptor_writes(info.size());
-    std::vector<VkDescriptorBufferInfo> buffer_infos(info.size());
-    std::vector<VkDescriptorImageInfo> image_infos(info.size());
+    std::pair<uint32_t, uint32_t> count = std::make_pair(0, 0);
+    for (auto &t : info)
+    {
+      switch (t.type)
+      {
+        case DescriptorType::BufferStorage:
+        case DescriptorType::BufferUniform:
+          count.first++;
+          break;
+        case DescriptorType::ImageSamplerCombined:
+        case DescriptorType::ImageSampled:
+        case DescriptorType::ImageStorage:
+          count.second++;
+          break;
+        case DescriptorType::Sampler:
+        default:
+          throw std::runtime_error("No suitable objects for VkWriteDescriptorSet");
+      }
+    }
+    std::vector<VkDescriptorBufferInfo> buffer_infos(count.first);
+    std::vector<VkDescriptorImageInfo> image_infos(count.second);
+    count = std::make_pair(0, 0);
 
     for (size_t i = 0; i < info.size(); ++i)
     { 
       descriptor_writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      descriptor_writes[i].dstSet = layout.sets[0];
+      descriptor_writes[i].dstSet = layout.set;
       descriptor_writes[i].dstBinding = info[i].binding;
-      descriptor_writes[i].dstArrayElement = 0; // index in binding
-      descriptor_writes[i].descriptorCount = 1; //  <= binding.descriptorCount
+      descriptor_writes[i].dstArrayElement = 0;
+      descriptor_writes[i].descriptorCount = 1;
       descriptor_writes[i].descriptorType = (VkDescriptorType) info[i].type;
 
-      if (info[i].buffer != VK_NULL_HANDLE)
+      switch (info[i].type)
       {
-        buffer_infos[i].buffer = info[i].buffer;
-        buffer_infos[i].offset = 0;
-        buffer_infos[i].range = VK_WHOLE_SIZE;
+        case DescriptorType::BufferStorage:
+        case DescriptorType::BufferUniform:
+          buffer_infos[count.first].buffer = info[i].buffer;
+          buffer_infos[count.first].offset = 0;
+          buffer_infos[count.first].range = VK_WHOLE_SIZE;
 
-        descriptor_writes[i].pBufferInfo = &buffer_infos[i];
-        descriptor_writes[i].pImageInfo = VK_NULL_HANDLE;
-      }
-      else if (info[i].image_view != VK_NULL_HANDLE && info[i].sampler != VK_NULL_HANDLE)
-      {
-        image_infos[i].imageView = info[i].image_view;
-        image_infos[i].imageLayout = info[i].image_layout;
-        image_infos[i].sampler = info[i].sampler;
+          descriptor_writes[i].pBufferInfo = &buffer_infos[count.first];
+          descriptor_writes[i].pImageInfo = VK_NULL_HANDLE;
+          count.first++;
+          break;
+        case DescriptorType::ImageSamplerCombined:
+          image_infos[count.second].imageView = info[i].image_view;
+          image_infos[count.second].imageLayout = info[i].image_layout;
+          image_infos[count.second].sampler = info[i].sampler;
 
-        descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
-        descriptor_writes[i].pImageInfo = &image_infos[i];
-      }
-      else if (info[i].image_view != VK_NULL_HANDLE)
-      {
-        image_infos[i].imageView = info[i].image_view;
-        image_infos[i].imageLayout = info[i].image_layout;
-        image_infos[i].sampler = VK_NULL_HANDLE;
+          descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
+          descriptor_writes[i].pImageInfo = &image_infos[count.second];
+          count.second++;
+          break;
+        case DescriptorType::ImageSampled:
+        case DescriptorType::ImageStorage:
+          image_infos[count.second].imageView = info[i].image_view;
+          image_infos[count.second].imageLayout = info[i].image_layout;
+          image_infos[count.second].sampler = VK_NULL_HANDLE;
 
-        descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
-        descriptor_writes[i].pImageInfo = &image_infos[i];
-      }
-      else if (info[i].sampler != VK_NULL_HANDLE)
-      {
-        throw std::runtime_error("Not implemented.");
-      }
-      else
-      {
-        throw std::runtime_error("No suitable objects for VkWriteDescriptorSet");
+          descriptor_writes[i].pBufferInfo = VK_NULL_HANDLE;
+          descriptor_writes[i].pImageInfo = &image_infos[count.second];
+          count.second++;
+          break;
+        case DescriptorType::Sampler:
+          throw std::runtime_error("Not implemented.");
+        default:
+          throw std::runtime_error("No suitable objects for VkWriteDescriptorSet");
       }
     }
 
@@ -181,13 +205,9 @@ namespace Vulkan
   void Descriptors::ClearDescriptorSetLayout(const uint32_t index)
   {
     if (index < build_info.size())
-    {
       build_info[index] = std::make_pair(true, std::vector<DescriptorInfo>());
-    }
     else
-    {
       build_info.resize(index + 1, std::make_pair(true, std::vector<DescriptorInfo>()));
-    }
   }
 
   void Descriptors::Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding)
@@ -197,6 +217,9 @@ namespace Vulkan
 
     if (build_info[index].first == false)
       throw std::runtime_error("Layout is not editable.");
+    
+    if (buffer->GetBuffer() == VK_NULL_HANDLE)
+      throw std::runtime_error("Invalid buffer pointer.");
 
     DescriptorInfo info = {};
     info.buffer = buffer->GetBuffer();
@@ -213,6 +236,9 @@ namespace Vulkan
     
     if (build_info[index].first == false)
       throw std::runtime_error("Layout is not editable.");
+
+    if (image->GetImageView() == VK_NULL_HANDLE)
+      throw std::runtime_error("Invalid ImageView pointer.");
 
     DescriptorInfo info = {};
     info.image_view = image->GetImageView();
@@ -248,13 +274,9 @@ namespace Vulkan
         {
           auto it = config.find(item.type);
           if (it == config.end())
-          {
             config.insert(std::make_pair(item.type, 1));
-          }
           else
-          {
             it->second += 1;
-          }
         }
       }
     }
@@ -262,19 +284,34 @@ namespace Vulkan
     if (config.empty()) return;
     Destroy();
     pool_config = config;
-    descriptor_pool = CreateDescriptorPool(pool_config);
+    descriptor_pool = CreateDescriptorPool(pool_config, build_info.size());
 
     for (size_t i = 0; i < build_info.size(); ++i)
     {
       if (build_info[i].first == true && !build_info[i].second.empty())
       {
-        DescriptorSetLayout layout = {};
-        CreateDescriptorSetLayout(layout, build_info[i].second);
-        CreateDescriptorSets(descriptor_pool, layout);
+        auto layout = CreateDescriptorSetLayout(build_info[i].second);
+        layout = CreateDescriptorSets(descriptor_pool, layout);
         UpdateDescriptorSet(layout, build_info[i].second);
         layouts.push_back(layout);
         build_info[i].first = false;
       }
     }
+  }
+
+  std::vector<VkDescriptorSetLayout> Descriptors::GetDescriptorSetLayouts() const
+  {
+    std::vector<VkDescriptorSetLayout> result(layouts.size());
+    for (size_t i = 0; i < result.size(); ++i)
+      result[i] = layouts[i].layout;
+    return result;
+  }
+
+  std::vector<VkDescriptorSet> Descriptors::GetDescriptorSets() const
+  {
+    std::vector<VkDescriptorSet> result(layouts.size());
+    for (size_t i = 0; i < result.size(); ++i)
+      result[i] = layouts[i].set;
+    return result;
   }
 }

@@ -27,9 +27,7 @@ namespace Vulkan
   struct DescriptorSetLayout
   {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> sets;
-    uint32_t sets_count = 0;
-    VkShaderStageFlags stage;
+    VkDescriptorSet set = VK_NULL_HANDLE;
   };
 
   struct DescriptorInfo
@@ -51,11 +49,11 @@ namespace Vulkan
     std::vector<DescriptorSetLayout> layouts;
     std::vector<std::pair<bool, std::vector<DescriptorInfo>>> build_info;
     std::map<Vulkan::DescriptorType, uint32_t> pool_config;
-    VkDescriptorPool CreateDescriptorPool(std::map<Vulkan::DescriptorType, uint32_t> pool_conf);
+    VkDescriptorPool CreateDescriptorPool(const std::map<Vulkan::DescriptorType, uint32_t> pool_conf, const uint32_t max_sets);
 
-    void CreateDescriptorSetLayout(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info);
-    void CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &info);
-    void UpdateDescriptorSet(DescriptorSetLayout &layout, std::vector<DescriptorInfo> info);
+    DescriptorSetLayout CreateDescriptorSetLayout(const std::vector<DescriptorInfo> info);
+    DescriptorSetLayout CreateDescriptorSets(const VkDescriptorPool pool, const DescriptorSetLayout layout);
+    void UpdateDescriptorSet(const DescriptorSetLayout layout, const std::vector<DescriptorInfo> info);
     Vulkan::DescriptorType MapStorageType(Vulkan::StorageType type);
     void Destroy();
   public:
@@ -67,9 +65,11 @@ namespace Vulkan
     void Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding);
     void Add(const uint32_t index, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage, const uint32_t binding);
     void BuildAll();
-    size_t GetLayoutsCount() const { return layouts.size(); }
+    size_t GetDescriptorSetsCount() const { return layouts.size(); }
     VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) const { return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }
-    std::vector<VkDescriptorSet> GetDescriptorSet(const size_t layout_index) const { return layout_index < layouts.size() ? layouts[layout_index].sets : std::vector<VkDescriptorSet>(); }
+    VkDescriptorSet GetDescriptorSet(const size_t index) const { return index < layouts.size() ? layouts[index].set : VK_NULL_HANDLE; }
+    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() const;
+    std::vector<VkDescriptorSet> GetDescriptorSets() const;
     ~Descriptors();
   };
 }

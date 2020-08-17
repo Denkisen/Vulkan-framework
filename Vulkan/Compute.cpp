@@ -115,15 +115,14 @@ namespace Vulkan
 
     if (pipeline_layout == VK_NULL_HANDLE)
     {
-      descriptors->BuildAll();
-      pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), {descriptors->GetDescriptorSetLayout(0)});
+      descriptors->BuildAll();    
+      pipeline_layout = Supply::CreatePipelineLayout(device->GetDevice(), descriptors->GetDescriptorSetLayouts());
       pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
     }
 
-    auto sets = descriptors->GetDescriptorSet(0);
     command_pool->BeginCommandBuffer(0, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     command_pool->BindPipeline(0, pipeline, VK_PIPELINE_BIND_POINT_COMPUTE);
-    command_pool->BindDescriptorSets(0, pipeline_layout, VK_PIPELINE_BIND_POINT_COMPUTE, sets, {}, 0);
+    command_pool->BindDescriptorSets(0, pipeline_layout, VK_PIPELINE_BIND_POINT_COMPUTE, descriptors->GetDescriptorSets(), {}, 0);
     command_pool->Dispatch(0, x, y, z);
     command_pool->EndCommandBuffer(0);
 
