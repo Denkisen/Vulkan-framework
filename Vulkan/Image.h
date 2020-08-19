@@ -20,7 +20,16 @@ namespace Vulkan
   enum class ImageType
   {
     Storage = VK_IMAGE_USAGE_STORAGE_BIT,
-    Sampled = VK_IMAGE_USAGE_SAMPLED_BIT
+    Sampled = VK_IMAGE_USAGE_SAMPLED_BIT,
+    DepthBuffer = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+  };
+
+  enum class ImageFormat
+  {
+    SRGB_8 = VK_FORMAT_R8G8B8A8_SRGB,
+    Depth_32 = VK_FORMAT_D32_SFLOAT,
+    Depth_32_S8 = VK_FORMAT_D32_SFLOAT_S8_UINT,
+    Depth_24_S8 = VK_FORMAT_D24_UNORM_S8_UINT
   };
 
   class Image
@@ -36,10 +45,14 @@ namespace Vulkan
     uint32_t buffer_size = 0;
     VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageAspectFlags aspect_flags = 0;
     Vulkan::ImageTiling tiling;
     Vulkan::HostVisibleMemory access;
     Vulkan::ImageType type;
-    void Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, Vulkan::ImageType type);
+    void Create(std::shared_ptr<Vulkan::Device> dev, 
+                const size_t w, const size_t h, 
+                Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
+                Vulkan::ImageType type, Vulkan::ImageFormat format);
     void Destroy();
   public:
     Image() = delete;
@@ -47,7 +60,8 @@ namespace Vulkan
     explicit Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
                   Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
                   Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
-                  Vulkan::ImageType type = Vulkan::ImageType::Sampled);
+                  Vulkan::ImageType type = Vulkan::ImageType::Sampled,
+                  Vulkan::ImageFormat format = Vulkan::ImageFormat::SRGB_8);
     Image& operator= (const Image &obj) = delete;
     size_t Width() const { return width; }
     size_t Height() const { return height; }
@@ -57,6 +71,7 @@ namespace Vulkan
     Vulkan::ImageType Type() const { return type; }
     VkImage GetImage() const { return image; }
     VkFormat GetFormat() const { return format; }
+    VkImageAspectFlags GetImageAspectFlags() const { return aspect_flags; }
     VkImageLayout GetLayout() const { return layout; }
     VkImageView GetImageView() const { return image_view; }
     void SetLayout(const VkImageLayout l) { layout = l; }

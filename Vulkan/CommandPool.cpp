@@ -103,21 +103,22 @@ namespace Vulkan
     vkCmdBindPipeline(command_buffers[index].second, bind_point, pipeline);
   }
 
-  void CommandPool::BeginRenderPass(const uint32_t index, const VkRenderPass render_pass, const VkFramebuffer frame_buffer, const VkExtent2D extent, const VkOffset2D offset)
+  void CommandPool::BeginRenderPass(const uint32_t index, const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset)
   {
     if (index >= command_buffers.size())
       throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
 
     VkRenderPassBeginInfo render_pass_info = {};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass = render_pass;    
+    render_pass_info.renderPass = render_pass->GetRenderPass();    
     render_pass_info.renderArea.offset = offset;
-    render_pass_info.renderArea.extent = extent;
+    render_pass_info.renderArea.extent = render_pass->GetSwapChainExtent();
 
-    VkClearValue clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
-    render_pass_info.clearValueCount = 1;
-    render_pass_info.pClearValues = &clear_color;
-    render_pass_info.framebuffer = frame_buffer;
+    std::vector<VkClearValue> clear_colors = render_pass->GetClearColors();
+
+    render_pass_info.clearValueCount = (uint32_t) clear_colors.size();
+    render_pass_info.pClearValues = clear_colors.data();
+    render_pass_info.framebuffer = render_pass->GetFrameBuffers()[frame_buffer_index];
 
     VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE;
     if (command_buffers[index].first == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
@@ -212,12 +213,12 @@ namespace Vulkan
     else
       layout = dst->GetLayout();
     
-    TransitionPipelineBarrier(index, dst, layout);
+    TransitionImageLayout(index, dst, layout);
     vkCmdCopyBufferToImage(command_buffers[index].second, src->GetBuffer(), dst->GetImage(), layout, (uint32_t) regions.size(), regions.data());
-    TransitionPipelineBarrier(index, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    TransitionImageLayout(index, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 
-  void CommandPool::TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
+  void CommandPool::TransitionImageLayout(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
   {
     if (index >= command_buffers.size())
       throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
@@ -232,13 +233,21 @@ namespace Vulkan
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
     barrier.image = image->GetImage();
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask = image->GetImageAspectFlags();
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+    if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
+    {
+      barrier.srcAccessMask = 0;
+      barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+      src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    } 
+    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
     {
       barrier.srcAccessMask = 0;
       barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;

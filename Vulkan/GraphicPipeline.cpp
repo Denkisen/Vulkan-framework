@@ -115,7 +115,7 @@ namespace Vulkan
     pipeline_info.pViewportState = &pipeline_stage_struct.viewport_state;
     pipeline_info.pRasterizationState = &pipeline_stage_struct.rasterizer;
     pipeline_info.pMultisampleState = &pipeline_stage_struct.multisampling;
-    pipeline_info.pDepthStencilState = nullptr;
+    pipeline_info.pDepthStencilState = &pipeline_stage_struct.depth_stencil;
     pipeline_info.pColorBlendState = &pipeline_stage_struct.color_blending;
 
     if (pipeline_stage_struct.dynamic_states.empty())
@@ -229,6 +229,17 @@ namespace Vulkan
     pipeline_stage_struct.dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     pipeline_stage_struct.dynamic_state.dynamicStateCount = (uint32_t) pipeline_stage_struct.dynamic_states.size();
     pipeline_stage_struct.dynamic_state.pDynamicStates = pipeline_stage_struct.dynamic_states.data();
+
+    pipeline_stage_struct.depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    pipeline_stage_struct.depth_stencil.depthTestEnable = use_depth_testing;
+    pipeline_stage_struct.depth_stencil.depthWriteEnable = use_depth_testing;
+    pipeline_stage_struct.depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    pipeline_stage_struct.depth_stencil.depthBoundsTestEnable = VK_FALSE;
+    pipeline_stage_struct.depth_stencil.minDepthBounds = 0.0f;
+    pipeline_stage_struct.depth_stencil.maxDepthBounds = 1.0f;
+    pipeline_stage_struct.depth_stencil.stencilTestEnable = VK_FALSE;
+    pipeline_stage_struct.depth_stencil.front = {};
+    pipeline_stage_struct.depth_stencil.back = {};
   }
 
   void GraphicPipeline::ReBuildPipeline()
@@ -271,6 +282,13 @@ namespace Vulkan
   void GraphicPipeline::SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts)
   {
     this->descriptor_set_layouts = layouts;
+    if (pipeline != VK_NULL_HANDLE)
+      ReBuildPipeline();
+  }
+
+  void GraphicPipeline::UseDepthTesting(const VkBool32 enable)
+  {
+    this->use_depth_testing = enable;
     if (pipeline != VK_NULL_HANDLE)
       ReBuildPipeline();
   }

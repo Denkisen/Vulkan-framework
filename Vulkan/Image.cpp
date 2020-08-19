@@ -29,12 +29,16 @@ namespace Vulkan
     Destroy();
   }
 
-  Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, Vulkan::ImageType type)
+  Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
+              Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
+              Vulkan::ImageType type, Vulkan::ImageFormat format)
   {
-    Create(dev, w, h, tiling, access, type);
+    Create(dev, w, h, tiling, access, type, format);
   }
 
-  void Image::Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, Vulkan::ImageType type)
+  void Image::Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
+                    Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
+                    Vulkan::ImageType type, Vulkan::ImageFormat format)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Invalid device pointer.");
@@ -46,6 +50,7 @@ namespace Vulkan
     height = h;
     buffer_size = width * height * channels * sizeof(uint8_t);
     buffer_size = (std::ceil(buffer_size / 256.0) * 256);
+    this->format = (VkFormat) format;
     this->tiling = tiling;
     this->access = access;
     this->type = type;
@@ -58,7 +63,7 @@ namespace Vulkan
     image_info.extent.depth = 1;
     image_info.mipLevels = 1;
     image_info.arrayLayers = 1;
-    image_info.format = format;
+    image_info.format = this->format;
 
     image_info.tiling = (VkImageTiling) tiling;
     image_info.initialLayout = layout;
@@ -94,8 +99,24 @@ namespace Vulkan
     view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_info.image = image;
     view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format = format;
-    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.format = this->format;
+    switch (format)
+    {
+      case Vulkan::ImageFormat::Depth_32:
+        aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+        break;
+      case Vulkan::ImageFormat::Depth_32_S8:
+      case Vulkan::ImageFormat::Depth_24_S8:
+        aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        break;
+      case Vulkan::ImageFormat::SRGB_8:
+        aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
+        break;
+      default:
+        throw std::runtime_error("Unsupported image format.");
+    }
+
+    view_info.subresourceRange.aspectMask = aspect_flags;
     view_info.subresourceRange.baseMipLevel = 0;
     view_info.subresourceRange.levelCount = 1;
     view_info.subresourceRange.baseArrayLayer = 0;

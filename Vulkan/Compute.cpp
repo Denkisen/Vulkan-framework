@@ -95,7 +95,7 @@ namespace Vulkan
       descriptors->ClearDescriptorSetLayout(0);
       for (size_t i = 0; i < obj.size(); ++i)
       {
-        descriptors->Add(0, obj[i], VK_SHADER_STAGE_COMPUTE_BIT, i);
+        descriptors->Add(0, i, obj[i], VK_SHADER_STAGE_COMPUTE_BIT);
       }
     }
     else

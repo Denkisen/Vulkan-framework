@@ -26,6 +26,7 @@ namespace Vulkan
     VkPipelineColorBlendStateCreateInfo color_blending = {};
     std::vector<VkDynamicState> dynamic_states;
     VkPipelineDynamicStateCreateInfo dynamic_state = {};
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
   };
 
   class GraphicPipeline
@@ -44,6 +45,9 @@ namespace Vulkan
     std::vector<VkVertexInputBindingDescription> binding_description;
     std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
     std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+
+    VkBool32 use_depth_testing = VK_FALSE;
+
     void CreateShaderStageInfos();
     void FillGraphicPipelineStageStructs(GraphicPipelineStageStructs &pipeline_stage_struct);
     void BuildGraphicPipeline();
@@ -61,6 +65,7 @@ namespace Vulkan
     void SetShaderInfos(std::vector<Vulkan::ShaderInfo> shader_infos);
     void SetVertexInputBindingDescription(std::vector<VkVertexInputBindingDescription> binding_description, std::vector<VkVertexInputAttributeDescription> attribute_descriptions);
     void SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts);
+    void UseDepthTesting(const VkBool32 enable);
     ~GraphicPipeline();
   };
 }

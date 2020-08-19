@@ -11,6 +11,7 @@
 #include "Supply.h"
 #include "Buffer.h"
 #include "Image.h"
+#include "RenderPass.h"
 
 namespace Vulkan
 {
@@ -22,7 +23,6 @@ namespace Vulkan
     std::vector<std::pair<VkCommandBufferLevel, VkCommandBuffer>> command_buffers;
     uint32_t family_queue_index = 0;
     void Destroy();
-    void TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout);
     void TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<IBuffer> buffer);
   public:
     CommandPool() = delete;
@@ -37,7 +37,7 @@ namespace Vulkan
     void BeginCommandBuffer(const uint32_t index, const VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     void EndCommandBuffer(const uint32_t index);
     void BindPipeline(const uint32_t index, const VkPipeline pipeline, const VkPipelineBindPoint bind_point);
-    void BeginRenderPass(const uint32_t index, const VkRenderPass render_pass, const VkFramebuffer frame_buffer, const VkExtent2D extent, const VkOffset2D offset = {0, 0});
+    void BeginRenderPass(const uint32_t index, const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0});
     void EndRenderPass(const uint32_t index);
     void BindVertexBuffers(const uint32_t index, const std::vector<VkBuffer> buffers, const std::vector<VkDeviceSize> offsets, const uint32_t first_binding, const uint32_t binding_count);
     void BindIndexBuffer(const uint32_t index, const VkBuffer buffer, const VkIndexType index_type, const VkDeviceSize offset = 0);
@@ -47,7 +47,7 @@ namespace Vulkan
     void Dispatch(const uint32_t index, const uint32_t x, const uint32_t y, const uint32_t z);
     void CopyBuffer(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions);
     void CopyBufferToImage(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, const std::vector<VkBufferImageCopy> regions);
-    
+    void TransitionImageLayout(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout);
     ~CommandPool();
   };
 }

@@ -62,8 +62,8 @@ namespace Vulkan
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
     void ClearDescriptorSetLayout(const uint32_t index);
-    void Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding);
-    void Add(const uint32_t index, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage, const uint32_t binding);
+    void Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage);
+    void Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage);
     void BuildAll();
     size_t GetDescriptorSetsCount() const { return layouts.size(); }
     VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) const { return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }

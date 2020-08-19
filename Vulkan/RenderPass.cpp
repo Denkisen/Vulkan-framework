@@ -33,6 +33,7 @@ namespace Vulkan
     if (this->swapchain == nullptr)
       throw std::runtime_error("Swapchain pointer is not valid.");
 
+    CreateDepthBuffer();
     render_pass = CreateRenderPass();
     frame_buffers = CreateFrameBuffers();
   }
@@ -40,25 +41,45 @@ namespace Vulkan
   VkRenderPass RenderPass::CreateRenderPass()
   {
     VkRenderPass ret = VK_NULL_HANDLE;
-    VkAttachmentDescription color_attachment = {};
-    color_attachment.format = swapchain->GetSurfaceFormat().format;
-    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    VkAttachmentReference color_attachment_ref = {};
-    color_attachment_ref.attachment = 0;
-    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    std::vector<VkAttachmentDescription> attachments(2);
+    std::vector<VkAttachmentReference> attachment_refs(2);
+    clear_colors.resize(2);
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment_ref;
+    
+    attachments[0].format = swapchain->GetSurfaceFormat().format;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    clear_colors[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
 
+    attachment_refs[0].attachment = 0;
+    attachment_refs[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &attachment_refs[0];
+
+    attachments[1].format = depth_buffer->GetFormat();
+    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    clear_colors[1].depthStencil = {1.0f, 0};
+
+    attachment_refs[1].attachment = 1;
+    attachment_refs[1].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    subpass.pDepthStencilAttachment = &attachment_refs[1];
+  
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
@@ -69,8 +90,8 @@ namespace Vulkan
 
     VkRenderPassCreateInfo render_pass_info = {};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_info.attachmentCount = 1;
-    render_pass_info.pAttachments = &color_attachment;
+    render_pass_info.attachmentCount = (uint32_t) attachments.size();
+    render_pass_info.pAttachments = attachments.data();
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass;
     render_pass_info.dependencyCount = 1;
@@ -89,11 +110,15 @@ namespace Vulkan
     std::vector<VkFramebuffer> frame_buffers(image_views.size());
     for (size_t i = 0; i < image_views.size(); i++) 
     {
+      std::vector<VkImageView> attachments(2);
+      attachments[0] = image_views[i];
+      attachments[1] = depth_buffer->GetImageView();
+
       VkFramebufferCreateInfo framebuffer_info = {};
       framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       framebuffer_info.renderPass = render_pass;
-      framebuffer_info.attachmentCount = 1;
-      framebuffer_info.pAttachments = &image_views[i];
+      framebuffer_info.attachmentCount = (uint32_t) attachments.size();
+      framebuffer_info.pAttachments = attachments.data();
       framebuffer_info.width = swapchain->GetExtent().width;
       framebuffer_info.height = swapchain->GetExtent().height;
       framebuffer_info.layers = 1;
@@ -107,10 +132,21 @@ namespace Vulkan
     return frame_buffers;
   }
 
+  void RenderPass::CreateDepthBuffer()
+  {
+    depth_buffer = std::make_shared<Vulkan::Image>(device, swapchain->GetExtent().width, 
+                                                  swapchain->GetExtent().height,
+                                                  Vulkan::ImageTiling::Optimal,
+                                                  Vulkan::HostVisibleMemory::HostInvisible,
+                                                  Vulkan::ImageType::DepthBuffer,
+                                                  Vulkan::ImageFormat::Depth_32);
+  }
+
   void RenderPass::ReBuildRenderPass()
   {
     vkDeviceWaitIdle(device->GetDevice());
     Destroy();
+    CreateDepthBuffer();
     render_pass = CreateRenderPass();
     frame_buffers = CreateFrameBuffers();
   }

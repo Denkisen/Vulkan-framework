@@ -210,12 +210,12 @@ namespace Vulkan
       build_info.resize(index + 1, std::make_pair(true, std::vector<DescriptorInfo>()));
   }
 
-  void Descriptors::Add(const uint32_t index, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage, const uint32_t binding)
+  void Descriptors::Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage)
   {
-    if (index >= build_info.size())
-      throw std::runtime_error("build_info count is less then " + std::to_string(index));
+    if (set_index >= build_info.size())
+      throw std::runtime_error("build_info count is less then " + std::to_string(set_index));
 
-    if (build_info[index].first == false)
+    if (build_info[set_index].first == false)
       throw std::runtime_error("Layout is not editable.");
     
     if (buffer->GetBuffer() == VK_NULL_HANDLE)
@@ -226,15 +226,15 @@ namespace Vulkan
     info.binding = binding;
     info.stage = stage;
     info.type = MapStorageType(buffer->Type());
-    build_info[index].second.push_back(info);
+    build_info[set_index].second.push_back(info);
   }
 
-  void Descriptors::Add(const uint32_t index, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage, const uint32_t binding)
+  void Descriptors::Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage)
   {
-    if (index >= build_info.size())
-      throw std::runtime_error("build_info count is less then " + std::to_string(index));
+    if (set_index >= build_info.size())
+      throw std::runtime_error("build_info count is less then " + std::to_string(set_index));
     
-    if (build_info[index].first == false)
+    if (build_info[set_index].first == false)
       throw std::runtime_error("Layout is not editable.");
 
     if (image->GetImageView() == VK_NULL_HANDLE)
@@ -260,7 +260,7 @@ namespace Vulkan
     else
       info.type = DescriptorType::ImageStorage;
 
-    build_info[index].second.push_back(info);
+    build_info[set_index].second.push_back(info);
   }
 
   void Descriptors::BuildAll()
