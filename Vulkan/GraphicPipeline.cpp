@@ -156,7 +156,7 @@ namespace Vulkan
     }
 
     pipeline_stage_struct.input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    pipeline_stage_struct.input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipeline_stage_struct.input_assembly.topology = primitive_topology;
     pipeline_stage_struct.input_assembly.primitiveRestartEnable = VK_FALSE;
 
     pipeline_stage_struct.viewport.x = 0.0f;
@@ -181,10 +181,10 @@ namespace Vulkan
     pipeline_stage_struct.rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     pipeline_stage_struct.rasterizer.depthClampEnable = VK_FALSE;
     pipeline_stage_struct.rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    pipeline_stage_struct.rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    pipeline_stage_struct.rasterizer.polygonMode = polygon_mode;
     pipeline_stage_struct.rasterizer.lineWidth = 1.0f;
     pipeline_stage_struct.rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    pipeline_stage_struct.rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    pipeline_stage_struct.rasterizer.frontFace = face;
     pipeline_stage_struct.rasterizer.depthBiasEnable = VK_FALSE;
     pipeline_stage_struct.rasterizer.depthBiasConstantFactor = 0.0f;
     pipeline_stage_struct.rasterizer.depthBiasClamp = 0.0f;

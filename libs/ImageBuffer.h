@@ -1,5 +1,5 @@
-#ifndef __CPU_NW_LIBS_IMAGE_H
-#define __CPU_NW_LIBS_IMAGE_H
+#ifndef __CPU_NW_LIBS_IMAGEBUFFER_H
+#define __CPU_NW_LIBS_IMAGEBUFFER_H
 
 #include <iostream>
 #include <vector>

@@ -33,8 +33,13 @@ namespace Vulkan
     this->family_queue_index = family_queue_index;
   }
 
-  void CommandPool::ExecuteBuffer(const uint32_t index)
+  void CommandPool::ExecuteBuffer(const BufferLock buffer_lock)
   {
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+    
     VkFence move_sync = VK_NULL_HANDLE;
     VkFenceCreateInfo fence_info = {};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -43,7 +48,7 @@ namespace Vulkan
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffers[index].second;
+    submit_info.pCommandBuffers = &command_buffers[buffer_lock.index.value()].second;
 
     vkCreateFence(device->GetDevice(), &fence_info, nullptr, &move_sync);
     vkQueueSubmit(Vulkan::Supply::GetQueueFormFamilyIndex(device->GetDevice(), family_queue_index), 1, &submit_info, move_sync);
@@ -53,60 +58,71 @@ namespace Vulkan
       vkDestroyFence(device->GetDevice(), move_sync, nullptr);
   }
 
-  void CommandPool::BeginCommandBuffer(const uint32_t index, const VkCommandBufferLevel level)
+  void CommandPool::BeginCommandBuffer(const BufferLock buffer_lock, const VkCommandBufferLevel level)
   {
-    if (command_buffers.size() <= index)
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    if (command_buffers.size() <= buffer_lock.index.value())
     {
-      command_buffers.resize(index + 1);
+      command_buffers.resize(buffer_lock.index.value() + 1);
     }
     else
     {
       vkQueueWaitIdle(Vulkan::Supply::GetQueueFormFamilyIndex(device->GetDevice(), family_queue_index));
       if (device->GetDevice() != VK_NULL_HANDLE && command_pool != VK_NULL_HANDLE)
       {
-        if (command_buffers[index].second != VK_NULL_HANDLE)
-          vkFreeCommandBuffers(device->GetDevice(), command_pool, 1, &command_buffers[index].second);
-        command_buffers[index].second = VK_NULL_HANDLE;
+        if (command_buffers[buffer_lock.index.value()].second != VK_NULL_HANDLE)
+          vkFreeCommandBuffers(device->GetDevice(), command_pool, 1, &command_buffers[buffer_lock.index.value()].second);
+        command_buffers[buffer_lock.index.value()].second = VK_NULL_HANDLE;
       }
     }
     
-    command_buffers[index].second = Vulkan::Supply::CreateCommandBuffers(device->GetDevice(), command_pool, 1, level)[0];
-    command_buffers[index].first = level;
+    command_buffers[buffer_lock.index.value()].second = Vulkan::Supply::CreateCommandBuffers(device->GetDevice(), command_pool, 1, level)[0];
+    command_buffers[buffer_lock.index.value()].first = level;
 
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     begin_info.pInheritanceInfo = nullptr;
 
-    if (vkBeginCommandBuffer(command_buffers[index].second, &begin_info) != VK_SUCCESS) 
+    if (vkBeginCommandBuffer(command_buffers[buffer_lock.index.value()].second, &begin_info) != VK_SUCCESS) 
     {
       throw std::runtime_error("failed to begin recording command buffer!");
     }
   }
 
-  void CommandPool::EndCommandBuffer(const uint32_t index)
+  void CommandPool::EndCommandBuffer(const BufferLock buffer_lock)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    if (vkEndCommandBuffer(command_buffers[index].second) != VK_SUCCESS) 
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    if (vkEndCommandBuffer(command_buffers[buffer_lock.index.value()].second) != VK_SUCCESS) 
     {
       throw std::runtime_error("Failed to record command buffer!");
     }
   }
 
-  void CommandPool::BindPipeline(const uint32_t index, const VkPipeline pipeline, const VkPipelineBindPoint bind_point)
+  void CommandPool::BindPipeline(const BufferLock buffer_lock, const VkPipeline pipeline, const VkPipelineBindPoint bind_point)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdBindPipeline(command_buffers[index].second, bind_point, pipeline);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdBindPipeline(command_buffers[buffer_lock.index.value()].second, bind_point, pipeline);
   }
 
-  void CommandPool::BeginRenderPass(const uint32_t index, const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset)
+  void CommandPool::BeginRenderPass(const BufferLock buffer_lock, const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
 
     VkRenderPassBeginInfo render_pass_info = {};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -121,76 +137,92 @@ namespace Vulkan
     render_pass_info.framebuffer = render_pass->GetFrameBuffers()[frame_buffer_index];
 
     VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE;
-    if (command_buffers[index].first == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
+    if (command_buffers[buffer_lock.index.value()].first == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
       contents = VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS;
 
-    vkCmdBeginRenderPass(command_buffers[index].second, &render_pass_info, contents);
+    vkCmdBeginRenderPass(command_buffers[buffer_lock.index.value()].second, &render_pass_info, contents);
   }
 
-  void CommandPool::EndRenderPass(const uint32_t index)
+  void CommandPool::EndRenderPass(const BufferLock buffer_lock)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdEndRenderPass(command_buffers[index].second);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdEndRenderPass(command_buffers[buffer_lock.index.value()].second);
   }
 
-  void CommandPool::BindVertexBuffers(const uint32_t index, const std::vector<VkBuffer> buffers, const std::vector<VkDeviceSize> offsets, const uint32_t first_binding, const uint32_t binding_count)
+  void CommandPool::BindVertexBuffers(const BufferLock buffer_lock, const std::vector<VkBuffer> buffers, const std::vector<VkDeviceSize> offsets, const uint32_t first_binding, const uint32_t binding_count)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdBindVertexBuffers(command_buffers[index].second, first_binding, binding_count, buffers.data(), offsets.data());
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdBindVertexBuffers(command_buffers[buffer_lock.index.value()].second, first_binding, binding_count, buffers.data(), offsets.data());
   }
 
-  void CommandPool::BindIndexBuffer(const uint32_t index, const VkBuffer buffer, const VkIndexType index_type, const VkDeviceSize offset)
+  void CommandPool::BindIndexBuffer(const BufferLock buffer_lock, const VkBuffer buffer, const VkIndexType index_type, const VkDeviceSize offset)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
-    
-    vkCmdBindIndexBuffer(command_buffers[index].second, buffer, offset, index_type);
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdBindIndexBuffer(command_buffers[buffer_lock.index.value()].second, buffer, offset, index_type);
   }
 
-  void CommandPool::BindDescriptorSets(const uint32_t index, const VkPipelineLayout pipeline_layout, const VkPipelineBindPoint bind_point, const std::vector<VkDescriptorSet> sets, const std::vector<uint32_t> dynamic_offeset, const uint32_t first_set)
+  void CommandPool::BindDescriptorSets(const BufferLock buffer_lock, const VkPipelineLayout pipeline_layout, const VkPipelineBindPoint bind_point, const std::vector<VkDescriptorSet> sets, const std::vector<uint32_t> dynamic_offeset, const uint32_t first_set)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdBindDescriptorSets(command_buffers[index].second, 
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdBindDescriptorSets(command_buffers[buffer_lock.index.value()].second, 
                             bind_point, pipeline_layout, 
                             first_set, (uint32_t) sets.size(), 
                             sets.data(), (uint32_t) dynamic_offeset.size(), 
                             dynamic_offeset.empty() ? nullptr : dynamic_offeset.data());
   }
 
-  void CommandPool::DrawIndexed(const uint32_t index, const uint32_t index_count, const uint32_t first_index, const uint32_t vertex_offset, const uint32_t instance_count, const uint32_t first_instance)
+  void CommandPool::DrawIndexed(const BufferLock buffer_lock, const uint32_t index_count, const uint32_t first_index, const uint32_t vertex_offset, const uint32_t instance_count, const uint32_t first_instance)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdDrawIndexed(command_buffers[index].second, index_count, instance_count, first_index, vertex_offset, first_instance);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdDrawIndexed(command_buffers[buffer_lock.index.value()].second, index_count, instance_count, first_index, vertex_offset, first_instance);
   }
 
-  void CommandPool::Draw(const uint32_t index, const uint32_t vertex_count, const uint32_t first_vertex, const uint32_t instance_count, const uint32_t first_instance)
+  void CommandPool::Draw(const BufferLock buffer_lock, const uint32_t vertex_count, const uint32_t first_vertex, const uint32_t instance_count, const uint32_t first_instance)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdDraw(command_buffers[index].second, vertex_count, instance_count, first_vertex, first_instance);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdDraw(command_buffers[buffer_lock.index.value()].second, vertex_count, instance_count, first_vertex, first_instance);
   }
 
-  void CommandPool::Dispatch(const uint32_t index, const uint32_t x, const uint32_t y, const uint32_t z)
+  void CommandPool::Dispatch(const BufferLock buffer_lock, const uint32_t x, const uint32_t y, const uint32_t z)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    vkCmdDispatch(command_buffers[index].second, x, y, z);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdDispatch(command_buffers[buffer_lock.index.value()].second, x, y, z);
   }
 
-  void CommandPool::CopyBuffer(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions)
+  void CommandPool::CopyBuffer(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
 
     if (regions.empty())
       throw std::runtime_error("It must be atleast one VkBufferCopy region.");
@@ -198,13 +230,13 @@ namespace Vulkan
     if (src.get() == nullptr || dst.get() == nullptr || src->GetBuffer() == VK_NULL_HANDLE || dst->GetBuffer() == VK_NULL_HANDLE)
       throw std::runtime_error("Invalid buffer pointer");
     
-    vkCmdCopyBuffer(command_buffers[index].second, src->GetBuffer(), dst->GetBuffer(), (uint32_t) regions.size(), regions.data());
+    vkCmdCopyBuffer(command_buffers[buffer_lock.index.value()].second, src->GetBuffer(), dst->GetBuffer(), (uint32_t) regions.size(), regions.data());
   }
 
-  void CommandPool::CopyBufferToImage(const uint32_t index, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, std::vector<VkBufferImageCopy> regions)
+  void CommandPool::CopyBufferToImage(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, std::vector<VkBufferImageCopy> regions)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
     VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
@@ -213,15 +245,17 @@ namespace Vulkan
     else
       layout = dst->GetLayout();
     
-    TransitionImageLayout(index, dst, layout);
-    vkCmdCopyBufferToImage(command_buffers[index].second, src->GetBuffer(), dst->GetImage(), layout, (uint32_t) regions.size(), regions.data());
-    TransitionImageLayout(index, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    TransitionImageLayout(buffer_lock, dst, layout);
+    vkCmdCopyBufferToImage(command_buffers[buffer_lock.index.value()].second, src->GetBuffer(), dst->GetImage(), layout, (uint32_t) regions.size(), regions.data());
+    TransitionImageLayout(buffer_lock, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 
-  void CommandPool::TransitionImageLayout(const uint32_t index, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
+  void CommandPool::TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
   {
-    if (index >= command_buffers.size())
-      throw std::runtime_error("Command buffers count is less then " + std::to_string(index));
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
 
     VkPipelineStageFlags src_stage;
     VkPipelineStageFlags dst_stage;
@@ -277,11 +311,15 @@ namespace Vulkan
     }
 
     image->SetLayout(new_layout);
-    vkCmdPipelineBarrier(command_buffers[index].second, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(command_buffers[buffer_lock.index.value()].second, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
   }
 
-  void CommandPool::TransitionPipelineBarrier(const uint32_t index, const std::shared_ptr<IBuffer> buffer)
+  void CommandPool::TransitionPipelineBarrier(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> buffer)
   {
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
     // VkBufferMemoryBarrier barrier = {};
     // barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     // barrier.pNext = nullptr;
@@ -290,5 +328,29 @@ namespace Vulkan
     // barrier.offset = 0;
     // barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     // barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  }
+
+  BufferLock CommandPool::OrderBufferLock()
+  {
+    std::lock_guard<std::mutex> lock(block_mutex);
+    BufferLock result;
+    result.index = blocks.size();
+    blocks[blocks.size()] = std::make_shared<std::mutex>();
+    result.lock = blocks[result.index.value()];
+    return result;
+  }
+
+  void CommandPool::ReleaseBufferLock(BufferLock &buffer_lock)
+  {
+    std::lock_guard<std::mutex> lock(block_mutex);
+    if (!buffer_lock.index.has_value())
+      return;
+    if (buffer_lock.lock.get() == nullptr)
+      return;
+
+    buffer_lock.lock->lock();
+    buffer_lock.lock.reset();
+    blocks.erase(buffer_lock.index.value());
+    buffer_lock.index.reset();
   }
 }

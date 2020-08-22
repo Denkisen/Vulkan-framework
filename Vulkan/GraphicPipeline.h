@@ -47,6 +47,9 @@ namespace Vulkan
     std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 
     VkBool32 use_depth_testing = VK_FALSE;
+    VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL; /*VK_POLYGON_MODE_LINE;*/ 
+    VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //VK_PRIMITIVE_TOPOLOGY_POINT_LIST; 
+    VkFrontFace face = VK_FRONT_FACE_COUNTER_CLOCKWISE; //VK_FRONT_FACE_CLOCKWISE;
 
     void CreateShaderStageInfos();
     void FillGraphicPipelineStageStructs(GraphicPipelineStageStructs &pipeline_stage_struct);

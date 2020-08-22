@@ -49,6 +49,7 @@ namespace Vulkan
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     ShaderStruct compute_shader;
     Vulkan::ComputePipelineOptions pipeline_options = {};
+    Vulkan::BufferLock buffer_lock;
     bool stop = false;
     VkShaderModule CreateShader(const std::string shader_path); 
     VkPipeline CreatePipeline(const VkShaderModule shader, const std::string entry_point, const VkPipelineLayout layout);

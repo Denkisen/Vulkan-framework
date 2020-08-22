@@ -120,18 +120,20 @@ namespace Vulkan
       pipeline = CreatePipeline(compute_shader.shader, compute_shader.entry_point, pipeline_layout);
     }
 
-    command_pool->BeginCommandBuffer(0, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-    command_pool->BindPipeline(0, pipeline, VK_PIPELINE_BIND_POINT_COMPUTE);
-    command_pool->BindDescriptorSets(0, pipeline_layout, VK_PIPELINE_BIND_POINT_COMPUTE, descriptors->GetDescriptorSets(), {}, 0);
-    command_pool->Dispatch(0, x, y, z);
-    command_pool->EndCommandBuffer(0);
+    command_pool->ReleaseBufferLock(buffer_lock);
+    buffer_lock = command_pool->OrderBufferLock();
+    command_pool->BeginCommandBuffer(buffer_lock, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    command_pool->BindPipeline(buffer_lock, pipeline, VK_PIPELINE_BIND_POINT_COMPUTE);
+    command_pool->BindDescriptorSets(buffer_lock, pipeline_layout, VK_PIPELINE_BIND_POINT_COMPUTE, descriptors->GetDescriptorSets(), {}, 0);
+    command_pool->Dispatch(buffer_lock, x, y, z);
+    command_pool->EndCommandBuffer(buffer_lock);
 
     for (size_t i = 0; i < pipeline_options.DispatchTimes; ++i)
     {
       VkSubmitInfo submit_info = {};
       submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
       submit_info.commandBufferCount = 1;
-      submit_info.pCommandBuffers = &(*command_pool)[0];
+      submit_info.pCommandBuffers = &(*command_pool)[buffer_lock];
 
       VkFence fence;
       VkFenceCreateInfo fence_create_info = {};
@@ -153,6 +155,7 @@ namespace Vulkan
       vkDestroyFence(device->GetDevice(), fence, nullptr);
       if (stop) break;
     }
+    command_pool->ReleaseBufferLock(buffer_lock);
     stop = false;
   }
 

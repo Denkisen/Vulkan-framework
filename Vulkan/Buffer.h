@@ -83,6 +83,8 @@ namespace Vulkan
     }
   };
 
+// Implementation
+
   template <class T>
   Buffer<T>::Buffer(std::shared_ptr<Vulkan::Device> dev, Vulkan::StorageType buffer_type, Vulkan::HostVisibleMemory access)
   {
