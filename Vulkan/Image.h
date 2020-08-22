@@ -43,6 +43,7 @@ namespace Vulkan
     size_t width = 0;
     size_t channels = 4;
     uint32_t buffer_size = 0;
+    uint32_t mip_levels = 1;
     VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageAspectFlags aspect_flags = 0;
@@ -51,17 +52,19 @@ namespace Vulkan
     Vulkan::ImageType type;
     void Create(std::shared_ptr<Vulkan::Device> dev, 
                 const size_t w, const size_t h, 
-                Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
-                Vulkan::ImageType type, Vulkan::ImageFormat format);
+                const bool enable_mip_mapping,
+                const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
+                const Vulkan::ImageType type, const Vulkan::ImageFormat format);
     void Destroy();
   public:
     Image() = delete;
     Image(const Image &obj) = delete;
     explicit Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
-                  Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
-                  Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
-                  Vulkan::ImageType type = Vulkan::ImageType::Sampled,
-                  Vulkan::ImageFormat format = Vulkan::ImageFormat::SRGB_8);
+                  const bool enable_mip_mapping = true,
+                  const Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
+                  const Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
+                  const Vulkan::ImageType type = Vulkan::ImageType::Sampled,
+                  const Vulkan::ImageFormat format = Vulkan::ImageFormat::SRGB_8);
     Image& operator= (const Image &obj) = delete;
     size_t Width() const { return width; }
     size_t Height() const { return height; }
@@ -74,6 +77,7 @@ namespace Vulkan
     VkImageAspectFlags GetImageAspectFlags() const { return aspect_flags; }
     VkImageLayout GetLayout() const { return layout; }
     VkImageView GetImageView() const { return image_view; }
+    uint32_t GetMipLevels() const { return mip_levels; }
     void SetLayout(const VkImageLayout l) { layout = l; }
 
     ~Image();

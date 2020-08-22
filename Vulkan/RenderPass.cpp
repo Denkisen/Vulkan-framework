@@ -136,6 +136,7 @@ namespace Vulkan
   {
     depth_buffer = std::make_shared<Vulkan::Image>(device, swapchain->GetExtent().width, 
                                                   swapchain->GetExtent().height,
+                                                  false,
                                                   Vulkan::ImageTiling::Optimal,
                                                   Vulkan::HostVisibleMemory::HostInvisible,
                                                   Vulkan::ImageType::DepthBuffer,

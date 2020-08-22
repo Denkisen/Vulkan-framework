@@ -115,17 +115,18 @@ namespace Vulkan
 
   void Object::PrepareTexture(const std::string texture_file_path, const Vulkan::BufferLock buffer_lock)
   {
-    samlper = std::make_shared<Vulkan::Sampler>(device);
     ImageBuffer texture_loader;
     texture_loader.Load(texture_file_path);
     texture_image = std::make_shared<Vulkan::Image>(device, texture_loader.Width(), 
-                                                    texture_loader.Height(), 
+                                                    texture_loader.Height(),
+                                                    true, 
                                                     Vulkan::ImageTiling::Optimal, 
                                                     Vulkan::HostVisibleMemory::HostInvisible,
                                                     Vulkan::ImageType::Sampled);
     texture_src_buffer = std::make_shared<Vulkan::Buffer<uint8_t>>(device, Vulkan::StorageType::Storage, 
                                                                         Vulkan::HostVisibleMemory::HostVisible);
     *texture_src_buffer = texture_loader.Canvas();
+    sampler = std::make_shared<Vulkan::Sampler>(device, texture_image->GetMipLevels());
 
     VkBufferImageCopy image_region = {};
     image_region.bufferOffset = 0;
@@ -145,6 +146,12 @@ namespace Vulkan
       1
     };
 
+    command_pool->TransitionImageLayout(buffer_lock, texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    texture_image->SetLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     command_pool->CopyBufferToImage(buffer_lock, texture_src_buffer, texture_image, {image_region});
+    if (texture_image->GetMipLevels() > 1)
+      command_pool->GenerateMipLevels(buffer_lock, texture_image, sampler);
+    command_pool->TransitionImageLayout(buffer_lock, texture_image, texture_image->GetLayout(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    texture_image->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
 }

@@ -18,21 +18,22 @@ namespace Vulkan
     device.reset();
   }
 
-  Sampler::Sampler(std::shared_ptr<Vulkan::Device> dev)
+  Sampler::Sampler(std::shared_ptr<Vulkan::Device> dev, const uint32_t lod_levels)
   {
-    Create(dev);
+    Create(dev, lod_levels);
   }
 
-  void Sampler::Create(std::shared_ptr<Vulkan::Device> dev)
+  void Sampler::Create(std::shared_ptr<Vulkan::Device> dev, const uint32_t lod_levels)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Device is nullptr.");
     
+    lod_max = lod_levels;
     device = dev;
     VkSamplerCreateInfo sampler_info = {};
     sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_info.magFilter = VK_FILTER_LINEAR;
-    sampler_info.minFilter = VK_FILTER_LINEAR;
+    sampler_info.minFilter = min_filter;
     sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;

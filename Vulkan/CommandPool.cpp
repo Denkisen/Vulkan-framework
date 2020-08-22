@@ -238,19 +238,15 @@ namespace Vulkan
     if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
       throw std::runtime_error("Buffer lock is empty.");
 
-    VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
 
-    if (dst->GetLayout() == VK_IMAGE_LAYOUT_UNDEFINED || dst->GetLayout() == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-      layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    else
-      layout = dst->GetLayout();
-    
-    TransitionImageLayout(buffer_lock, dst, layout);
-    vkCmdCopyBufferToImage(command_buffers[buffer_lock.index.value()].second, src->GetBuffer(), dst->GetImage(), layout, (uint32_t) regions.size(), regions.data());
-    TransitionImageLayout(buffer_lock, dst, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    std::lock_guard<std::mutex> lock(*buffer_lock.lock.get());
+
+    vkCmdCopyBufferToImage(command_buffers[buffer_lock.index.value()].second, src->GetBuffer(), dst->GetImage(), dst->GetLayout(), (uint32_t) regions.size(), regions.data());
   }
 
-  void CommandPool::TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const VkImageLayout new_layout)
+  void CommandPool::TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const VkImageLayout old_layout, const VkImageLayout new_layout, const uint32_t mip_level, const bool transit_all_mip_levels)
   {
     if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
       throw std::runtime_error("Buffer lock is empty.");
@@ -261,57 +257,111 @@ namespace Vulkan
     VkPipelineStageFlags dst_stage;
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = image->GetLayout();
+    barrier.oldLayout = old_layout;
     barrier.newLayout = new_layout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
     barrier.image = image->GetImage();
     barrier.subresourceRange.aspectMask = image->GetImageAspectFlags();
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseMipLevel = mip_level;
+    barrier.subresourceRange.levelCount = transit_all_mip_levels ? image->GetMipLevels() : 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
+    switch (barrier.oldLayout)
     {
-      barrier.srcAccessMask = 0;
-      barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-      src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    } 
-    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
-    {
-      barrier.srcAccessMask = 0;
-      barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-      src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    } 
-    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
-    {
-      barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-      barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-      src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-      dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    } 
-    else if (barrier.oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-    {
-      barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-      src_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+      case VK_IMAGE_LAYOUT_UNDEFINED:
+        barrier.srcAccessMask = 0;
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        src_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        break;
+      default:
+        throw std::invalid_argument("Unsupported layout transition!");
     }
-    else 
+    switch (barrier.newLayout)
     {
-      throw std::invalid_argument("Unsupported layout transition!");
+      case VK_IMAGE_LAYOUT_UNDEFINED:
+        barrier.dstAccessMask = 0;
+        dst_stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        break;
+      case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        break;
+      default:
+        throw std::invalid_argument("Unsupported layout transition!");
     }
 
-    image->SetLayout(new_layout);
     vkCmdPipelineBarrier(command_buffers[buffer_lock.index.value()].second, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+  }
+
+  void CommandPool::GenerateMipLevels(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const std::shared_ptr<Vulkan::Sampler> sampler)
+  {
+    if (!buffer_lock.index.has_value() || buffer_lock.lock.get() == nullptr)
+      throw std::runtime_error("Buffer lock is empty.");
+
+    std::unique_lock<std::mutex> lock(*buffer_lock.lock.get());
+
+    int32_t m_width = image->Width();
+    int32_t m_height = image->Height();
+    for (uint32_t i = 1; i < image->GetMipLevels(); i++) 
+    {
+      lock.unlock();
+      TransitionImageLayout(buffer_lock, image, image->GetLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, i - 1, false);
+      lock.lock();
+      VkImageBlit blit = {};
+      blit.srcOffsets[0] = { 0, 0, 0 };
+      blit.srcOffsets[1] = { m_width, m_height, 1 };
+      blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit.srcSubresource.mipLevel = i - 1;
+      blit.srcSubresource.baseArrayLayer = 0;
+      blit.srcSubresource.layerCount = 1;
+
+      blit.dstOffsets[0] = { 0, 0, 0 };
+      blit.dstOffsets[1] = { m_width > 1 ? m_width / 2 : 1, m_height > 1 ? m_height / 2 : 1, 1 };
+      blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit.dstSubresource.mipLevel = i;
+      blit.dstSubresource.baseArrayLayer = 0;
+      blit.dstSubresource.layerCount = 1;
+
+      vkCmdBlitImage(command_buffers[buffer_lock.index.value()].second,
+                    image->GetImage(),
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    image->GetImage(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &blit,
+                    sampler->GetMinificationFilter());
+
+      lock.unlock();
+      TransitionImageLayout(buffer_lock, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->GetLayout(), i - 1, false);
+      lock.lock();
+      if (m_width > 1) m_width /= 2;
+      if (m_height > 1) m_height /= 2;
+    }
   }
 
   void CommandPool::TransitionPipelineBarrier(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> buffer)

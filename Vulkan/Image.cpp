@@ -29,16 +29,18 @@ namespace Vulkan
     Destroy();
   }
 
-  Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
-              Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
-              Vulkan::ImageType type, Vulkan::ImageFormat format)
+  Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
+              const bool enable_mip_mapping, 
+              const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
+              const Vulkan::ImageType type, const Vulkan::ImageFormat format)
   {
-    Create(dev, w, h, tiling, access, type, format);
+    Create(dev, w, h, enable_mip_mapping, tiling, access, type, format);
   }
 
   void Image::Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
-                    Vulkan::ImageTiling tiling, Vulkan::HostVisibleMemory access, 
-                    Vulkan::ImageType type, Vulkan::ImageFormat format)
+                    const bool enable_mip_mapping,
+                    const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
+                    const Vulkan::ImageType type, const Vulkan::ImageFormat format)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Invalid device pointer.");
@@ -55,13 +57,18 @@ namespace Vulkan
     this->access = access;
     this->type = type;
 
+    if (enable_mip_mapping)
+      mip_levels = std::floor(std::log2(std::max(width, height))) + 1;
+    else
+      mip_levels = 1;
+
     VkImageCreateInfo image_info = {};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.imageType = VK_IMAGE_TYPE_2D;
     image_info.extent.width = (uint32_t) width;
     image_info.extent.height = (uint32_t) height;
     image_info.extent.depth = 1;
-    image_info.mipLevels = 1;
+    image_info.mipLevels = mip_levels;
     image_info.arrayLayers = 1;
     image_info.format = this->format;
 
@@ -118,7 +125,7 @@ namespace Vulkan
 
     view_info.subresourceRange.aspectMask = aspect_flags;
     view_info.subresourceRange.baseMipLevel = 0;
-    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.levelCount = mip_levels;
     view_info.subresourceRange.baseArrayLayer = 0;
     view_info.subresourceRange.layerCount = 1;
     view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;

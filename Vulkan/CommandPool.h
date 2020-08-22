@@ -14,6 +14,7 @@
 #include "Buffer.h"
 #include "Image.h"
 #include "RenderPass.h"
+#include "Sampler.h"
 
 namespace Vulkan
 {
@@ -59,7 +60,8 @@ namespace Vulkan
     void Dispatch(const BufferLock buffer_lock, const uint32_t x, const uint32_t y, const uint32_t z);
     void CopyBuffer(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions);
     void CopyBufferToImage(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, const std::shared_ptr<Image> dst, const std::vector<VkBufferImageCopy> regions);
-    void TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const VkImageLayout new_layout);
+    void TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const VkImageLayout old_layout, const VkImageLayout new_layout, const uint32_t mip_level = 0, const bool transit_all_mip_levels = true);
+    void GenerateMipLevels(const BufferLock buffer_lock, const std::shared_ptr<Image> image, const std::shared_ptr<Vulkan::Sampler> sampler);
 
     BufferLock OrderBufferLock();
     void ReleaseBufferLock(BufferLock &buffer_lock);
