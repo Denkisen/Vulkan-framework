@@ -39,7 +39,7 @@ void ImageBuffer::Load(std::string file_path, const int channals)
 {
   image = cv::imread(file_path);
   SetChannels(channals);
-  if (image.empty())
+  if (image.empty() || image.rows <= 0 || image.cols <= 0)
     throw std::runtime_error("An image is empty.");
 }
 
@@ -65,8 +65,56 @@ std::vector<uint8_t> ImageBuffer::Canvas() const
 {
   if (image.empty())
     throw std::runtime_error("An image is empty.");
-  std::vector<uint8_t> result(image.cols * image.rows * image.channels());
+  std::vector<uint8_t> result(Width() * Height() * Channels());
   std::copy(image.datastart, image.dataend, result.begin());
+  return result;
+}
+
+std::vector<uint8_t> ImageBuffer::GetMipLevelsBuffer() const
+{
+  size_t tex_w = (size_t) (Width() * 2) / 3;
+  size_t tex_h = (size_t) Height();
+  size_t mip_levels = (size_t) std::floor(std::log2(std::max(tex_w, tex_h))) + 1;
+
+  size_t mip_h = tex_h;
+  for (size_t i = 1; i < mip_levels; ++i)
+  {
+    if (tex_h > 1) tex_h /= 2;
+    mip_h += tex_h;
+  }
+
+  std::vector<uint8_t> result(tex_w * mip_h * Channels());
+  auto it = result.begin();
+  tex_h = (size_t) Height();
+  mip_h = 0;
+  size_t mip_w = tex_w;
+
+  cv::Mat tmp = image(cv::Rect(0, 0, tex_w, tex_h));
+  
+  if (tmp.isContinuous())
+    it = std::copy(tmp.data, (tmp.data + (tmp.total() * tmp.channels())), it);
+  else
+    for (size_t i = 0; i < tmp.rows; ++i)
+      it = std::copy(tmp.ptr<uint8_t>(i), (tmp.ptr<uint8_t>(i) + (tmp.cols * tmp.channels())), it);
+  
+  tmp.release();
+
+  for (size_t i = 1; i < mip_levels; ++i)
+  {
+    if (tex_h > 1) tex_h /= 2;
+    if (tex_w > 1) tex_w /= 2;
+    tmp = image(cv::Rect(mip_w, mip_h, tex_w, tex_h));
+
+    if (tmp.isContinuous())
+      it = std::copy(tmp.data, (tmp.data + (tmp.total() * tmp.channels())), it);
+    else
+      for (size_t i = 0; i < tmp.rows; ++i)
+        it = std::copy(tmp.ptr<uint8_t>(i), (tmp.ptr<uint8_t>(i) + (tmp.cols * tmp.channels())), it);
+
+    tmp.release();
+    mip_h += tex_h;
+  }
+
   return result;
 }
 

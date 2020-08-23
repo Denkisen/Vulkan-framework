@@ -29,8 +29,6 @@ namespace Vulkan
     std::shared_ptr<Vulkan::Buffer<Vulkan::Vertex>> vertex_buffer;
     std::shared_ptr<Vulkan::Buffer<Vulkan::Vertex>> vertex_src_buffer;
     std::shared_ptr<Vulkan::Sampler> sampler;
-    void PrepareModel(const std::string model_file_path, const std::string material_file_path, const Vulkan::BufferLock buffer_lock);
-    void PrepareTexture(const std::string texture_file_path, const Vulkan::BufferLock buffer_lock);
     std::string GetFileExtention(const std::string file);
   public:
     Object() = delete;
@@ -41,7 +39,8 @@ namespace Vulkan
     std::shared_ptr<Vulkan::IBuffer> GetVertexBuffer() const { return vertex_buffer; }
     std::shared_ptr<Vulkan::Image> GetTextureImage() const { return texture_image; }
     std::shared_ptr<Vulkan::Sampler> GetSampler() const { return sampler; }
-    void LoadFromFiles(const std::string model_file_path, const std::string material_file_path, const std::string texture_file_path);
+    void LoadModel(const std::string model_file_path, const std::string material_file_path);
+    void LoadTexture(const std::string texture_file_path, const bool enable_mip_levels);
     ~Object()
     {
 #ifdef DEBUG

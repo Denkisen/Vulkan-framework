@@ -19,6 +19,7 @@ namespace Vulkan
     float max_anisotropy = 16.0;
     VkSamplerMipmapMode mipmap_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     VkFilter min_filter = VK_FILTER_LINEAR;
+    VkFilter mag_filter = VK_FILTER_LINEAR;
     float mip_lod_bias = 0.0; 
     float lod_min = 0.0; 
     float lod_max = 0.0; 

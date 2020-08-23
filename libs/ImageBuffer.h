@@ -24,9 +24,10 @@ public:
   void Save(std::string file_path, const int channals = 4);
 
   std::vector<uint8_t> Canvas() const;
+  std::vector<uint8_t> GetMipLevelsBuffer() const;
 
-  int Width() const { return image.rows; }
-  int Height() const { return image.cols; }
+  int Width() const { return image.cols; }
+  int Height() const { return image.rows; }
   int Channels() const { return image.channels(); }
 
   void Resize(int w, int h);

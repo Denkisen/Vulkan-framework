@@ -58,7 +58,7 @@ namespace Vulkan
     this->type = type;
 
     if (enable_mip_mapping)
-      mip_levels = std::floor(std::log2(std::max(width, height))) + 1;
+      mip_levels = (uint32_t) std::floor(std::log2(std::max(width, height))) + 1;
     else
       mip_levels = 1;
 
