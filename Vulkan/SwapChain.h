@@ -36,7 +36,7 @@ namespace Vulkan
     SwapChain() = delete;
     SwapChain(const SwapChain &obj) = delete;
     SwapChain& operator= (const SwapChain &obj) = delete;
-    SwapChain(std::shared_ptr<Vulkan::Device> dev);
+    SwapChain(std::shared_ptr<Vulkan::Device> dev, const VkPresentModeKHR mode = VK_PRESENT_MODE_FIFO_KHR);
     ~SwapChain();
     VkSwapchainKHR GetSwapChain() { return swapchain; }
     VkExtent2D GetExtent() { return extent; }
@@ -45,6 +45,7 @@ namespace Vulkan
     size_t GetImageViewsCount() { return swapchain_image_views.size(); }
     uint32_t GetImagesCount() { return images_in_swapchain; }
     void ReBuildSwapChain();
+    void SetPresentationMode(const VkPresentModeKHR mode);
   };
 }
 

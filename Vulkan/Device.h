@@ -95,6 +95,8 @@ namespace Vulkan
       VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
       VkSurfaceKHR GetSurface() { return surface.surface; }
       VkDevice GetDevice() { return device; }
+
+      bool CheckMultisampling(VkSampleCountFlagBits x);
   };
 }
 

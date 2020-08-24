@@ -94,7 +94,7 @@ std::vector<uint8_t> ImageBuffer::GetMipLevelsBuffer() const
   if (tmp.isContinuous())
     it = std::copy(tmp.data, (tmp.data + (tmp.total() * tmp.channels())), it);
   else
-    for (size_t i = 0; i < tmp.rows; ++i)
+    for (size_t i = 0; i < (size_t) tmp.rows; ++i)
       it = std::copy(tmp.ptr<uint8_t>(i), (tmp.ptr<uint8_t>(i) + (tmp.cols * tmp.channels())), it);
   
   tmp.release();
@@ -108,7 +108,7 @@ std::vector<uint8_t> ImageBuffer::GetMipLevelsBuffer() const
     if (tmp.isContinuous())
       it = std::copy(tmp.data, (tmp.data + (tmp.total() * tmp.channels())), it);
     else
-      for (size_t i = 0; i < tmp.rows; ++i)
+      for (size_t i = 0; i < (size_t) tmp.rows; ++i)
         it = std::copy(tmp.ptr<uint8_t>(i), (tmp.ptr<uint8_t>(i) + (tmp.cols * tmp.channels())), it);
 
     tmp.release();

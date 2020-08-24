@@ -206,7 +206,7 @@ namespace Vulkan
     for (size_t i = 0; i < devices.size(); ++i)
     {
       PhysicalDevice p;
-      uint32_t rank = 0;      
+      uint32_t rank = 0;
       p.device = devices[i];
       p.device_index = i;
       vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
@@ -426,5 +426,13 @@ namespace Vulkan
     ret = std::make_pair<uint32_t, uint32_t> ((uint32_t) w, (uint32_t) h);
 
     return ret;
+  }
+
+  bool Device::CheckMultisampling(VkSampleCountFlagBits x)
+  {
+    VkSampleCountFlags counts = p_device.device_properties.limits.framebufferColorSampleCounts & 
+                                p_device.device_properties.limits.framebufferDepthSampleCounts;
+
+    return counts & x;
   }
 }

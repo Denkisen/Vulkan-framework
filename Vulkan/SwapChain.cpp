@@ -28,11 +28,12 @@ namespace Vulkan
     }
   }
 
-  SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev)
+  SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev, const VkPresentModeKHR mode)
   {
     if (dev.get() == nullptr)
       throw std::runtime_error("Device pointer is not valid.");
     device = dev;
+    present_mode = mode;
     Create();
   }
 
@@ -159,8 +160,8 @@ namespace Vulkan
 
   VkPresentModeKHR SwapChain::GetSwapChainPresentMode()
   {
-    if (std::find(capabilities.present_modes.begin(), capabilities.present_modes.end(), VK_PRESENT_MODE_MAILBOX_KHR) != capabilities.present_modes.end())
-      return VK_PRESENT_MODE_MAILBOX_KHR;
+    if (std::find(capabilities.present_modes.begin(), capabilities.present_modes.end(), present_mode) != capabilities.present_modes.end())
+      return present_mode;
 
     return VK_PRESENT_MODE_FIFO_KHR;
   }
@@ -191,5 +192,10 @@ namespace Vulkan
     vkDeviceWaitIdle(device->GetDevice());
     Destroy();
     Create();
+  }
+
+  void SwapChain::SetPresentationMode(const VkPresentModeKHR mode)
+  {
+    present_mode = mode;
   }
 }

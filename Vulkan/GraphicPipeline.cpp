@@ -191,9 +191,9 @@ namespace Vulkan
     pipeline_stage_struct.rasterizer.depthBiasSlopeFactor = 0.0f;
 
     pipeline_stage_struct.multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    pipeline_stage_struct.multisampling.sampleShadingEnable = VK_FALSE;
-    pipeline_stage_struct.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    pipeline_stage_struct.multisampling.minSampleShading = 1.0f;
+    pipeline_stage_struct.multisampling.sampleShadingEnable = multisampling != VK_SAMPLE_COUNT_1_BIT ? VK_TRUE : VK_FALSE;
+    pipeline_stage_struct.multisampling.rasterizationSamples = multisampling;
+    pipeline_stage_struct.multisampling.minSampleShading = 0.25f;
     pipeline_stage_struct.multisampling.pSampleMask = nullptr;
     pipeline_stage_struct.multisampling.alphaToCoverageEnable = VK_FALSE;
     pipeline_stage_struct.multisampling.alphaToOneEnable = VK_FALSE;
@@ -267,29 +267,27 @@ namespace Vulkan
   void GraphicPipeline::SetShaderInfos(std::vector<Vulkan::ShaderInfo> shader_infos)
   {
     this->shader_infos = shader_infos;
-    if (pipeline != VK_NULL_HANDLE)
-      ReBuildPipeline();
   }
 
   void GraphicPipeline::SetVertexInputBindingDescription(std::vector<VkVertexInputBindingDescription> binding_description, std::vector<VkVertexInputAttributeDescription> attribute_descriptions)
   {
     this->binding_description = binding_description;
     this->attribute_descriptions = attribute_descriptions;
-    if (pipeline != VK_NULL_HANDLE)
-      ReBuildPipeline();
   }
 
   void GraphicPipeline::SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts)
   {
     this->descriptor_set_layouts = layouts;
-    if (pipeline != VK_NULL_HANDLE)
-      ReBuildPipeline();
   }
 
   void GraphicPipeline::UseDepthTesting(const VkBool32 enable)
   {
     this->use_depth_testing = enable;
-    if (pipeline != VK_NULL_HANDLE)
-      ReBuildPipeline();
+  }
+
+  void GraphicPipeline::SetSamplesCount(const VkSampleCountFlagBits count)
+  {
+    if (device->CheckMultisampling(count))
+      multisampling = count;
   }
 }

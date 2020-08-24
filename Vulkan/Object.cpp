@@ -26,7 +26,7 @@ namespace Vulkan
     return ext;
   }
 
-  void Object::LoadModel(const std::string model_file_path, const std::string material_file_path)
+  void Object::LoadModel(const std::string model_file_path, const std::string materials_directory)
   {
     auto model_ext = GetFileExtention(model_file_path);
     if (model_ext != ".obj")
@@ -51,7 +51,7 @@ namespace Vulkan
       std::unordered_map<Vulkan::Vertex, uint32_t> vertices;
       std::vector<Vulkan::Vertex> vertices_buff;
 
-      if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_file_path.c_str(), material_file_path.c_str())) 
+      if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_file_path.c_str(), materials_directory.c_str())) 
         throw std::runtime_error(warn + err);
 
       for (const auto& shape : shapes) 
@@ -117,14 +117,13 @@ namespace Vulkan
     texture_image = std::make_shared<Vulkan::Image>(device, tex_w, tex_h, enable_mip_levels, 
                                                     Vulkan::ImageTiling::Optimal, 
                                                     Vulkan::HostVisibleMemory::HostInvisible,
-                                                    Vulkan::ImageType::Sampled);
+                                                    Vulkan::ImageType::Sampled,
+                                                    Vulkan::ImageFormat::SRGB_8,
+                                                    VK_SAMPLE_COUNT_1_BIT);
     texture_src_buffer = std::make_shared<Vulkan::Buffer<uint8_t>>(device, Vulkan::StorageType::Storage, 
                                                                   Vulkan::HostVisibleMemory::HostVisible);
 
-    if (enable_mip_levels)
-      *texture_src_buffer = texture_loader.GetMipLevelsBuffer();
-    else
-      *texture_src_buffer = texture_loader.Canvas();
+    *texture_src_buffer = enable_mip_levels ? texture_loader.GetMipLevelsBuffer() : texture_loader.Canvas();
     sampler = std::make_shared<Vulkan::Sampler>(device, texture_image->GetMipLevels());
 
     std::vector<VkBufferImageCopy> image_regions(texture_image->GetMipLevels());

@@ -21,9 +21,12 @@ namespace Vulkan
     VkRenderPass render_pass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> frame_buffers;
     std::shared_ptr<Vulkan::Image> depth_buffer;
+    std::shared_ptr<Vulkan::Image> multisampling_buffer;
     std::vector<VkClearValue> clear_colors;
+    VkSampleCountFlagBits multisampling = VK_SAMPLE_COUNT_1_BIT;
     VkRenderPass CreateRenderPass();
     std::vector<VkFramebuffer> CreateFrameBuffers();
+    void CreateMultisampleBuffer();
     void CreateDepthBuffer();
     void Destroy();
   public:
@@ -37,6 +40,7 @@ namespace Vulkan
     VkExtent2D GetSwapChainExtent() const { return swapchain->GetExtent(); }
     void ReBuildRenderPass();
     std::vector<VkClearValue> GetClearColors() const { return clear_colors; }
+    void SetSamplesCount(const VkSampleCountFlagBits count);
     ~RenderPass();
   };
 }

@@ -39,7 +39,7 @@ namespace Vulkan
     std::shared_ptr<Vulkan::IBuffer> GetVertexBuffer() const { return vertex_buffer; }
     std::shared_ptr<Vulkan::Image> GetTextureImage() const { return texture_image; }
     std::shared_ptr<Vulkan::Sampler> GetSampler() const { return sampler; }
-    void LoadModel(const std::string model_file_path, const std::string material_file_path);
+    void LoadModel(const std::string model_file_path, const std::string materials_directory = "");
     void LoadTexture(const std::string texture_file_path, const bool enable_mip_levels);
     ~Object()
     {

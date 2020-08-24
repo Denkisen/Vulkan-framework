@@ -21,7 +21,8 @@ namespace Vulkan
   {
     Storage = VK_IMAGE_USAGE_STORAGE_BIT,
     Sampled = VK_IMAGE_USAGE_SAMPLED_BIT,
-    DepthBuffer = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+    DepthBuffer = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    Multisampling = (VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
   };
 
   enum class ImageFormat
@@ -54,7 +55,8 @@ namespace Vulkan
                 const size_t w, const size_t h, 
                 const bool enable_mip_mapping,
                 const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
-                const Vulkan::ImageType type, const Vulkan::ImageFormat format);
+                const Vulkan::ImageType type, const VkFormat format,
+                const VkSampleCountFlagBits multisampling);
     void Destroy();
   public:
     Image() = delete;
@@ -64,7 +66,17 @@ namespace Vulkan
                   const Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
                   const Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
                   const Vulkan::ImageType type = Vulkan::ImageType::Sampled,
-                  const Vulkan::ImageFormat format = Vulkan::ImageFormat::SRGB_8);
+                  const Vulkan::ImageFormat format = Vulkan::ImageFormat::SRGB_8,
+                  const VkSampleCountFlagBits multisampling = VK_SAMPLE_COUNT_1_BIT
+                  );
+    explicit Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
+                  const bool enable_mip_mapping = true,
+                  const Vulkan::ImageTiling tiling = Vulkan::ImageTiling::Optimal, 
+                  const Vulkan::HostVisibleMemory access = Vulkan::HostVisibleMemory::HostVisible,
+                  const Vulkan::ImageType type = Vulkan::ImageType::Sampled,
+                  const VkFormat format = (VkFormat) Vulkan::ImageFormat::SRGB_8,
+                  const VkSampleCountFlagBits multisampling = VK_SAMPLE_COUNT_1_BIT
+                  );
     Image& operator= (const Image &obj) = delete;
     size_t Width() const { return width; }
     size_t Height() const { return height; }

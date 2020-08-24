@@ -50,6 +50,7 @@ namespace Vulkan
     VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL; /*VK_POLYGON_MODE_LINE;*/ 
     VkPrimitiveTopology primitive_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //VK_PRIMITIVE_TOPOLOGY_POINT_LIST; 
     VkFrontFace face = VK_FRONT_FACE_COUNTER_CLOCKWISE; //VK_FRONT_FACE_CLOCKWISE;
+    VkSampleCountFlagBits multisampling = VK_SAMPLE_COUNT_1_BIT;
 
     void CreateShaderStageInfos();
     void FillGraphicPipelineStageStructs(GraphicPipelineStageStructs &pipeline_stage_struct);
@@ -69,6 +70,7 @@ namespace Vulkan
     void SetVertexInputBindingDescription(std::vector<VkVertexInputBindingDescription> binding_description, std::vector<VkVertexInputAttributeDescription> attribute_descriptions);
     void SetDescriptorsSetLayouts(std::vector<VkDescriptorSetLayout> layouts);
     void UseDepthTesting(const VkBool32 enable);
+    void SetSamplesCount(const VkSampleCountFlagBits count);
     ~GraphicPipeline();
   };
 }

@@ -30,17 +30,27 @@ namespace Vulkan
   }
 
   Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
-              const bool enable_mip_mapping, 
+              const bool enable_mip_mapping,
               const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
-              const Vulkan::ImageType type, const Vulkan::ImageFormat format)
+              const Vulkan::ImageType type, const Vulkan::ImageFormat format,
+              const VkSampleCountFlagBits multisampling)
   {
-    Create(dev, w, h, enable_mip_mapping, tiling, access, type, format);
+    Create(dev, w, h, enable_mip_mapping, tiling, access, type, (VkFormat) format, multisampling);
+  }
+
+  Image::Image(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h,
+              const bool enable_mip_mapping, const Vulkan::ImageTiling tiling, 
+              const Vulkan::HostVisibleMemory access, const Vulkan::ImageType type,
+              const VkFormat format, const VkSampleCountFlagBits multisampling)
+  {
+    Create(dev, w, h, enable_mip_mapping, tiling, access, type, format, multisampling);
   }
 
   void Image::Create(std::shared_ptr<Vulkan::Device> dev, const size_t w, const size_t h, 
                     const bool enable_mip_mapping,
                     const Vulkan::ImageTiling tiling, const Vulkan::HostVisibleMemory access, 
-                    const Vulkan::ImageType type, const Vulkan::ImageFormat format)
+                    const Vulkan::ImageType type, const VkFormat format,
+                    const VkSampleCountFlagBits multisampling)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
       throw std::runtime_error("Invalid device pointer.");
@@ -52,7 +62,7 @@ namespace Vulkan
     height = h;
     buffer_size = width * height * channels * sizeof(uint8_t);
     buffer_size = (std::ceil(buffer_size / 256.0) * 256);
-    this->format = (VkFormat) format;
+    this->format = format;
     this->tiling = tiling;
     this->access = access;
     this->type = type;
@@ -74,9 +84,9 @@ namespace Vulkan
 
     image_info.tiling = (VkImageTiling) tiling;
     image_info.initialLayout = layout;
-    image_info.usage = (VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) | (VkImageUsageFlags) type;
+    image_info.usage = type != ImageType::Multisampling ? (VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) | (VkImageUsageFlags) type : (VkImageUsageFlags) type;
     image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_info.samples = dev->CheckMultisampling(multisampling) ? multisampling : VK_SAMPLE_COUNT_1_BIT;
     image_info.flags = 0;
 
     if (vkCreateImage(device->GetDevice(), &image_info, nullptr, &image) != VK_SUCCESS)
@@ -107,7 +117,7 @@ namespace Vulkan
     view_info.image = image;
     view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view_info.format = this->format;
-    switch (format)
+    switch ((Vulkan::ImageFormat) format)
     {
       case Vulkan::ImageFormat::Depth_32:
         aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -120,7 +130,7 @@ namespace Vulkan
         aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
         break;
       default:
-        throw std::runtime_error("Unsupported image format.");
+        aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
     }
 
     view_info.subresourceRange.aspectMask = aspect_flags;
