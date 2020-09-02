@@ -18,7 +18,7 @@ struct UniformData
   uint val[63];
 };
 
-layout(binding = 2) uniform buf2
+layout(set = 1, binding = 0) uniform buf2
 {
   UniformData global_data;
 };

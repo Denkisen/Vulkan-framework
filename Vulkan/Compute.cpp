@@ -103,6 +103,40 @@ namespace Vulkan
     return *this;
   } 
 
+  Compute& Compute::operator= (const std::shared_ptr<BufferArray> &obj)
+  {
+    stop = true;
+    std::lock_guard<std::mutex> lock(work_mutex);
+
+    if (device != nullptr && device->GetDevice() != VK_NULL_HANDLE)
+    {
+      if (pipeline_layout != VK_NULL_HANDLE)
+      {
+        vkDestroyPipelineLayout(device->GetDevice(), pipeline_layout, nullptr);
+        pipeline_layout = VK_NULL_HANDLE;
+      }
+      if (pipeline != VK_NULL_HANDLE)
+      {
+        vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+      }
+
+      for (uint32_t i = 0; i < obj->Count(); ++i)
+      {
+        descriptors->ClearDescriptorSetLayout(i);
+        for (uint32_t j = 0; j < obj->VirtualBuffersCount(i); ++j)
+        {
+          auto bf = obj->GetVirtualBuffer(i, j);
+          descriptors->Add(i, j, bf.first, obj->BufferType(i), VK_SHADER_STAGE_COMPUTE_BIT, {bf.second.offset, bf.second.size});
+        }
+      }
+    }
+    else
+      std::runtime_error("No Device.");
+
+    return *this;
+  }
+
   void Compute::Run(std::size_t x, std::size_t y, std::size_t z)
   {
     stop = false;

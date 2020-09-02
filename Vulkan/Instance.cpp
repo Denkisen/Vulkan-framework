@@ -10,6 +10,7 @@ Vulkan::Instance::Instance()
   if (instance != VK_NULL_HANDLE) return;
 
   VkResult res = VK_SUCCESS;
+
   VkApplicationInfo app_info = {};
   VkInstanceCreateInfo create_info = {};
 

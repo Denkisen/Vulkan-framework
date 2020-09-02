@@ -10,7 +10,8 @@ namespace Vulkan
     {
       {offsetof(Vertex, pos), VK_FORMAT_R32G32B32_SFLOAT},
       {offsetof(Vertex, color), VK_FORMAT_R32G32B32_SFLOAT},
-      {offsetof(Vertex, texCoord), VK_FORMAT_R32G32_SFLOAT}
+      {offsetof(Vertex, texCoord), VK_FORMAT_R32G32_SFLOAT},
+      {offsetof(Vertex, normal), VK_FORMAT_R32G32B32_SFLOAT}
     };
     Vulkan::Supply::GetVertexInputBindingDescription<Vulkan::Vertex>(binding, vertex_descriptions, result.first, result.second);
 

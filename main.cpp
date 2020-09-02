@@ -7,7 +7,13 @@
 #include "Vulkan/Compute.h"
 #include "Vulkan/Buffer.h"
 #include "Vulkan/CommandPool.h"
-#include "libs/ImageBuffer.h"
+#include "Vulkan/BufferArray.h"
+
+struct UniformData
+{
+  unsigned mul;
+  unsigned val[63];
+};
 
 int main(int argc, char const *argv[])
 {
@@ -15,35 +21,34 @@ int main(int argc, char const *argv[])
   {
     Vulkan::Instance instance;
     std::shared_ptr<Vulkan::Device> device = std::make_shared<Vulkan::Device>(Vulkan::PhysicalDeviceType::Discrete);
-    std::shared_ptr<Vulkan::Buffer<float>> input_src = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostVisible);
-    std::shared_ptr<Vulkan::Buffer<float>> output = std::make_shared<Vulkan::Buffer<float>>(device, Vulkan::StorageType::Storage, Vulkan::HostVisibleMemory::HostVisible);
-    *input_src = std::vector<float>(64, 5.0);
-    *output = std::vector<float>(64, 0.0);
-    struct UniformData
-    {
-      unsigned mul;
-      unsigned val[63];
-    };
+
+    std::shared_ptr<Vulkan::BufferArray> test = std::make_shared<Vulkan::BufferArray>(device);
     UniformData global_data = {};
     global_data.mul = 5;
-    std::shared_ptr<Vulkan::Buffer<UniformData>> global = std::make_shared<Vulkan::Buffer<UniformData>>(device, Vulkan::StorageType::Uniform, Vulkan::HostVisibleMemory::HostVisible);
-    *global = global_data;
-    std::vector<std::shared_ptr<Vulkan::IBuffer>> data;
-    data.push_back(input_src);
-    data.push_back(output);
-    data.push_back(global);
+
+    test->DeclareBuffer(64 * 64 * sizeof(float), Vulkan::HostVisibleMemory::HostVisible, Vulkan::StorageType::Storage);
+    test->DeclareVirtualBuffer(0, 0, 64 * sizeof(float));
+    test->DeclareVirtualBuffer(0, 64 * sizeof(float), 64 * sizeof(float));
+    test->DeclareBuffer(sizeof(UniformData), Vulkan::HostVisibleMemory::HostVisible, Vulkan::StorageType::Uniform);
+    test->DeclareVirtualBuffer(1, 0, sizeof(UniformData));
+
+    test->TrySetValue(0, 0, std::vector<float>(64, 5.0));
+    test->TrySetValue(0, 1, std::vector<float>(64, 0.0));
+    test->TrySetValue(1, 0, std::vector<UniformData>{global_data});
+
     Vulkan::ComputePipelineOptions opts;
     opts.DispatchTimes = 3;
     Vulkan::UpdateBufferOpt uni_opts;
-    uni_opts.index = data.size() - 1;
-    uni_opts.OnDispatchEndEvent = [&data](const std::size_t iteration, const std::size_t index, const std::size_t element)
+    uni_opts.index = test->Count() - 1;
+    uni_opts.OnDispatchEndEvent = [&test](const std::size_t iteration, const std::size_t index, const std::size_t element)
     {
       std::cout << "EndEvent" << std::endl;
-      if (data[element]->Type() == Vulkan::StorageType::Uniform)
+      if (test->BufferType(element) == Vulkan::StorageType::Uniform)
       {
-        auto t = ((Vulkan::Buffer<UniformData>*) data[element].get())->Extract(0);
-        t.mul += iteration;
-        *((Vulkan::Buffer<UniformData>*) data[element].get()) = t;
+        std::vector<UniformData> t;
+        test->TryGetValue(element, 0, t);
+        t[0].mul += iteration;
+        test->TrySetValue(element, 0, t);
       }
     };
     opts.DispatchEndEvents.push_back(uni_opts);
@@ -52,10 +57,12 @@ int main(int argc, char const *argv[])
 
     Vulkan::Compute offload = Vulkan::Compute(device, path + "test.comp.spv", "main");
     offload.SetPipelineOptions(opts);
-    offload = data;
+    offload = test;
     offload.Run(64, 1, 1);
 
-    auto out = output->Extract();
+    std::vector<float> out;
+    test->TryGetValue(0, 1, out);
+
     std::cout << "Output:" << out.size() << std::endl;
     for (size_t i = 0; i < out.size(); ++i)
     {

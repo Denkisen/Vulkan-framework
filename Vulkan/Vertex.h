@@ -10,19 +10,27 @@
 
 namespace Vulkan
 {
-  struct Vertex
+  struct alignas(16) Vertex 
   {
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
+    glm::vec3 normal;
 
     bool operator==(const Vertex& other) const 
     {
-      return pos == other.pos && color == other.color && texCoord == other.texCoord;
+      return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
     }
   };
 
   std::pair<VkVertexInputBindingDescription, std::vector<VkVertexInputAttributeDescription>> GetVertexDescription(uint32_t binding);
+}
+
+template <class T>
+inline void hash_combine(std::size_t & s, const T & v)
+{
+  std::hash<T> h;
+  s^= h(v) + 0x9e3779b9 + (s<< 6) + (s>> 2);
 }
 
 namespace std 
@@ -31,10 +39,13 @@ namespace std
   {
     size_t operator()(Vulkan::Vertex const& vertex) const 
     {
-      auto p = hash<glm::vec3>()(vertex.pos);
-      auto c = hash<glm::vec3>()(vertex.color);
-      auto t = hash<glm::vec2>()(vertex.texCoord);
-      return ((p ^ (c << 1)) >> 1) ^ (t << 1);
+      size_t res = 0;
+      hash_combine(res, hash<glm::vec3>()(vertex.pos));
+      hash_combine(res, hash<glm::vec3>()(vertex.color));
+      hash_combine(res, hash<glm::vec2>()(vertex.texCoord));
+      hash_combine(res, hash<glm::vec3>()(vertex.normal));
+
+      return res;
     }
   };
 }

@@ -61,6 +61,7 @@ namespace Vulkan
     Compute(const Compute &obj);
     Compute& operator= (const Compute &obj);
     Compute& operator= (const std::vector<std::shared_ptr<IBuffer>> &obj);
+    Compute& operator= (const std::shared_ptr<BufferArray> &obj);
     void Run(std::size_t x, std::size_t y, std::size_t z);
     void SetPipelineOptions(const ComputePipelineOptions options);
     void SetShader(const std::string shader_path, const std::string entry_point);

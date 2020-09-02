@@ -300,22 +300,21 @@ VkPipelineLayout Vulkan::Supply::CreatePipelineLayout(VkDevice device, std::vect
   return result;
 }
 
-std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, uint32_t &buffer_size, VkMemoryPropertyFlags flags)
+std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags)
 {
   std::optional<size_t> res;
   VkPhysicalDeviceMemoryProperties properties;
   vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
   VkMemoryRequirements mem_req = {};
   vkGetBufferMemoryRequirements(dev, buffer, &mem_req);
-  buffer_size = mem_req.size;
-#ifdef DEBUG
-  std::cout << "Align:" << mem_req.alignment << std::endl;
-#endif
+  buffer_size.first = mem_req.size;
+  buffer_size.second = mem_req.alignment;
+
   for (size_t i = 0; i < properties.memoryTypeCount; i++) 
   {
     if (mem_req.memoryTypeBits & (1 << i) && 
         (properties.memoryTypes[i].propertyFlags & flags) &&
-        (buffer_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
+        (buffer_size.first < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
     {
       res = i;
       break;
@@ -325,20 +324,52 @@ std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysica
   return res;
 }
 
-std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkImage image, uint32_t &buffer_size, VkMemoryPropertyFlags flags)
+std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, std::vector<VkBuffer> buffers, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags)
+{
+  std::optional<size_t> res;
+  VkPhysicalDeviceMemoryProperties properties;
+  vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
+  VkMemoryRequirements mem_req = {};
+  std::pair<uint32_t, uint32_t> mem_size = std::make_pair(0, 0);
+
+  for (size_t i = 0; i < buffers.size(); ++i)
+  {
+    mem_req = {};
+    vkGetBufferMemoryRequirements(dev, buffers[i], &mem_req);
+    mem_size.first += mem_req.size;
+  }
+  mem_size.second = mem_req.alignment;
+
+  for (size_t i = 0; i < properties.memoryTypeCount; i++) 
+  {
+    if (mem_req.memoryTypeBits & (1 << i) && 
+        (properties.memoryTypes[i].propertyFlags & flags) &&
+        (mem_size.first < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
+    {
+      res = i;
+      break;
+    }
+  }
+  buffer_size = mem_size;
+  
+  return res;
+}
+
+std::optional<size_t> Vulkan::Supply::GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkImage image, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags)
 {
   std::optional<size_t> res;
   VkPhysicalDeviceMemoryProperties properties;
   vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
   VkMemoryRequirements mem_req = {};
   vkGetImageMemoryRequirements(dev, image, &mem_req);
-  buffer_size = mem_req.size;
+  buffer_size.first = mem_req.size;
+  buffer_size.second = mem_req.alignment;
   
   for (size_t i = 0; i < properties.memoryTypeCount; i++) 
   {
     if (mem_req.memoryTypeBits & (1 << i) && 
         (properties.memoryTypes[i].propertyFlags & flags) &&
-        (buffer_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
+        (buffer_size.first < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
     {
       res = i;
       break;
@@ -361,4 +392,220 @@ std::string Vulkan::Supply::GetExecDirectory(const std::string argc_path)
   }
 
   return path;
+}
+
+std::string Vulkan::Supply::GetFileExtention(const std::string file)
+{
+  size_t pos = file.find_last_of(".");
+  if (pos == file.size())
+    return "";
+
+  std::string ext = file.substr(pos);
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
+
+  return ext;
+}
+
+size_t Vulkan::Supply::SizeOfFormat(const VkFormat format)
+{
+  const std::vector<VkFormat> bit8 =
+  {
+    VK_FORMAT_R4G4_UNORM_PACK8,
+    VK_FORMAT_R8_UNORM,
+    VK_FORMAT_R8_SNORM,
+    VK_FORMAT_R8_USCALED,
+    VK_FORMAT_R8_SSCALED,
+    VK_FORMAT_R8_UINT,
+    VK_FORMAT_R8_SINT,
+    VK_FORMAT_R8_SRGB
+  };
+  const std::vector<VkFormat> bit16 =
+  {
+    VK_FORMAT_R4G4B4A4_UNORM_PACK16,
+    VK_FORMAT_B4G4R4A4_UNORM_PACK16,
+    VK_FORMAT_A4R4G4B4_UNORM_PACK16_EXT,
+    VK_FORMAT_A4B4G4R4_UNORM_PACK16_EXT,
+    VK_FORMAT_R5G6B5_UNORM_PACK16,
+    VK_FORMAT_B5G6R5_UNORM_PACK16,
+    VK_FORMAT_R5G5B5A1_UNORM_PACK16,
+    VK_FORMAT_B5G5R5A1_UNORM_PACK16,
+    VK_FORMAT_A1R5G5B5_UNORM_PACK16,
+    VK_FORMAT_R8G8_UNORM,
+    VK_FORMAT_R8G8_SNORM,
+    VK_FORMAT_R8G8_USCALED,
+    VK_FORMAT_R8G8_SSCALED,
+    VK_FORMAT_R8G8_UINT,
+    VK_FORMAT_R8G8_SINT,
+    VK_FORMAT_R8G8_SRGB,
+    VK_FORMAT_R16_UNORM,
+    VK_FORMAT_R16_SNORM,
+    VK_FORMAT_R16_USCALED,
+    VK_FORMAT_R16_SSCALED,
+    VK_FORMAT_R16_UINT,
+    VK_FORMAT_R16_SINT,
+    VK_FORMAT_R16_SFLOAT,
+    VK_FORMAT_R10X6_UNORM_PACK16,
+    VK_FORMAT_R12X4_UNORM_PACK16
+  };
+
+  const std::vector<VkFormat> bit24 =
+  {
+    VK_FORMAT_R8G8B8_UNORM,
+    VK_FORMAT_R8G8B8_SNORM,
+    VK_FORMAT_R8G8B8_USCALED,
+    VK_FORMAT_R8G8B8_SSCALED,
+    VK_FORMAT_R8G8B8_UINT,
+    VK_FORMAT_R8G8B8_SINT,
+    VK_FORMAT_R8G8B8_SRGB,
+    VK_FORMAT_B8G8R8_UNORM,
+    VK_FORMAT_B8G8R8_SNORM,
+    VK_FORMAT_B8G8R8_USCALED,
+    VK_FORMAT_B8G8R8_SSCALED,
+    VK_FORMAT_B8G8R8_UINT,
+    VK_FORMAT_B8G8R8_SINT,
+    VK_FORMAT_B8G8R8_SRGB
+  };
+
+  const std::vector<VkFormat> bit32 =
+  {
+    VK_FORMAT_R8G8B8A8_UNORM,
+    VK_FORMAT_R8G8B8A8_SNORM,
+    VK_FORMAT_R8G8B8A8_USCALED,
+    VK_FORMAT_R8G8B8A8_SSCALED,
+    VK_FORMAT_R8G8B8A8_UINT,
+    VK_FORMAT_R8G8B8A8_SINT,
+    VK_FORMAT_R8G8B8A8_SRGB,
+    VK_FORMAT_B8G8R8A8_UNORM,
+    VK_FORMAT_B8G8R8A8_SNORM,
+    VK_FORMAT_B8G8R8A8_USCALED,
+    VK_FORMAT_B8G8R8A8_SSCALED,
+    VK_FORMAT_B8G8R8A8_UINT,
+    VK_FORMAT_B8G8R8A8_SINT,
+    VK_FORMAT_B8G8R8A8_SRGB,
+    VK_FORMAT_A8B8G8R8_UNORM_PACK32,
+    VK_FORMAT_A8B8G8R8_SNORM_PACK32,
+    VK_FORMAT_A8B8G8R8_USCALED_PACK32,
+    VK_FORMAT_A8B8G8R8_SSCALED_PACK32,
+    VK_FORMAT_A8B8G8R8_UINT_PACK32,
+    VK_FORMAT_A8B8G8R8_SINT_PACK32,
+    VK_FORMAT_A8B8G8R8_SRGB_PACK32,
+    VK_FORMAT_A2R10G10B10_UNORM_PACK32,
+    VK_FORMAT_A2R10G10B10_SNORM_PACK32,
+    VK_FORMAT_A2R10G10B10_USCALED_PACK32,
+    VK_FORMAT_A2R10G10B10_SSCALED_PACK32,
+    VK_FORMAT_A2R10G10B10_UINT_PACK32,
+    VK_FORMAT_A2R10G10B10_SINT_PACK32,
+    VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+    VK_FORMAT_A2B10G10R10_SNORM_PACK32,
+    VK_FORMAT_A2B10G10R10_USCALED_PACK32,
+    VK_FORMAT_A2B10G10R10_SSCALED_PACK32,
+    VK_FORMAT_A2B10G10R10_UINT_PACK32,
+    VK_FORMAT_A2B10G10R10_SINT_PACK32,
+    VK_FORMAT_R16G16_UNORM,
+    VK_FORMAT_R16G16_SNORM,
+    VK_FORMAT_R16G16_USCALED,
+    VK_FORMAT_R16G16_SSCALED,
+    VK_FORMAT_R16G16_UINT,
+    VK_FORMAT_R16G16_SINT,
+    VK_FORMAT_R16G16_SFLOAT,
+    VK_FORMAT_R32_UINT,
+    VK_FORMAT_R32_SINT,
+    VK_FORMAT_R32_SFLOAT,
+    VK_FORMAT_B10G11R11_UFLOAT_PACK32,
+    VK_FORMAT_E5B9G9R9_UFLOAT_PACK32,
+    VK_FORMAT_R10X6G10X6_UNORM_2PACK16,
+    VK_FORMAT_R12X4G12X4_UNORM_2PACK16,
+    VK_FORMAT_G8B8G8R8_422_UNORM,
+    VK_FORMAT_B8G8R8G8_422_UNORM
+  };
+
+  const std::vector<VkFormat> bit48 =
+  {
+    VK_FORMAT_R16G16B16_UNORM,
+    VK_FORMAT_R16G16B16_SNORM,
+    VK_FORMAT_R16G16B16_USCALED,
+    VK_FORMAT_R16G16B16_SSCALED,
+    VK_FORMAT_R16G16B16_UINT,
+    VK_FORMAT_R16G16B16_SINT,
+    VK_FORMAT_R16G16B16_SFLOAT
+  };
+
+  const std::vector<VkFormat> bit64 =
+  {
+    VK_FORMAT_R16G16B16A16_UNORM,
+    VK_FORMAT_R16G16B16A16_SNORM,
+    VK_FORMAT_R16G16B16A16_USCALED,
+    VK_FORMAT_R16G16B16A16_SSCALED,
+    VK_FORMAT_R16G16B16A16_UINT,
+    VK_FORMAT_R16G16B16A16_SINT,
+    VK_FORMAT_R16G16B16A16_SFLOAT,
+    VK_FORMAT_R32G32_UINT,
+    VK_FORMAT_R32G32_SINT,
+    VK_FORMAT_R32G32_SFLOAT,
+    VK_FORMAT_R64_UINT,
+    VK_FORMAT_R64_SINT,
+    VK_FORMAT_R64_SFLOAT,
+    VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16,
+    VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16,
+    VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16,
+    VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16,
+    VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16,
+    VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16,
+    VK_FORMAT_G16B16G16R16_422_UNORM,
+    VK_FORMAT_B16G16R16G16_422_UNORM
+  };
+
+  const std::vector<VkFormat> bit96 =
+  {
+    VK_FORMAT_R32G32B32_UINT,
+    VK_FORMAT_R32G32B32_SINT,
+    VK_FORMAT_R32G32B32_SFLOAT
+  };
+
+  const std::vector<VkFormat> bit128 =
+  {
+    VK_FORMAT_R32G32B32A32_UINT,
+    VK_FORMAT_R32G32B32A32_SINT,
+    VK_FORMAT_R32G32B32A32_SFLOAT,
+    VK_FORMAT_R64G64_UINT,
+    VK_FORMAT_R64G64_SINT,
+    VK_FORMAT_R64G64_SFLOAT
+  };
+
+  const std::vector<VkFormat> bit192 =
+  {
+    VK_FORMAT_R64G64B64_UINT,
+    VK_FORMAT_R64G64B64_SINT,
+    VK_FORMAT_R64G64B64_SFLOAT
+  };
+
+  const std::vector<VkFormat> bit256 =
+  {
+    VK_FORMAT_R64G64B64A64_UINT,
+    VK_FORMAT_R64G64B64A64_SINT,
+    VK_FORMAT_R64G64B64A64_SFLOAT
+  };
+
+  if (std::find(bit8.begin(), bit8.end(), format) != bit8.end())
+    return 1;
+  if (std::find(bit16.begin(), bit16.end(), format) != bit16.end())
+    return 2;
+  if (std::find(bit24.begin(), bit24.end(), format) != bit24.end())
+    return 3;
+  if (std::find(bit32.begin(), bit32.end(), format) != bit32.end())
+    return 4;
+  if (std::find(bit48.begin(), bit48.end(), format) != bit48.end())
+    return 6;
+  if (std::find(bit64.begin(), bit64.end(), format) != bit64.end())
+    return 8;
+  if (std::find(bit96.begin(), bit96.end(), format) != bit96.end())
+    return 12;
+  if (std::find(bit128.begin(), bit128.end(), format) != bit128.end())
+    return 16;
+  if (std::find(bit192.begin(), bit192.end(), format) != bit192.end())
+    return 24;
+  if (std::find(bit256.begin(), bit256.end(), format) != bit256.end())
+    return 32;
+
+  return 0;
 }

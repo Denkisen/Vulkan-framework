@@ -14,6 +14,10 @@ namespace Vulkan
         return Vulkan::DescriptorType::BufferStorage;
       case Vulkan::StorageType::Uniform:
         return Vulkan::DescriptorType::BufferUniform;
+      case Vulkan::StorageType::TexelStorage:
+        return Vulkan::DescriptorType::TexelStorage;
+      case Vulkan::StorageType::TexelUniform:
+        return Vulkan::DescriptorType::TexelUniform;
       default:
         throw std::runtime_error("Unknown StorageType");
     }
@@ -136,6 +140,8 @@ namespace Vulkan
       {
         case DescriptorType::BufferStorage:
         case DescriptorType::BufferUniform:
+        case DescriptorType::TexelUniform:
+        case DescriptorType::TexelStorage:
           count.first++;
           break;
         case DescriptorType::ImageSamplerCombined:
@@ -165,12 +171,15 @@ namespace Vulkan
       {
         case DescriptorType::BufferStorage:
         case DescriptorType::BufferUniform:
+        case DescriptorType::TexelUniform:
+        case DescriptorType::TexelStorage:
           buffer_infos[count.first].buffer = info[i].buffer;
-          buffer_infos[count.first].offset = 0;
-          buffer_infos[count.first].range = VK_WHOLE_SIZE;
+          buffer_infos[count.first].offset = info[i].offset_size.first;
+          buffer_infos[count.first].range = info[i].offset_size.second;
 
           descriptor_writes[i].pBufferInfo = &buffer_infos[count.first];
           descriptor_writes[i].pImageInfo = VK_NULL_HANDLE;
+          descriptor_writes[i].pTexelBufferView = &info[i].buffer_view;
           count.first++;
           break;
         case DescriptorType::ImageSamplerCombined:
@@ -226,6 +235,28 @@ namespace Vulkan
     info.binding = binding;
     info.stage = stage;
     info.type = MapStorageType(buffer->Type());
+    info.buffer_view = buffer->GetBufferView();
+    build_info[set_index].second.push_back(info);
+  }
+
+  void Descriptors::Add(const uint32_t set_index, const uint32_t binding, const VkBuffer buffer, const Vulkan::StorageType buffer_type, const VkShaderStageFlags stage, const std::pair<uint32_t, uint32_t> offset_size_pair)
+  {
+    if (set_index >= build_info.size())
+      throw std::runtime_error("build_info count is less then " + std::to_string(set_index));
+
+    if (build_info[set_index].first == false)
+      throw std::runtime_error("Layout is not editable.");
+    
+    if (buffer == VK_NULL_HANDLE)
+      throw std::runtime_error("Invalid buffer pointer.");
+
+    DescriptorInfo info = {};
+    info.buffer = buffer ;
+    info.binding = binding;
+    info.stage = stage;
+    info.offset_size = offset_size_pair;
+    info.type = MapStorageType(buffer_type);
+    info.buffer_view = VK_NULL_HANDLE;
     build_info[set_index].second.push_back(info);
   }
 
@@ -245,6 +276,7 @@ namespace Vulkan
     info.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     info.stage = stage;
     info.binding = binding;
+    info.offset_size = {0,0};
     if (image->Type() == ImageType::Sampled)
     {
       if (sampler->GetSampler() == VK_NULL_HANDLE)

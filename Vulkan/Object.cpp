@@ -3,7 +3,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "../libs/tiny_obj_loader.h"
 
-#include <algorithm>
 #include <unordered_map>
 
 namespace Vulkan
@@ -12,34 +11,19 @@ namespace Vulkan
   {
     device = dev;
     command_pool = pool;
-  }
-
-  std::string Object::GetFileExtention(const std::string file)
-  {
-    size_t pos = file.find_last_of(".");
-    if (pos == file.size())
-      return "";
-
-    std::string ext = file.substr(pos);
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
-
-    return ext;
+    dst_buffer_array = std::make_shared<Vulkan::BufferArray>(device);
   }
 
   void Object::LoadModel(const std::string model_file_path, const std::string materials_directory)
   {
-    auto model_ext = GetFileExtention(model_file_path);
+    auto model_ext = Supply::GetFileExtention(model_file_path);
     if (model_ext != ".obj")
       throw std::runtime_error("Unsupported format");
 
-    vertex_buffer = std::make_shared<Vulkan::Buffer<Vulkan::Vertex>>(device, Vulkan::StorageType::Vertex, 
-                                                                    Vulkan::HostVisibleMemory::HostInvisible);
-    index_buffer = std::make_shared<Vulkan::Buffer<uint32_t>>(device, Vulkan::StorageType::Index,
-                                                              Vulkan::HostVisibleMemory::HostInvisible);
-    vertex_src_buffer = std::make_shared<Vulkan::Buffer<Vulkan::Vertex>>(device, Vulkan::StorageType::Vertex,
-                                                                              Vulkan::HostVisibleMemory::HostVisible);
-    index_src_buffer = std::make_shared<Vulkan::Buffer<uint32_t>>(device, Vulkan::StorageType::Index,
-                                                                      Vulkan::HostVisibleMemory::HostVisible);
+    std::vector<uint32_t> indices;
+    std::unordered_map<Vulkan::Vertex, uint32_t> vertices;
+    std::vector<Vulkan::Vertex> vertices_buff;
+    Vulkan::BufferArray src_buffer_array(device);
 
     if (model_ext == ".obj")
     {
@@ -47,9 +31,6 @@ namespace Vulkan
       std::vector<tinyobj::shape_t> shapes;
       std::vector<tinyobj::material_t> materials;
       std::string warn, err;
-      std::vector<uint32_t> indices;
-      std::unordered_map<Vulkan::Vertex, uint32_t> vertices;
-      std::vector<Vulkan::Vertex> vertices_buff;
 
       if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_file_path.c_str(), materials_directory.c_str())) 
         throw std::runtime_error(warn + err);
@@ -64,6 +45,13 @@ namespace Vulkan
             attrib.vertices[3 * index.vertex_index + 0],
             attrib.vertices[3 * index.vertex_index + 1],
             attrib.vertices[3 * index.vertex_index + 2]
+          };
+
+          vertex.normal =
+          {
+            attrib.normals[3 * index.normal_index + 0],
+            attrib.normals[3 * index.normal_index + 1],
+            attrib.normals[3 * index.normal_index + 2],
           };
 
           vertex.texCoord = 
@@ -83,29 +71,38 @@ namespace Vulkan
           indices.push_back(vertices[vertex]);
         }
       }
-
-      *index_buffer = indices;
-      *index_src_buffer = indices;
-      *vertex_buffer = vertices_buff;
-      *vertex_src_buffer = vertices_buff;
     }
 
-    VkBufferCopy copy_region = {};
-    copy_region.srcOffset = 0;
-    copy_region.dstOffset = 0;
+    src_buffer_array.DeclareBuffer((vertices_buff.size() * sizeof(Vertex)) + (indices.size() * sizeof(uint32_t)), HostVisibleMemory::HostVisible, Vulkan::StorageType::Storage);
+    src_buffer_array.DeclareVirtualBuffer(0, 0, vertices_buff.size() * sizeof(Vertex));
+    src_buffer_array.DeclareVirtualBuffer(0, vertices_buff.size() * sizeof(Vertex), indices.size() * sizeof(uint32_t));
 
+    dst_buffer_array->DeclareBuffer(vertices_buff.size() * sizeof(Vertex), HostVisibleMemory::HostInvisible, Vulkan::StorageType::Vertex);
+    dst_buffer_array->DeclareBuffer(indices.size() * sizeof(uint32_t), HostVisibleMemory::HostInvisible, Vulkan::StorageType::Index);
+
+    src_buffer_array.TrySetValue(0, 0, vertices_buff);
+    src_buffer_array.TrySetValue(0, 1, indices);
+
+    VkBufferCopy copy_region = {};
+    
     auto buffer_lock = command_pool->OrderBufferLock();
     command_pool->BeginCommandBuffer(buffer_lock);
-    copy_region.size = std::min(vertex_src_buffer->BufferLength(), vertex_buffer->BufferLength());
-    command_pool->CopyBuffer(buffer_lock, vertex_src_buffer, vertex_buffer, {copy_region});
-    copy_region.size = std::min(index_src_buffer->BufferLength(), index_buffer->BufferLength());
-    command_pool->CopyBuffer(buffer_lock, index_src_buffer, index_buffer, {copy_region});
+
+    auto bf = src_buffer_array.GetVirtualBuffer(0, 0);
+    copy_region.srcOffset = bf.second.offset;
+    copy_region.size = bf.second.size;
+    copy_region.dstOffset = 0;
+    command_pool->CopyBuffer(buffer_lock, bf.first, dst_buffer_array->GetWholeBuffer(0).first, {copy_region});
+
+    bf = src_buffer_array.GetVirtualBuffer(0, 1);
+    copy_region.srcOffset = bf.second.offset;
+    copy_region.size = bf.second.size;
+    copy_region.dstOffset = 0;
+    command_pool->CopyBuffer(buffer_lock, bf.first, dst_buffer_array->GetWholeBuffer(1).first, {copy_region});
+
     command_pool->EndCommandBuffer(buffer_lock);
     command_pool->ExecuteBuffer(buffer_lock);
     command_pool->ReleaseBufferLock(buffer_lock);
-
-    vertex_src_buffer.reset();
-    index_src_buffer.reset();
   }
 
   void Object::LoadTexture(const std::string texture_file_path, const bool enable_mip_levels)
@@ -120,7 +117,7 @@ namespace Vulkan
                                                     Vulkan::ImageType::Sampled,
                                                     Vulkan::ImageFormat::SRGB_8,
                                                     VK_SAMPLE_COUNT_1_BIT);
-    texture_src_buffer = std::make_shared<Vulkan::Buffer<uint8_t>>(device, Vulkan::StorageType::Storage, 
+    std::shared_ptr<Vulkan::Buffer<uint8_t>> texture_src_buffer = std::make_shared<Vulkan::Buffer<uint8_t>>(device, Vulkan::StorageType::Storage, 
                                                                   Vulkan::HostVisibleMemory::HostVisible);
 
     *texture_src_buffer = enable_mip_levels ? texture_loader.GetMipLevelsBuffer() : texture_loader.Canvas();
@@ -163,7 +160,54 @@ namespace Vulkan
     command_pool->EndCommandBuffer(buffer_lock);
     command_pool->ExecuteBuffer(buffer_lock);
     command_pool->ReleaseBufferLock(buffer_lock);
+  }
 
-    texture_src_buffer.reset();
+  std::pair<VkBuffer, VkBufferCopy> Object::CopyTransformBufferInfo(const size_t index)
+  {
+    std::lock_guard<std::mutex> lock(transformations_buffer_mutex);
+
+    if (index >= transformations_buffer->VirtualBuffersCount(0))
+      throw std::runtime_error("Index out of bounds.");
+    
+    auto sub = transformations_buffer->GetVirtualBuffer(0, index);
+    VkBufferCopy copy_region = {};
+    copy_region.srcOffset = sub.second.offset;
+    copy_region.size = sub.second.size;
+    copy_region.dstOffset = 0;
+
+    return { sub.first, copy_region };
+  }
+
+  void Object::SetPosition(const glm::vec3 pos)
+  {
+    std::lock_guard<std::mutex> lock(transformations_mutex);
+    position = pos;
+  }
+
+  void Object::Move(const glm::vec3 pos_offset)
+  {
+    std::lock_guard<std::mutex> lock(transformations_mutex);
+    position += pos_offset;
+  }
+
+  void Object::SetDirection(const glm::vec3 dir)
+  {
+    std::lock_guard<std::mutex> lock(transformations_mutex);
+    direction = dir;
+  }
+
+  void Object::Turn(const float angle)
+  {
+    std::lock_guard<std::mutex> lock(transformations_mutex);
+    direction = glm::rotateY(direction, glm::radians(angle));
+  }
+
+  glm::mat4 Object::ObjectTransforations()
+  {
+    std::lock_guard<std::mutex> lock(transformations_mutex);
+    glm::mat4 result = glm::mat4(1.0f);
+    result = glm::translate(glm::mat4(1.0f), position);
+    result = glm::rotate(result, glm::orientedAngle(glm::normalize(direction), glm::vec3(0.0f, 0.0f, -1.0f), up_axis), up_axis);
+    return result;
   }
 }

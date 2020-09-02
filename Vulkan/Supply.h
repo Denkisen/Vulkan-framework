@@ -24,9 +24,9 @@ namespace Vulkan
 
   enum class ShaderType
   {
-    Vertex,
-    Fragment,
-    Compute,
+    Vertex = VK_SHADER_STAGE_VERTEX_BIT,
+    Fragment = VK_SHADER_STAGE_FRAGMENT_BIT,
+    Compute = VK_SHADER_STAGE_COMPUTE_BIT,
   };
 
   struct ShaderInfo
@@ -54,8 +54,9 @@ namespace Vulkan
     static std::vector<const char *> RequiredGraphicDeviceExtensions;
     static std::vector<std::string> GetInstanceExtensions();
     static std::vector<std::string> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
-    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, uint32_t &buffer_size, VkMemoryPropertyFlags flags);
-    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkImage image, uint32_t &buffer_size, VkMemoryPropertyFlags flags);
+    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkBuffer buffer, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags);
+    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, VkImage image, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags);
+    static std::optional<size_t> GetMemoryTypeIndex(VkDevice dev, VkPhysicalDevice p_dev, std::vector<VkBuffer> buffers, std::pair<uint32_t, uint32_t> &buffer_size, VkMemoryPropertyFlags flags);
     static std::vector<VkPhysicalDevice> GetPhysicalDevicesByType(VkInstance &instance, VkPhysicalDeviceType type);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices(VkInstance &instance);
     static VkPhysicalDeviceFeatures GetPhysicalDeviceFeatures(VkPhysicalDevice &dev);
@@ -75,6 +76,8 @@ namespace Vulkan
     template <class T>
     static void GetVertexInputBindingDescription(uint32_t binding, std::vector<VertexDescription> vertex_descriptions, VkVertexInputBindingDescription &out_binding_description, std::vector<VkVertexInputAttributeDescription> &out_attribute_descriptions);
     static std::string GetExecDirectory(const std::string argc_path);
+    static std::string GetFileExtention(const std::string file);
+    static size_t SizeOfFormat(const VkFormat format);
   };
 }
 namespace Vulkan

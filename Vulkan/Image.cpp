@@ -94,10 +94,13 @@ namespace Vulkan
 
     VkMemoryPropertyFlags flags = (VkMemoryPropertyFlags) access;
 
-    auto memory_type_index = Vulkan::Supply::GetMemoryTypeIndex(device->GetDevice(), device->GetPhysicalDevice(), image, buffer_size, flags);
+    std::pair<uint32_t, uint32_t> sz = std::make_pair(buffer_size, 0);
+    auto memory_type_index = Vulkan::Supply::GetMemoryTypeIndex(device->GetDevice(), device->GetPhysicalDevice(), image, sz, flags);
+
     if (!memory_type_index.has_value())
       throw std::runtime_error("Out of memory.");
     
+    buffer_size = sz.first;
     VkMemoryAllocateInfo memory_allocate_info = 
     {
       VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,

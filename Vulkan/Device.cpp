@@ -435,4 +435,12 @@ namespace Vulkan
 
     return counts & x;
   }
+
+  VkFormatProperties Device::GetFormatProperties(const VkFormat format)
+  {
+    VkFormatProperties format_properties;
+    vkGetPhysicalDeviceFormatProperties(p_device.device, format, &format_properties);
+
+    return format_properties;
+  }
 }

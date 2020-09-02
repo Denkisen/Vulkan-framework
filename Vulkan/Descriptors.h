@@ -8,6 +8,7 @@
 #include <map>
 
 #include "Buffer.h"
+#include "BufferArray.h"
 #include "Image.h"
 #include "Sampler.h"
 #include "Device.h"
@@ -18,6 +19,8 @@ namespace Vulkan
   {
     BufferStorage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     BufferUniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    TexelStorage = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+    TexelUniform = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
     ImageSamplerCombined = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
     ImageSampled = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
     ImageStorage = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -33,10 +36,12 @@ namespace Vulkan
   struct DescriptorInfo
   {
     VkBuffer buffer = VK_NULL_HANDLE;
+    VkBufferView buffer_view = VK_NULL_HANDLE;
     VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     VkSampler sampler = VK_NULL_HANDLE;
     VkImageView image_view = VK_NULL_HANDLE;
     uint32_t binding = 0;
+    std::pair<uint32_t, uint32_t> offset_size;
     VkShaderStageFlags stage;
     Vulkan::DescriptorType type;
   };
@@ -62,8 +67,13 @@ namespace Vulkan
     Descriptors& operator= (const Descriptors &obj) = delete;
     Descriptors(std::shared_ptr<Vulkan::Device> dev);
     void ClearDescriptorSetLayout(const uint32_t index);
-    void Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage);
-    void Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<Image> image, const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage);
+    void Add(const uint32_t set_index, const uint32_t binding, 
+                const std::shared_ptr<IBuffer> buffer, const VkShaderStageFlags stage);
+    void Add(const uint32_t set_index, const uint32_t binding, const VkBuffer buffer, 
+                const Vulkan::StorageType buffer_type, const VkShaderStageFlags stage,
+                const std::pair<uint32_t, uint32_t> offset_size_pair = {0, VK_WHOLE_SIZE});
+    void Add(const uint32_t set_index, const uint32_t binding, const std::shared_ptr<Image> image, 
+                const std::shared_ptr<Sampler> sampler, const VkShaderStageFlags stage);
     void BuildAll();
     size_t GetDescriptorSetsCount() const { return layouts.size(); }
     VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) const { return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }
