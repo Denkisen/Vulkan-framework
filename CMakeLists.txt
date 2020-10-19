@@ -19,6 +19,7 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(GTest REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
@@ -26,7 +27,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 add_executable(${RUNTIME_OUTPUT_NAME} main.cpp)
 
 file(GLOB_RECURSE files 
-  "Vulkan/*.cpp"
+  "Vulkan_/*.cpp"
   "libs/*.cpp"
 )
 foreach(file ${files})
@@ -48,10 +49,11 @@ target_link_libraries(${RUNTIME_OUTPUT_NAME}
   ${OpenMP_LIBRARIES}
   ${Vulkan_LIBRARIES}
   ${glfw3_LIBRARIES}
+  ${GTEST_LIBRARIES}
   opencv_core
   opencv_imgproc
   opencv_imgcodecs
-  stdc++fs
+  #stdc++fs
 )
 
 #Shaders
