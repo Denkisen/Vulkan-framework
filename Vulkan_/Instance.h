@@ -23,7 +23,9 @@ namespace Vulkan
   public:
     Instance() = delete;
     Instance(const Instance &obj) = delete;
+    Instance(Instance &&obj) = delete;
     Instance& operator= (const Instance &obj) = delete;
+    Instance& operator= (Instance &&obj) = delete;
     static std::string AppName() { return app_name; }
     static VkInstance& GetInstance();
     ~Instance();

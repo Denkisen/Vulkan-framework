@@ -32,7 +32,7 @@ namespace Vulkan
     VkDebugUtilsMessengerCreateInfoEXT create_d_info = {};
     create_d_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     create_d_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    create_d_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    create_d_info.messageType = /*VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |*/ VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     create_d_info.pfnUserCallback = DebugCallback;
     create_d_info.pUserData = nullptr;
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -43,6 +43,52 @@ namespace Vulkan
   {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     func(instance, debug_messenger, nullptr);
+  }
+
+  SwapChainDetails Misc::GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface)
+  {
+    Vulkan::SwapChainDetails ret;
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &ret.capabilities) != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't get surface capabilities", __func__);
+      return ret;
+    }
+
+    uint32_t count;
+    if (vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, nullptr) != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't get surface formats", __func__);
+      return ret;
+    }
+
+    if (count != 0) 
+    {
+      ret.formats.resize(count);
+      if (vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, ret.formats.data()) != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't get surface formats", __func__);
+        return ret;
+      }
+    }
+
+    count = 0;
+    if (vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, nullptr) != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't get surface present modes", __func__);
+      return ret;
+    }
+
+    if (count != 0) 
+    {
+      ret.present_modes.resize(count);
+      if (vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, ret.present_modes.data()) != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't get surface present modes", __func__);
+        return ret;
+      }
+    }
+
+    return ret;
   }
 }
 
