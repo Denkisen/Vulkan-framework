@@ -26,6 +26,13 @@ namespace Vulkan
     buffs.clear();
   }
 
+  void Array_impl::Clear()
+  {
+    Abort(buffers);
+    if (memory != VK_NULL_HANDLE)
+      vkFreeMemory(device->GetDevice(), memory, nullptr);
+  }
+
   Array_impl::Array_impl(std::shared_ptr<Vulkan::Device> dev)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
@@ -80,10 +87,9 @@ namespace Vulkan
     BufferConfig tmp;
     for (const auto &p : params.sizes)
     {
-      if (p.first != 0 && p.second != 0)
+      if (std::get<0>(p) != 0 && std::get<1>(p) != 0)
         tmp.sizes.push_back(p);
     }
-    tmp.buffer_format = params.buffer_format;
     tmp.buffer_type = params.buffer_type;
 
     if (tmp.sizes.empty())
@@ -137,8 +143,8 @@ namespace Vulkan
       for (auto &b : p.sizes)
       {
         sub_buffer_t tmp_v = {};
-        tmp_v.format = p.buffer_format;
-        tmp_v.size = Align(b.first * b.second, tmp_b.sub_buffer_align);
+        tmp_v.format = std::get<2>(b);
+        tmp_v.size = Align(std::get<0>(b) * std::get<1>(b), tmp_b.sub_buffer_align);
         tmp_v.offset = v_offset;
         tmp_b.size += tmp_v.size;
         v_offset += tmp_b.size;
@@ -275,8 +281,8 @@ namespace Vulkan
     }
 
     buffers.swap(tmp_buffers);
-    memory_size = mem_size;
     access = prebuild_access_config;
+    size = mem_size;
     align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
 
     return VK_SUCCESS;
@@ -302,5 +308,193 @@ namespace Vulkan
     if (&lhs == &rhs) return;
 
     lhs.swap(rhs);
+  }
+
+  Array::Array(const Array &obj)
+  {
+    if (obj.impl.get() == nullptr)
+    {
+      Logger::EchoError("Object is empty", __func__);
+      return;
+    }
+      
+    std::lock_guard lock(obj.impl->buffers_mutex);
+    impl = std::unique_ptr<Array_impl>(new Array_impl(obj.impl->device));
+
+    if (obj.impl->buffers.empty() || obj.impl->memory == VK_NULL_HANDLE) return;
+
+    auto res = impl->StartConfig(obj.impl->access);
+    if (res != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't copy object", __func__);
+      return;
+    }
+
+    for (auto &b : obj.impl->buffers)
+    {
+      BufferConfig conf;
+      conf.SetType(b.type);
+      for (auto &p : b.sub_buffers)
+      {
+        conf.AddSubBuffer(p.size, 1, p.format);
+      }
+      res = impl->AddBuffer(conf);
+      if (res != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't copy object", __func__);
+        return;
+      }
+    }
+    res = impl->EndConfig();
+    if (res != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't copy object", __func__);
+      return;
+    }
+
+    void *payload_from = nullptr;
+    void *payload_to = nullptr;
+
+    auto er1 = vkMapMemory(impl->device->GetDevice(), impl->memory, 0, impl->size, 0, &payload_to);
+    auto er2 = vkMapMemory(obj.impl->device->GetDevice(), obj.impl->memory, 0, obj.impl->size, 0, &payload_from);
+    if (er1 != VK_SUCCESS && er1 != VK_ERROR_MEMORY_MAP_FAILED &&
+        er2 != VK_SUCCESS && er2 != VK_ERROR_MEMORY_MAP_FAILED) 
+    {
+      Logger::EchoError("Can't map memory.", __func__);
+      Logger::EchoDebug("Return code =" + std::to_string(er1), __func__);
+      return;
+    }
+
+    if (er1 == VK_SUCCESS && er2 == VK_SUCCESS)
+    {
+      std::memcpy(payload_to, payload_from, impl->size);
+      vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+      vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+    }
+    else
+    {
+      if (er1 == VK_SUCCESS)
+        vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+      if (er2 == VK_SUCCESS)
+        vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+
+      VkDeviceSize offset = 0;
+      for (VkDeviceSize i = 0; i < obj.impl->size / obj.impl->align; ++i)
+      {
+        er1 = vkMapMemory(impl->device->GetDevice(), impl->memory, offset, obj.impl->align, 0, &payload_to);
+        er2 = vkMapMemory(obj.impl->device->GetDevice(), obj.impl->memory, offset, obj.impl->align, 0, &payload_from);
+
+        if (er1 != VK_SUCCESS && er1 != VK_ERROR_MEMORY_MAP_FAILED &&
+            er2 != VK_SUCCESS && er2 != VK_ERROR_MEMORY_MAP_FAILED) 
+        {
+          Logger::EchoError("Can't map memory.", __func__);
+          Logger::EchoDebug("Return code =" + std::to_string(er1), __func__);
+          return;
+        }
+
+        std::memcpy(payload_to, payload_from, obj.impl->align);
+
+        vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+        vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+
+        offset += obj.impl->align;
+      }
+    }
+  }
+
+  Array &Array::operator=(const Array &obj)
+  {
+    if (&obj == this) return *this;
+
+    if (obj.impl.get() == nullptr)
+    {
+      Logger::EchoError("Object is empty", __func__);
+      return *this;
+    }
+      
+    std::lock_guard lock(obj.impl->buffers_mutex);
+    impl = std::unique_ptr<Array_impl>(new Array_impl(obj.impl->device));
+
+    if (obj.impl->buffers.empty() || obj.impl->memory == VK_NULL_HANDLE) return *this;
+
+    auto res = impl->StartConfig(obj.impl->access);
+    if (res != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't copy object", __func__);
+      return *this;
+    }
+
+    for (auto &b : obj.impl->buffers)
+    {
+      BufferConfig conf;
+      conf.SetType(b.type);
+      for (auto &p : b.sub_buffers)
+      {
+        conf.AddSubBuffer(p.size, 1, p.format);
+      }
+      res = impl->AddBuffer(conf);
+      if (res != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't copy object", __func__);
+        return *this;
+      }
+    }
+    res = impl->EndConfig();
+    if (res != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't copy object", __func__);
+      return *this;
+    }
+
+    void *payload_from = nullptr;
+    void *payload_to = nullptr;
+
+    auto er1 = vkMapMemory(impl->device->GetDevice(), impl->memory, 0, impl->size, 0, &payload_to);
+    auto er2 = vkMapMemory(obj.impl->device->GetDevice(), obj.impl->memory, 0, obj.impl->size, 0, &payload_from);
+    if (er1 != VK_SUCCESS && er1 != VK_ERROR_MEMORY_MAP_FAILED &&
+        er2 != VK_SUCCESS && er2 != VK_ERROR_MEMORY_MAP_FAILED) 
+    {
+      Logger::EchoError("Can't map memory.", __func__);
+      Logger::EchoDebug("Return code =" + std::to_string(er1), __func__);
+      return *this;
+    }
+
+    if (er1 == VK_SUCCESS && er2 == VK_SUCCESS)
+    {
+      std::memcpy(payload_to, payload_from, impl->size);
+      vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+      vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+    }
+    else
+    {
+      if (er1 == VK_SUCCESS)
+        vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+      if (er2 == VK_SUCCESS)
+        vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+
+      VkDeviceSize offset = 0;
+      for (VkDeviceSize i = 0; i < obj.impl->size / obj.impl->align; ++i)
+      {
+        er1 = vkMapMemory(impl->device->GetDevice(), impl->memory, offset, obj.impl->align, 0, &payload_to);
+        er2 = vkMapMemory(obj.impl->device->GetDevice(), obj.impl->memory, offset, obj.impl->align, 0, &payload_from);
+
+        if (er1 != VK_SUCCESS && er1 != VK_ERROR_MEMORY_MAP_FAILED &&
+            er2 != VK_SUCCESS && er2 != VK_ERROR_MEMORY_MAP_FAILED) 
+        {
+          Logger::EchoError("Can't map memory.", __func__);
+          Logger::EchoDebug("Return code =" + std::to_string(er1), __func__);
+          return *this;
+        }
+
+        std::memcpy(payload_to, payload_from, obj.impl->align);
+
+        vkUnmapMemory(impl->device->GetDevice(), impl->memory);
+        vkUnmapMemory(obj.impl->device->GetDevice(), obj.impl->memory);
+
+        offset += obj.impl->align;
+      }
+    }
+
+    return *this;
   }
 }

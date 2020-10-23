@@ -94,11 +94,13 @@ TEST (Vulkan, Array)
   EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), true);
   EXPECT_EQ(array1.SetBufferData(1, tmp), true);
 
+  Vulkan::Array array2(array1);
+
   tmp.clear();
-  EXPECT_EQ(array1.GetBufferData(0, tmp), true);
+  EXPECT_EQ(array2.GetBufferData(0, tmp), true);
   EXPECT_EQ(tmp.size(), test_data1.size() + test_data2.size());
-  EXPECT_EQ(array1.GetSubBufferData(1, 0, test_data1), true);
-  EXPECT_EQ(array1.GetSubBufferData(1, 1, test_data2), true);
+  EXPECT_EQ(array2.GetSubBufferData(1, 0, test_data1), true);
+  EXPECT_EQ(array2.GetSubBufferData(1, 1, test_data2), true);
 
   std::cout << "Output:" << std::endl;
   for (size_t i = 0; i < test_data4.size(); ++i)

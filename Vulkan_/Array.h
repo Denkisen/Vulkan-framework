@@ -8,6 +8,7 @@
 #include <iostream>
 #include <mutex>
 #include <cstring>
+#include <tuple>
 
 #include "Device.h"
 #include "Logger.h"
@@ -58,19 +59,21 @@ namespace Vulkan
     friend class Array_impl;
 
     Vulkan::StorageType buffer_type = Vulkan::StorageType::Storage;
-    VkFormat buffer_format = VK_FORMAT_UNDEFINED;
-    std::vector<std::pair<VkDeviceSize, VkDeviceSize>> sizes;
+    std::vector<std::tuple<VkDeviceSize, VkDeviceSize, VkFormat>> sizes;
   public:
     BufferConfig() = default;
     ~BufferConfig() = default;
 
-    BufferConfig &AddSubBuffer(const VkDeviceSize length, const VkDeviceSize item_size = 1) { sizes.push_back({length, item_size}); return *this; }
-    BufferConfig &AddSubBufferRange(const VkDeviceSize buffers_count, const VkDeviceSize length, const VkDeviceSize item_size = 1) 
+    BufferConfig &AddSubBuffer(const VkDeviceSize length, const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) 
+    { 
+      sizes.push_back({length, item_size, format}); return *this; 
+    }
+    BufferConfig &AddSubBufferRange(const VkDeviceSize buffers_count, const VkDeviceSize length, 
+                                    const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) 
     {
-      for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size});
+      for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size, format});
       return *this;
     }
-    BufferConfig &SetFormat(const VkFormat format) { buffer_format = format; return *this; }
     BufferConfig &SetType(const Vulkan::StorageType type) { buffer_type = type; return *this; }
   };
 
@@ -93,6 +96,7 @@ namespace Vulkan
     VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible);
     VkResult AddBuffer(const BufferConfig params);
     VkResult EndConfig();
+    void Clear();
     size_t Count() { std::lock_guard lock(buffers_mutex); return buffers.size(); }
     size_t SubBuffsCount(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
     buffer_t GetInfo(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index] : buffer_t(); }
@@ -110,7 +114,7 @@ namespace Vulkan
     std::vector<buffer_t> buffers;
     HostVisibleMemory access = HostVisibleMemory::HostVisible;
     VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkDeviceSize memory_size = 0;
+    VkDeviceSize size = 0;
     VkDeviceSize align = 256;
     std::vector<BufferConfig> prebuild_config;
     HostVisibleMemory prebuild_access_config = HostVisibleMemory::HostVisible;
