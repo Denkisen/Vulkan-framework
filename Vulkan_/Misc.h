@@ -26,6 +26,7 @@ namespace Vulkan
     static void DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger);
 
     static SwapChainDetails GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface);
+    static size_t SizeOfFormat(const VkFormat format);
   };
 }
 

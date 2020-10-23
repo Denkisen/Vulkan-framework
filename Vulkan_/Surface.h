@@ -64,7 +64,7 @@ namespace Vulkan
     ~Surface() = default;
     Surface(Surface &&obj) noexcept : impl(std::move(obj.impl)) {};
     Surface(const SurfaceConfig &params) : impl(std::unique_ptr<Surface_impl>(new Surface_impl(params))) {};
-    Surface &operator=(Surface &&obj);
+    Surface &operator=(Surface &&obj) noexcept;
     void swap(Surface &obj) noexcept;
 
     VkSurfaceKHR GetSurface() { return impl->GetSurface(); }

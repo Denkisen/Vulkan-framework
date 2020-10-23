@@ -17,11 +17,11 @@ namespace Vulkan
     }
   }
 
-  uint32_t Device_impl::GetPhisicalDevicesCount()
+  VkDeviceSize Device_impl::GetPhisicalDevicesCount()
   {
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(Instance::GetInstance(), &device_count, nullptr);
-    return device_count;
+    return (VkDeviceSize) device_count;
   }
 
   std::vector<VkPhysicalDevice> Device_impl::GetAllPhysicalDevices()
@@ -69,7 +69,7 @@ namespace Vulkan
     ret[1].purpose = QueuePurpose::PresentationPurpose;
     ret[2].purpose = QueuePurpose::ComputePurpose;
 
-    for (uint32_t i = 0; i < family_queues_count; ++i)
+    for (VkDeviceSize i = 0; i < family_queues_count; ++i)
     {
       if (queue_families[i].queueFlags & (VkQueueFlags) Vulkan::QueueType::ComputeType && !ret[2].family.has_value())
       {
@@ -156,7 +156,7 @@ namespace Vulkan
     if (!params.device_name.empty())
     {
       Logger::EchoDebug("Looking for device with name = " + params.device_name, __func__);
-      for (uint32_t i = 0; i < devices.size(); ++i)
+      for (VkDeviceSize i = 0; i < devices.size(); ++i)
       {
         PhysicalDevice p;
         p.device = devices[i];
@@ -210,11 +210,11 @@ namespace Vulkan
 
     if (device == VK_NULL_HANDLE)
     {
-      std::multimap<uint32_t, PhysicalDevice> ranking;
+      std::multimap<VkDeviceSize, PhysicalDevice> ranking;
       for (size_t i = 0; i < devices.size(); ++i)
       {
         PhysicalDevice p;
-        uint32_t rank = 0;
+        VkDeviceSize rank = 0;
         p.device = devices[i];
         p.device_index = i;
         vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
@@ -246,7 +246,7 @@ namespace Vulkan
         rank += p.device_properties.limits.maxMemoryAllocationCount;
         rank += p.device_properties.limits.maxBoundDescriptorSets;
       
-        ranking.insert(std::pair<uint32_t, PhysicalDevice>(rank, p));
+        ranking.insert(std::pair<VkDeviceSize, PhysicalDevice>(rank, p));
       }
 
       if (ranking.empty())
@@ -285,7 +285,7 @@ namespace Vulkan
   {
     VkDevice res = VK_NULL_HANDLE;
     
-    for (uint32_t i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i)
+    for (VkDeviceSize i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i)
     {
       VkBool32 req_val = ((VkBool32 *) &features)[i];
       VkBool32 p_val = ((VkBool32 *) &p_device.device_features)[i];
@@ -332,7 +332,7 @@ namespace Vulkan
       return res;
     }
 
-    std::map<uint32_t, Vulkan::Queue> min_queues;
+    std::map<VkDeviceSize, Vulkan::Queue> min_queues;
     for (auto &q : queues)
     {
       if (q.family.has_value()) min_queues.insert({q.family.value(), q});
@@ -436,9 +436,9 @@ namespace Vulkan
     return VK_NULL_HANDLE;
   }
 
-  std::optional<uint32_t> Device_impl::GetGraphicFamilyQueueIndex()
+  std::optional<VkDeviceSize> Device_impl::GetGraphicFamilyQueueIndex()
   {
-    std::optional<uint32_t> ret;
+    std::optional<VkDeviceSize> ret;
     if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
@@ -455,9 +455,9 @@ namespace Vulkan
     return ret;
   }
 
-  std::optional<uint32_t> Device_impl::GetPresentFamilyQueueIndex()
+  std::optional<VkDeviceSize> Device_impl::GetPresentFamilyQueueIndex()
   {
-    std::optional<uint32_t> ret;
+    std::optional<VkDeviceSize> ret;
     if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
@@ -474,9 +474,9 @@ namespace Vulkan
     return ret;
   }
 
-  std::optional<uint32_t> Device_impl::GetComputeFamilyQueueIndex()
+  std::optional<VkDeviceSize> Device_impl::GetComputeFamilyQueueIndex()
   {
-    std::optional<uint32_t> ret;
+    std::optional<VkDeviceSize> ret;
 
     if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
     {
@@ -509,13 +509,6 @@ namespace Vulkan
     return counts & x;
   }
 
-  void Device::swap(Device &obj) noexcept
-  {
-    if (&obj == this) return;
-
-    impl.swap(obj.impl);
-  }
-
   Device &Device::operator=(const Device &obj)
   {
     if (&obj == this) return *this;
@@ -540,19 +533,4 @@ namespace Vulkan
     conf.SetSurface(obj.impl->surface);
     impl = std::unique_ptr<Device_impl>(new Device_impl(conf));
   }
-
-  Device &Device::operator=(Device &&obj) noexcept
-  {
-    if (&obj == this) return *this;
-
-    impl = std::move(obj.impl);
-    return *this;
-  }
-
-  void swap(Device &lhs, Device &rhs) noexcept
-  {
-    if (&lhs == &rhs) return;
-
-    lhs.swap(rhs);
-  };
 }

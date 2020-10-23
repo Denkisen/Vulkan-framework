@@ -39,13 +39,13 @@ namespace Vulkan
     VkPhysicalDevice device = VK_NULL_HANDLE;
     VkPhysicalDeviceProperties device_properties = {};
     VkPhysicalDeviceFeatures device_features = {};
-    uint32_t device_index = 0;
+    VkDeviceSize device_index = 0;
   };
 
   struct Queue
   {
     VkQueueFamilyProperties props = {};
-    std::optional<uint32_t> family;
+    std::optional<VkDeviceSize> family;
     float queue_priority = 0.0f;
     Vulkan::QueuePurpose purpose = QueuePurpose::ComputePurpose;
   };
@@ -54,7 +54,7 @@ namespace Vulkan
   {
   private:
     friend class Device_impl;
-    std::optional<uint32_t> device_index;
+    std::optional<VkDeviceSize> device_index;
     QueueType queue_flags = QueueType::DrawingAndComputeType;
     std::shared_ptr<Surface> surface;
     PhysicalDeviceType p_device_type = PhysicalDeviceType::Discrete;
@@ -63,7 +63,7 @@ namespace Vulkan
   public:
     DeviceConfig() = default;
     ~DeviceConfig() = default;
-    DeviceConfig &SetDeviceIndex(const uint32_t index) { device_index = index; return *this; }
+    DeviceConfig &SetDeviceIndex(const VkDeviceSize index) { device_index = index; return *this; }
     DeviceConfig &SetQueueType(const QueueType type) { queue_flags = type; return *this; }
     DeviceConfig &SetSurface(const std::shared_ptr<Surface> surf) { surface = surf; return *this; }
     DeviceConfig &SetDeviceType(const PhysicalDeviceType type) { p_device_type = type; return *this; }
@@ -92,14 +92,14 @@ namespace Vulkan
     // public
     Device_impl(const DeviceConfig params);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices();
-    static uint32_t GetPhisicalDevicesCount();
+    static VkDeviceSize GetPhisicalDevicesCount();
     static std::vector<std::string> GetPhysicalDeviceExtensions(VkPhysicalDevice &device);
     VkQueue GetGraphicQueue();
     VkQueue GetPresentQueue();
     VkQueue GetComputeQueue();
-    std::optional<uint32_t> GetGraphicFamilyQueueIndex();
-    std::optional<uint32_t> GetPresentFamilyQueueIndex();
-    std::optional<uint32_t> GetComputeFamilyQueueIndex();
+    std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex();
+    std::optional<VkDeviceSize> GetPresentFamilyQueueIndex();
+    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex();
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return p_device.device_properties; }
     VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
     VkSurfaceKHR GetSurface() { return surface->GetSurface(); }
@@ -119,19 +119,18 @@ namespace Vulkan
   public:
     Device() = delete;
     Device(const Device &obj);
-    Device(Device &&obj) noexcept : impl(std::move(obj.impl)) {};
-    Device(const DeviceConfig params) : impl(std::unique_ptr<Device_impl>(new Device_impl(params))) {};
+    Device(Device &&obj) = delete;
+    Device(const DeviceConfig &params) : impl(std::unique_ptr<Device_impl>(new Device_impl(params))) {};
     Device &operator=(const Device &obj);
-    Device &operator=(Device &&obj) noexcept;
-    void swap(Device &obj) noexcept;
+    Device &operator=(Device &&obj) = delete;
     static std::vector<VkPhysicalDevice> EnumPhysicalDevices() { return Device_impl::GetAllPhysicalDevices(); };
-    static uint32_t AvailablePhisicalDevicesCount() { return Device_impl::GetPhisicalDevicesCount(); }
+    static VkDeviceSize AvailablePhisicalDevicesCount() { return Device_impl::GetPhisicalDevicesCount(); }
     VkQueue GetGraphicQueue() { return impl->GetGraphicQueue(); }
     VkQueue GetPresentQueue() { return impl->GetPresentQueue(); }
     VkQueue GetComputeQueue() { return impl->GetComputeQueue(); }
-    std::optional<uint32_t> GetGraphicFamilyQueueIndex() { return impl->GetGraphicFamilyQueueIndex(); }
-    std::optional<uint32_t> GetPresentFamilyQueueIndex() { return impl->GetPresentFamilyQueueIndex(); }
-    std::optional<uint32_t> GetComputeFamilyQueueIndex() { return impl ->GetComputeFamilyQueueIndex(); }
+    std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex() { return impl->GetGraphicFamilyQueueIndex(); }
+    std::optional<VkDeviceSize> GetPresentFamilyQueueIndex() { return impl->GetPresentFamilyQueueIndex(); }
+    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex() { return impl ->GetComputeFamilyQueueIndex(); }
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return impl->GetPhysicalDeviceProperties(); }
     VkPhysicalDevice GetPhysicalDevice() { return impl->GetPhysicalDevice(); }
     VkSurfaceKHR GetSurface() { return impl->GetSurface(); }
@@ -140,8 +139,6 @@ namespace Vulkan
     VkBool32 CheckSampleCountSupport(VkSampleCountFlagBits x) { return impl->CheckMultisampling(x); }
     ~Device() = default;
   };
-
-  void swap(Device &lhs, Device &rhs) noexcept;
 }
 
 #endif

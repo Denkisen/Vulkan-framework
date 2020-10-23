@@ -56,7 +56,7 @@ namespace Vulkan
     return res;
   }
 
-  Surface &Surface::operator=(Surface &&obj)
+  Surface &Surface::operator=(Surface &&obj) noexcept
   {
     if (&obj == this) return *this;
 
