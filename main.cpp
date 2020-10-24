@@ -7,7 +7,7 @@
 #include "Vulkan_/Device.h"
 #include "Vulkan_/Surface.h"
 #include "Vulkan_/Array.h"
-
+#include "Vulkan_/Descriptors.h"
 
 struct UniformData
 {
@@ -90,17 +90,17 @@ TEST (Vulkan, Array)
 #ifdef DEBUG
   array1.UseChunkedMapping(false);
 #endif
-  EXPECT_EQ(array1.SetSubBufferData(0, 0, test_data1), true);
-  EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), true);
-  EXPECT_EQ(array1.SetBufferData(1, tmp), true);
+  EXPECT_EQ(array1.SetSubBufferData(0, 0, test_data1), VK_SUCCESS);
+  EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), VK_SUCCESS);
+  EXPECT_EQ(array1.SetBufferData(1, tmp), VK_SUCCESS);
 
   Vulkan::Array array2(array1);
 
   tmp.clear();
-  EXPECT_EQ(array2.GetBufferData(0, tmp), true);
+  EXPECT_EQ(array2.GetBufferData(0, tmp), VK_SUCCESS);
   EXPECT_EQ(tmp.size(), test_data1.size() + test_data2.size());
-  EXPECT_EQ(array2.GetSubBufferData(1, 0, test_data1), true);
-  EXPECT_EQ(array2.GetSubBufferData(1, 1, test_data2), true);
+  EXPECT_EQ(array2.GetSubBufferData(1, 0, test_data1), VK_SUCCESS);
+  EXPECT_EQ(array2.GetSubBufferData(1, 1, test_data2), VK_SUCCESS);
 
   std::cout << "Output:" << std::endl;
   for (size_t i = 0; i < test_data4.size(); ++i)
@@ -123,6 +123,56 @@ TEST (Vulkan, Array)
     std::cout << test_data2[i] << " ";
   }
   std::cout << std::endl;
+}
+
+TEST (Vulkan, Descriptors)
+{
+  std::shared_ptr<Vulkan::Device> dev = std::make_shared<Vulkan::Device>(Vulkan::DeviceConfig()
+                                          .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
+                                          .SetQueueType(Vulkan::QueueType::ComputeType));
+  
+  std::vector<float> test_data1(256, 5.0);
+  std::vector<float> test_data2(256, 6.0);
+  Vulkan::Array array1(dev);
+
+  EXPECT_EQ(array1.StartConfig(Vulkan::HostVisibleMemory::HostVisible), VK_SUCCESS);
+  EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig()
+                  .SetType(Vulkan::StorageType::Storage)
+                  .AddSubBufferRange(2, test_data1.size(), sizeof(float))), VK_SUCCESS);
+  EXPECT_EQ(array1.EndConfig(), VK_SUCCESS);
+
+  EXPECT_EQ(array1.SetSubBufferData(0, 0, test_data1), VK_SUCCESS);
+  EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), VK_SUCCESS);
+
+  Vulkan::Descriptors desc(dev);
+
+  Vulkan::LayoutConfig conf;
+  Vulkan::DescriptorInfo info = {};
+  info.type = info.MapStorageType(array1.GetInfo(0).type);
+  info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+  info.size = array1.GetInfo(0).sub_buffers[0].size;
+  info.offset = array1.GetInfo(0).sub_buffers[0].offset;
+  info.buffer_info.buffer = array1.GetInfo(0).buffer;
+  info.buffer_info.buffer_view = array1.GetInfo(0).sub_buffers[0].view;
+  conf.AddBuffer(info);
+  info.size = array1.GetInfo(0).sub_buffers[1].size;
+  info.offset = array1.GetInfo(0).sub_buffers[1].offset;
+  info.buffer_info.buffer_view = array1.GetInfo(0).sub_buffers[1].view;
+  conf.AddBuffer(info);
+
+  EXPECT_EQ(desc.AddSetLayoutConfig(conf), VK_SUCCESS);
+  EXPECT_EQ(desc.BuildAllSetLayoutConfigs(), VK_SUCCESS);
+  EXPECT_EQ(desc.GetLayoutsCount(), 1);
+  EXPECT_NE(desc.GetDescriptorSet(0), (VkDescriptorSet) VK_NULL_HANDLE);
+  EXPECT_NE(desc.GetDescriptorSetLayout(0), (VkDescriptorSetLayout) VK_NULL_HANDLE);
+
+  Vulkan::Descriptors desc1(desc);
+
+  EXPECT_EQ(desc1.AddSetLayoutConfig(conf), VK_SUCCESS);
+  EXPECT_EQ(desc1.BuildAllSetLayoutConfigs(), VK_SUCCESS);
+  EXPECT_EQ(desc1.GetLayoutsCount(), 1);
+  EXPECT_NE(desc1.GetDescriptorSet(0), (VkDescriptorSet) VK_NULL_HANDLE);
+  EXPECT_NE(desc1.GetDescriptorSetLayout(0), (VkDescriptorSetLayout) VK_NULL_HANDLE);
 }
 
 

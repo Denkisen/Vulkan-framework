@@ -36,8 +36,6 @@ namespace Vulkan
     VkDeviceSize size = 0;
     VkDeviceSize offset = 0;
     VkFormat format = VK_FORMAT_UNDEFINED;
-  private:
-    friend class Array_impl;
     VkBufferView view = VK_NULL_HANDLE;
   };
 
@@ -48,8 +46,6 @@ namespace Vulkan
     VkDeviceSize size = 0;
     VkDeviceSize offset = 0;
     std::vector<sub_buffer_t> sub_buffers;
-  private:
-    friend class Array_impl;
     VkBuffer buffer = VK_NULL_HANDLE;
   };
 
@@ -101,13 +97,13 @@ namespace Vulkan
     size_t SubBuffsCount(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
     buffer_t GetInfo(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index] : buffer_t(); }
     template <typename T>
-    bool GetBufferData(const size_t index, std::vector<T> &result);
+    VkResult GetBufferData(const size_t index, std::vector<T> &result);
     template <typename T>
-    bool GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result);
+    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result);
     template <typename T>
-    bool SetBufferData(const size_t index, const std::vector<T> &data);
+    VkResult SetBufferData(const size_t index, const std::vector<T> &data);
     template <typename T>
-    bool SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data);
+    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data);
     void UseChunkedMapping(const bool val) { use_chunked_mapping = val; }
 
     std::shared_ptr<Vulkan::Device> device;
@@ -144,13 +140,13 @@ namespace Vulkan
     size_t SubBuffsCount(const size_t index) { return impl->SubBuffsCount(index); }
     buffer_t GetInfo(const size_t index) { return impl->GetInfo(index); }
     template <typename T>
-    bool GetBufferData(const size_t index, std::vector<T> &result) { return impl->GetBufferData(index, result); }
+    VkResult GetBufferData(const size_t index, std::vector<T> &result) { return impl->GetBufferData(index, result); }
     template <typename T>
-    bool GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) { return impl->GetSubBufferData(index, sub_index, result); }
+    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) { return impl->GetSubBufferData(index, sub_index, result); }
     template <typename T>
-    bool SetBufferData(const size_t index, const std::vector<T> &data) { return impl->SetBufferData(index, data); }
+    VkResult SetBufferData(const size_t index, const std::vector<T> &data) { return impl->SetBufferData(index, data); }
     template <typename T>
-    bool SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) { return impl->SetSubBufferData(index, sub_index, data); }
+    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) { return impl->SetSubBufferData(index, sub_index, data); }
 #ifdef DEBUG
     void UseChunkedMapping(const bool val) { impl->UseChunkedMapping(val); }
 #endif
@@ -159,25 +155,25 @@ namespace Vulkan
   void swap(Array &lhs, Array &rhs) noexcept;
 
   template <typename T>
-  bool Array_impl::GetBufferData(const size_t index, std::vector<T> &result)
+  VkResult Array_impl::GetBufferData(const size_t index, std::vector<T> &result)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
     {
       Logger::EchoError("Index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     std::vector<T> tmp(std::ceil(buffers[index].size / sizeof(T)));
@@ -189,7 +185,7 @@ namespace Vulkan
     {
       Logger::EchoError("Can't map memory.", __func__);
       Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (use_chunked_mapping && er == VK_SUCCESS)
@@ -210,7 +206,7 @@ namespace Vulkan
         if (er != VK_SUCCESS)
         {
           Logger::EchoError("Can't map memory.", __func__);
-          return false;
+          return VK_ERROR_UNKNOWN;
         }
 
         std::memcpy(((uint8_t *) tmp.data()) + (i * align), payload, align);
@@ -220,35 +216,35 @@ namespace Vulkan
       result.swap(tmp);
     }
 
-    return true;
+    return VK_SUCCESS;
   }
 
   template <typename T>
-  bool Array_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result)
+  VkResult Array_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
     {
       Logger::EchoError("Index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (sub_index >= buffers[index].sub_buffers.size())
     {
       Logger::EchoError("Sub index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     std::vector<T> tmp(std::ceil(buffers[index].sub_buffers[sub_index].size / sizeof(T)));
@@ -261,7 +257,7 @@ namespace Vulkan
     {
       Logger::EchoError("Can't map memory.", __func__);
       Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (use_chunked_mapping && er == VK_SUCCESS)
@@ -282,7 +278,7 @@ namespace Vulkan
         if (er != VK_SUCCESS)
         {
           Logger::EchoError("Can't map memory.", __func__);
-          return false;
+          return VK_ERROR_UNKNOWN;
         }
 
         std::memcpy(((uint8_t *) tmp.data()) + (i * buffers[index].sub_buffer_align), payload, buffers[index].sub_buffer_align);
@@ -292,29 +288,29 @@ namespace Vulkan
       result.swap(tmp);
     }
 
-    return true;
+    return VK_SUCCESS;
   }
 
   template <typename T>
-  bool Array_impl::SetBufferData(const size_t index, const std::vector<T> &data)
+  VkResult Array_impl::SetBufferData(const size_t index, const std::vector<T> &data)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
     {
       Logger::EchoError("Index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (data.size() * sizeof(T) > buffers[index].size)
@@ -330,7 +326,7 @@ namespace Vulkan
     {
       Logger::EchoError("Can't map memory.", __func__);
       Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (use_chunked_mapping && er == VK_SUCCESS)
@@ -350,7 +346,7 @@ namespace Vulkan
         if (er != VK_SUCCESS)
         {
           Logger::EchoError("Can't map memory.", __func__);
-          return false;
+          return VK_ERROR_UNKNOWN;
         }
 
         std::memcpy(payload, ((uint8_t *) data.data()) + (i * align), align);
@@ -359,35 +355,35 @@ namespace Vulkan
       }
     }
 
-    return true;
+    return VK_SUCCESS;
   }
 
   template <typename T>
-  bool Array_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data)
+  VkResult Array_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
     {
       Logger::EchoError("Index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (index >= buffers[index].sub_buffers.size())
     {
       Logger::EchoError("Sub index is out of range", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (data.size() * sizeof(T) > buffers[index].sub_buffers[sub_index].size)
@@ -404,7 +400,7 @@ namespace Vulkan
     {
       Logger::EchoError("Can't map memory.", __func__);
       Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return false;
+      return VK_ERROR_UNKNOWN;
     }
 
     if (use_chunked_mapping && er == VK_SUCCESS)
@@ -424,7 +420,7 @@ namespace Vulkan
         if (er != VK_SUCCESS)
         {
           Logger::EchoError("Can't map memory.", __func__);
-          return false;
+          return VK_ERROR_UNKNOWN;
         }
 
         std::memcpy(payload, ((uint8_t *) data.data()) + (i * buffers[index].sub_buffer_align), buffers[index].sub_buffer_align);
@@ -433,7 +429,7 @@ namespace Vulkan
       }
     }
 
-    return true;
+    return VK_SUCCESS;
   }
 }
 
