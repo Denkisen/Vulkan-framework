@@ -285,5 +285,80 @@ namespace Vulkan
 
     return 0;
   }
+
+  VkShaderModule Misc::LoadPrecompiledShaderFromFile(VkDevice dev, std::string file_name)
+  {
+    VkShaderModule shader = VK_NULL_HANDLE;
+  
+    auto shader_c = LoadShaderFromFile(file_name);
+    shader = CreateShaderModule(dev, shader_c);
+    if (shader == VK_NULL_HANDLE)
+    {
+      Logger::EchoError("Can't create shader", __func__);
+    }
+
+    return shader;
+  }
+
+  std::vector<char> Misc::LoadShaderFromFile(std::string file_name)
+  {
+    std::ifstream f(file_name, std::ios::ate | std::ios::binary);
+    std::vector<char> res;
+    if (!f.is_open())
+    {
+      Logger::EchoError("Error: No shader file (" + file_name + ")", __func__);
+      return res;
+    }
+  
+    res.resize((uint32_t) f.tellg());
+    f.seekg(0);
+    f.read(res.data(), res.size());
+    f.close();
+    return res;
+  }
+
+  VkShaderModule Misc::CreateShaderModule(VkDevice &dev, std::vector<char>& code)
+  {
+    VkShaderModuleCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = code.size();
+    create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    VkShaderModule shader_module = VK_NULL_HANDLE;
+    VkResult res = vkCreateShaderModule(dev, &create_info, nullptr, &shader_module);
+    if (res != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't create shader", __func__);
+      Logger::EchoDebug("Return code =" + std::to_string(res), __func__);
+    } 
+  
+    return shader_module;
+  }
+
+  std::string Misc::GetExecDirectory(const std::string argc_path)
+  {
+    std::string path = argc_path;
+
+    for (size_t i = path.size() - 1; i >= 0; --i)
+    {
+      if (path[i] != '/')
+        path.pop_back();
+      else
+        break;
+    }
+
+    return path;
+  }
+
+  std::string Misc::GetFileExtention(const std::string file)
+  {
+    size_t pos = file.find_last_of(".");
+    if (pos == file.size())
+      return "";
+
+    std::string ext = file.substr(pos);
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+
+    return ext;
+  }
 }
 

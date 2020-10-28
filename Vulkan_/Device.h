@@ -100,6 +100,7 @@ namespace Vulkan
     std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex();
     std::optional<VkDeviceSize> GetPresentFamilyQueueIndex();
     std::optional<VkDeviceSize> GetComputeFamilyQueueIndex();
+    VkQueue GetQueueFormFamilyIndex(const uint32_t index);
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return p_device.device_properties; }
     VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
     VkSurfaceKHR GetSurface() { return surface->GetSurface(); }
@@ -130,7 +131,8 @@ namespace Vulkan
     VkQueue GetComputeQueue() { return impl->GetComputeQueue(); }
     std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex() { return impl->GetGraphicFamilyQueueIndex(); }
     std::optional<VkDeviceSize> GetPresentFamilyQueueIndex() { return impl->GetPresentFamilyQueueIndex(); }
-    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex() { return impl ->GetComputeFamilyQueueIndex(); }
+    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex() { return impl->GetComputeFamilyQueueIndex(); }
+    VkQueue GetQueueFormFamilyIndex(const uint32_t index) { return impl->GetQueueFormFamilyIndex(index); }
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return impl->GetPhysicalDeviceProperties(); }
     VkPhysicalDevice GetPhysicalDevice() { return impl->GetPhysicalDevice(); }
     VkSurfaceKHR GetSurface() { return impl->GetSurface(); }

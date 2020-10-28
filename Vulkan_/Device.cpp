@@ -509,6 +509,13 @@ namespace Vulkan
     return counts & x;
   }
 
+  VkQueue Device_impl::GetQueueFormFamilyIndex(const uint32_t index)
+  {
+    VkQueue q;
+    vkGetDeviceQueue(device, index, 0, &q);
+    return q;
+  }
+
   Device &Device::operator=(const Device &obj)
   {
     if (&obj == this) return *this;

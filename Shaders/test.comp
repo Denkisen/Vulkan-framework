@@ -2,12 +2,12 @@
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-layout(std430, binding = 0) buffer buf
+layout(std430, set = 0, binding = 0) buffer buf
 {
   float input_data[];
 };
 
-layout(std430, binding = 1) buffer buf1
+layout(std430, set = 1, binding = 0) buffer buf1
 {
   float output_data[];
 };
@@ -18,7 +18,7 @@ struct UniformData
   uint val[63];
 };
 
-layout(set = 1, binding = 0) uniform buf2
+layout(set = 2, binding = 0) uniform buf2
 {
   UniformData global_data;
 };

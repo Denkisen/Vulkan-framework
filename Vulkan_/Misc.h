@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <string>
 
 namespace Vulkan
 {
@@ -15,6 +16,9 @@ namespace Vulkan
 
   class Misc
   {
+  private:
+    static std::vector<char> LoadShaderFromFile(std::string file_name);
+    static VkShaderModule CreateShaderModule(VkDevice &dev, std::vector<char>& code);
   public:
     Misc() = default;
     ~Misc() = default;
@@ -27,6 +31,10 @@ namespace Vulkan
 
     static SwapChainDetails GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface);
     static size_t SizeOfFormat(const VkFormat format);
+
+    static VkShaderModule LoadPrecompiledShaderFromFile(VkDevice dev, std::string file_name);
+    static std::string GetExecDirectory(const std::string argc_path);
+    static std::string GetFileExtention(const std::string file);
   };
 }
 
