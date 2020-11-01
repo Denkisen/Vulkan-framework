@@ -34,7 +34,7 @@ namespace Vulkan
     build_config_copy.clear();
   }
 
-  Descriptors_impl::Descriptors_impl(std::shared_ptr<Vulkan::Device> dev)
+  Descriptors_impl::Descriptors_impl(std::shared_ptr<Device> dev)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
     {
@@ -49,19 +49,19 @@ namespace Vulkan
   {
     switch (type)
     {
-      case Vulkan::StorageType::Storage:
-      case Vulkan::StorageType::Index:
-      case Vulkan::StorageType::Vertex:
-        return Vulkan::DescriptorType::BufferStorage;
-      case Vulkan::StorageType::Uniform:
-        return Vulkan::DescriptorType::BufferUniform;
-      case Vulkan::StorageType::TexelStorage:
-        return Vulkan::DescriptorType::TexelStorage;
-      case Vulkan::StorageType::TexelUniform:
-        return Vulkan::DescriptorType::TexelUniform;
+      case StorageType::Storage:
+      case StorageType::Index:
+      case StorageType::Vertex:
+        return DescriptorType::BufferStorage;
+      case StorageType::Uniform:
+        return DescriptorType::BufferUniform;
+      case StorageType::TexelStorage:
+        return DescriptorType::TexelStorage;
+      case StorageType::TexelUniform:
+        return DescriptorType::TexelUniform;
     }
 
-    return Vulkan::DescriptorType::BufferStorage;
+    return DescriptorType::BufferStorage;
   }
 
   VkDescriptorPool Descriptors_impl::CreateDescriptorPool(const PoolConfig &pool_conf)
@@ -330,25 +330,23 @@ namespace Vulkan
       return *this;
     }
     
-    std::unique_lock lock(obj.impl->layouts_mutex);
-    std::unique_lock lock1(impl->layouts_mutex);
-    std::unique_lock lock2(impl->build_mutex);
+    std::vector<LayoutConfig> back;
+    {
+      std::scoped_lock lock(obj.impl->layouts_mutex, impl->layouts_mutex, impl->build_mutex);
 
-    if (obj.impl->layouts.empty() || obj.impl->build_config_copy.empty())
-      return *this;
+      if (obj.impl->layouts.empty() || obj.impl->build_config_copy.empty())
+        return *this;
 
-    auto back = impl->build_config;
-    impl->build_config = obj.impl->build_config_copy;
-    lock.unlock();
-    lock1.unlock();
-    lock2.unlock();
+      back.swap(impl->build_config);
+      impl->build_config = obj.impl->build_config_copy;
+    }
+
     auto er = impl->BuildAllSetLayoutConfigs();
     if (er != VK_SUCCESS)
     {
       Logger::EchoError("Can't copy descriptors layout", __func__);
-      lock2.lock();
-      impl->build_config = back;
-      lock2.unlock();
+      std::lock_guard lock1(impl->build_mutex);
+      impl->build_config.swap(back);
     }
       
     return *this;
@@ -364,12 +362,14 @@ namespace Vulkan
 
     impl = std::unique_ptr<Descriptors_impl>(new Descriptors_impl(obj.impl->device));
 
-    std::unique_lock lock(obj.impl->layouts_mutex);
-    if (obj.impl->layouts.empty() || obj.impl->build_config_copy.empty())
+    {
+      std::lock_guard lock(obj.impl->layouts_mutex);
+      if (obj.impl->layouts.empty() || obj.impl->build_config_copy.empty())
       return;
 
-    impl->build_config = obj.impl->build_config_copy;
-    lock.unlock();
+      impl->build_config = obj.impl->build_config_copy;
+    }
+    
     auto er = impl->BuildAllSetLayoutConfigs();
     if (er != VK_SUCCESS)
       Logger::EchoError("Can't copy descriptors layout", __func__);

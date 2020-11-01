@@ -28,6 +28,7 @@ add_executable(${RUNTIME_OUTPUT_NAME} main.cpp)
 
 file(GLOB_RECURSE files 
   "Vulkan_/*.cpp"
+  "Vulkan_/Pipelines/*.cpp"
   "libs/*.cpp"
 )
 foreach(file ${files})
@@ -53,6 +54,7 @@ target_link_libraries(${RUNTIME_OUTPUT_NAME}
   opencv_core
   opencv_imgproc
   opencv_imgcodecs
+  atomic
   #stdc++fs
 )
 

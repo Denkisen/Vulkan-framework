@@ -45,9 +45,9 @@ namespace Vulkan
   struct Queue
   {
     VkQueueFamilyProperties props = {};
-    std::optional<VkDeviceSize> family;
+    std::optional<uint32_t> family;
     float queue_priority = 0.0f;
-    Vulkan::QueuePurpose purpose = QueuePurpose::ComputePurpose;
+    QueuePurpose purpose = QueuePurpose::ComputePurpose;
   };
 
   class DeviceConfig
@@ -63,12 +63,12 @@ namespace Vulkan
   public:
     DeviceConfig() = default;
     ~DeviceConfig() = default;
-    DeviceConfig &SetDeviceIndex(const VkDeviceSize index) { device_index = index; return *this; }
-    DeviceConfig &SetQueueType(const QueueType type) { queue_flags = type; return *this; }
-    DeviceConfig &SetSurface(const std::shared_ptr<Surface> surf) { surface = surf; return *this; }
-    DeviceConfig &SetDeviceType(const PhysicalDeviceType type) { p_device_type = type; return *this; }
-    DeviceConfig &SetDeviceName(const std::string name) { device_name = name; return *this; }
-    DeviceConfig &SetRequiredDeviceFeatures(const VkPhysicalDeviceFeatures features) { p_device_features = features; return *this; }
+    auto &SetDeviceIndex(const VkDeviceSize index) { device_index = index; return *this; }
+    auto &SetQueueType(const QueueType type) { queue_flags = type; return *this; }
+    auto &SetSurface(const std::shared_ptr<Surface> surf) { surface = surf; return *this; }
+    auto &SetDeviceType(const PhysicalDeviceType type) { p_device_type = type; return *this; }
+    auto &SetDeviceName(const std::string name) { device_name = name; return *this; }
+    auto &SetRequiredDeviceFeatures(const VkPhysicalDeviceFeatures features) { p_device_features = features; return *this; }
   };
 
   class Device_impl
@@ -97,13 +97,13 @@ namespace Vulkan
     VkQueue GetGraphicQueue();
     VkQueue GetPresentQueue();
     VkQueue GetComputeQueue();
-    std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex();
-    std::optional<VkDeviceSize> GetPresentFamilyQueueIndex();
-    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex();
+    std::optional<uint32_t> GetGraphicFamilyQueueIndex();
+    std::optional<uint32_t> GetPresentFamilyQueueIndex();
+    std::optional<uint32_t> GetComputeFamilyQueueIndex();
     VkQueue GetQueueFormFamilyIndex(const uint32_t index);
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return p_device.device_properties; }
     VkPhysicalDevice GetPhysicalDevice() { return p_device.device; }
-    VkSurfaceKHR GetSurface() { return surface->GetSurface(); }
+    std::shared_ptr<Surface> GetSurface() { return surface; }
     VkDevice GetDevice() { return device; }
     VkFormatProperties GetFormatProperties(const VkFormat format);
     bool CheckMultisampling(VkSampleCountFlagBits x);
@@ -129,16 +129,17 @@ namespace Vulkan
     VkQueue GetGraphicQueue() { return impl->GetGraphicQueue(); }
     VkQueue GetPresentQueue() { return impl->GetPresentQueue(); }
     VkQueue GetComputeQueue() { return impl->GetComputeQueue(); }
-    std::optional<VkDeviceSize> GetGraphicFamilyQueueIndex() { return impl->GetGraphicFamilyQueueIndex(); }
-    std::optional<VkDeviceSize> GetPresentFamilyQueueIndex() { return impl->GetPresentFamilyQueueIndex(); }
-    std::optional<VkDeviceSize> GetComputeFamilyQueueIndex() { return impl->GetComputeFamilyQueueIndex(); }
+    std::optional<uint32_t> GetGraphicFamilyQueueIndex() { return impl->GetGraphicFamilyQueueIndex(); }
+    std::optional<uint32_t> GetPresentFamilyQueueIndex() { return impl->GetPresentFamilyQueueIndex(); }
+    std::optional<uint32_t> GetComputeFamilyQueueIndex() { return impl->GetComputeFamilyQueueIndex(); }
     VkQueue GetQueueFormFamilyIndex(const uint32_t index) { return impl->GetQueueFormFamilyIndex(index); }
     VkPhysicalDeviceProperties GetPhysicalDeviceProperties() { return impl->GetPhysicalDeviceProperties(); }
     VkPhysicalDevice GetPhysicalDevice() { return impl->GetPhysicalDevice(); }
-    VkSurfaceKHR GetSurface() { return impl->GetSurface(); }
+    std::shared_ptr<Surface> GetSurface() { return impl->GetSurface(); }
     VkDevice GetDevice() { return impl->GetDevice(); }
     VkFormatProperties GetFormatProperties(const VkFormat format) { return impl->GetFormatProperties(format); }
     VkBool32 CheckSampleCountSupport(VkSampleCountFlagBits x) { return impl->CheckMultisampling(x); }
+    bool IsValid() { return impl != nullptr; }
     ~Device() = default;
   };
 }

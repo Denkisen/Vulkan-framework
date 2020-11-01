@@ -9,7 +9,7 @@ namespace Vulkan
     Logger::EchoDebug("", __func__);
     if (surface != VK_NULL_HANDLE)
     {
-      vkDestroySurfaceKHR(Vulkan::Instance::GetInstance(), surface, nullptr);
+      vkDestroySurfaceKHR(Instance::GetInstance(), surface, nullptr);
       surface = VK_NULL_HANDLE;
     }
 

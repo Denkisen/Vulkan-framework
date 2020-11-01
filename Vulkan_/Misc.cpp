@@ -48,7 +48,7 @@ namespace Vulkan
 
   SwapChainDetails Misc::GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface)
   {
-    Vulkan::SwapChainDetails ret;
+    SwapChainDetails ret;
     if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &ret.capabilities) != VK_SUCCESS)
     {
       Logger::EchoError("Can't get surface capabilities", __func__);
@@ -286,7 +286,7 @@ namespace Vulkan
     return 0;
   }
 
-  VkShaderModule Misc::LoadPrecompiledShaderFromFile(VkDevice dev, std::string file_name)
+  VkShaderModule Misc::LoadPrecompiledShaderFromFile(const VkDevice dev, const std::string file_name)
   {
     VkShaderModule shader = VK_NULL_HANDLE;
   
@@ -317,7 +317,7 @@ namespace Vulkan
     return res;
   }
 
-  VkShaderModule Misc::CreateShaderModule(VkDevice &dev, std::vector<char>& code)
+  VkShaderModule Misc::CreateShaderModule(const VkDevice dev, const std::vector<char>& code)
   {
     VkShaderModuleCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -359,6 +359,24 @@ namespace Vulkan
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
 
     return ext;
+  }
+
+  VkPipelineLayout Misc::CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts)
+  {
+    VkPipelineLayout result = VK_NULL_HANDLE;
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
+    pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_create_info.setLayoutCount = desc_layouts.empty() ? 0 : (uint32_t) desc_layouts.size();
+    pipeline_layout_create_info.pSetLayouts = desc_layouts.empty() ? nullptr : desc_layouts.data();
+
+    auto er = vkCreatePipelineLayout(dev, &pipeline_layout_create_info, nullptr, &result);
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't create pipeline layout", __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+    }
+
+    return result;
   }
 }
 

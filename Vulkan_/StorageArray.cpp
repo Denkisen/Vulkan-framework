@@ -1,39 +1,42 @@
-#include "Array.h"
+#include "StorageArray.h"
+
+#include <algorithm>
+#include <atomic>
 
 namespace Vulkan
 {
-  Array_impl::~Array_impl()
+  StorageArray_impl::~StorageArray_impl()
   {
     Logger::EchoDebug("", __func__);
-    Abort(buffers);
-    if (memory != VK_NULL_HANDLE)
-      vkFreeMemory(device->GetDevice(), memory, nullptr);
+    Clear();
   }
 
-  void Array_impl::Abort(std::vector<buffer_t> &buffs)
+  void StorageArray_impl::Abort(std::vector<buffer_t> &buffs)
   {
-    for (auto &p : buffs)
+    std::for_each(buffs.begin(), buffs.end(), [&](auto &obj)
     {
-      for (auto &v : p.sub_buffers)
+      for (auto &v : obj.sub_buffers)
       {
         if (v.view != VK_NULL_HANDLE)
           vkDestroyBufferView(device->GetDevice(), v.view, nullptr);
       }
 
-      if (p.buffer != VK_NULL_HANDLE)
-        vkDestroyBuffer(device->GetDevice(), p.buffer, nullptr);
-    }
-    buffs.clear();
+      if (obj.buffer != VK_NULL_HANDLE)
+        vkDestroyBuffer(device->GetDevice(), obj.buffer, nullptr);
+    });
   }
 
-  void Array_impl::Clear()
+  void StorageArray_impl::Clear()
   {
+    std::lock_guard lock(buffers_mutex);
     Abort(buffers);
     if (memory != VK_NULL_HANDLE)
       vkFreeMemory(device->GetDevice(), memory, nullptr);
+
+    buffers.clear();
   }
 
-  Array_impl::Array_impl(std::shared_ptr<Vulkan::Device> dev)
+  StorageArray_impl::StorageArray_impl(std::shared_ptr<Device> dev)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
     {
@@ -42,9 +45,10 @@ namespace Vulkan
     }
 
     device = dev;
+    align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
   }
 
-  VkBufferView Array_impl::CreateBufferView(const VkBuffer buffer, const VkFormat format, const VkDeviceSize offset, const VkDeviceSize size)
+  VkBufferView StorageArray_impl::CreateBufferView(const VkBuffer buffer, const VkFormat format, const VkDeviceSize offset, const VkDeviceSize size)
   {
     VkBufferView result = VK_NULL_HANDLE;
     VkBufferViewCreateInfo buffer_view_create_info = {};
@@ -67,12 +71,12 @@ namespace Vulkan
     return result;
   }
 
-  VkDeviceSize Array_impl::Align(const VkDeviceSize value, const VkDeviceSize align)
+  VkDeviceSize StorageArray_impl::Align(const VkDeviceSize value, const VkDeviceSize align)
   { 
     return (std::ceil(value / (float) align) * align); 
   }
 
-  VkResult Array_impl::StartConfig(const HostVisibleMemory val)
+  VkResult StorageArray_impl::StartConfig(const HostVisibleMemory val)
   {
     std::lock_guard lock(config_mutex);
     prebuild_access_config = val;
@@ -81,16 +85,18 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  VkResult Array_impl::AddBuffer(const BufferConfig params)
+  VkResult StorageArray_impl::AddBuffer(const BufferConfig params)
   {
     std::lock_guard lock(config_mutex);
     BufferConfig tmp;
+    tmp.sizes.reserve(params.sizes.size());
     for (const auto &p : params.sizes)
     {
       if (std::get<0>(p) != 0 && std::get<1>(p) != 0)
         tmp.sizes.push_back(p);
     }
     tmp.buffer_type = params.buffer_type;
+    tmp.sizes.shrink_to_fit();
 
     if (tmp.sizes.empty())
       Logger::EchoWarning("No sub buffers to process", __func__);
@@ -100,7 +106,7 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  VkResult Array_impl::EndConfig()
+  VkResult StorageArray_impl::EndConfig()
   {
     std::lock_guard lock(config_mutex);
     if (prebuild_config.empty())
@@ -110,6 +116,7 @@ namespace Vulkan
     }
 
     std::vector<buffer_t> tmp_buffers;
+    tmp_buffers.reserve(prebuild_config.size());
     VkDeviceSize mem_size = 0;
     VkDeviceSize b_offset = 0;
     for (auto &p : prebuild_config)
@@ -140,6 +147,7 @@ namespace Vulkan
       }
 
       VkDeviceSize v_offset = 0;
+      tmp_b.sub_buffers.reserve(p.sizes.size());
       for (auto &b : p.sizes)
       {
         sub_buffer_t tmp_v = {};
@@ -151,7 +159,7 @@ namespace Vulkan
         tmp_b.sub_buffers.push_back(tmp_v);
       }
 
-      tmp_b.size = Align(tmp_b.size, device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment);
+      tmp_b.size = Align(tmp_b.size, align);
       mem_size += tmp_b.size;
       tmp_b.offset = b_offset;
       b_offset += tmp_b.size;
@@ -171,34 +179,35 @@ namespace Vulkan
         return er;
       }
 
-      bool fail = false;
-      for (auto &v : tmp_b.sub_buffers)
+      std::atomic<bool> fail = false;
+      std::for_each(tmp_b.sub_buffers.begin(), tmp_b.sub_buffers.end(), [&](auto &obj)
       {
-        if (v.format != VK_FORMAT_UNDEFINED)
+        if (obj.format != VK_FORMAT_UNDEFINED)
         {
-          v.view = CreateBufferView(tmp_b.buffer, v.format, v.offset, v.size);
-          if (v.view == VK_NULL_HANDLE)
+          obj.view = CreateBufferView(tmp_b.buffer, obj.format, obj.offset, obj.size);
+          if (obj.view == VK_NULL_HANDLE)
           {
             fail = true;
             Logger::EchoError("Can't create buffer view. Abort", __func__);
-            break;
           }
         }
-      }
+      });
 
       if (fail)
       {
-        for (auto &v : tmp_b.sub_buffers)
+        std::for_each(tmp_b.sub_buffers.begin(), tmp_b.sub_buffers.end(), [&](auto &obj)
         {
-          if (v.view != VK_NULL_HANDLE)
-            vkDestroyBufferView(device->GetDevice(), v.view, nullptr);
-        }
+          if (obj.view != VK_NULL_HANDLE)
+            vkDestroyBufferView(device->GetDevice(), obj.view, nullptr);
+        });
+
         return VK_ERROR_UNKNOWN;
       }
 
       tmp_buffers.push_back(tmp_b);
     }
 
+    tmp_buffers.shrink_to_fit();
     if (tmp_buffers.empty())
     {
       Logger::EchoWarning("Nothing to build", __func__);
@@ -211,15 +220,16 @@ namespace Vulkan
     if (memory != VK_NULL_HANDLE)
       vkFreeMemory(device->GetDevice(), memory, nullptr);
 
-    VkMemoryRequirements mem_req = {};
-    VkDeviceSize req_mem_size = 0;
+    std::atomic<VkDeviceSize> req_mem_size = 0;
+    std::atomic<VkMemoryRequirements> mem_req = {};
 
-    for (size_t i = 0; i < tmp_buffers.size(); ++i)
+    std::for_each(tmp_buffers.begin(), tmp_buffers.end(), [&](auto &obj)
     {
-      mem_req = {};
-      vkGetBufferMemoryRequirements(device->GetDevice(), tmp_buffers[i].buffer, &mem_req);
-      req_mem_size += mem_req.size;
-    }
+      VkMemoryRequirements mem_req_tmp = {};
+      vkGetBufferMemoryRequirements(device->GetDevice(), obj.buffer, &mem_req_tmp);
+      mem_req = mem_req_tmp;
+      req_mem_size += mem_req.load().size;
+    });
 
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(device->GetPhysicalDevice(), &properties);
@@ -227,7 +237,7 @@ namespace Vulkan
     std::optional<uint32_t> mem_index;
     for (uint32_t i = 0; i < properties.memoryTypeCount; i++) 
     {
-      if (mem_req.memoryTypeBits & (1 << i) && 
+      if (mem_req.load().memoryTypeBits & (1 << i) && 
           (properties.memoryTypes[i].propertyFlags & (VkMemoryPropertyFlags) prebuild_access_config) &&
           (req_mem_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
       {
@@ -260,18 +270,17 @@ namespace Vulkan
       return er;
     }
 
-    bool fail = false;
-    for (auto &b : tmp_buffers)
+    std::atomic<bool> fail = false;
+    std::for_each(tmp_buffers.begin(), tmp_buffers.end(), [&](auto &obj)
     {
-      er = vkBindBufferMemory(device->GetDevice(), b.buffer, memory, b.offset);
+      auto er = vkBindBufferMemory(device->GetDevice(), obj.buffer, memory, obj.offset);
       if (er != VK_SUCCESS)
       {
         Logger::EchoError("Can't bind memory to buffer.");
         Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
         fail = true;
-        break;
       }
-    }
+    });
 
     if (fail)
     {
@@ -283,12 +292,11 @@ namespace Vulkan
     buffers.swap(tmp_buffers);
     access = prebuild_access_config;
     size = mem_size;
-    align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
 
     return VK_SUCCESS;
   }
 
-  Array &Array::operator=(Array &&obj) noexcept
+  StorageArray &StorageArray::operator=(StorageArray &&obj) noexcept
   {
     if (&obj == this) return *this;
 
@@ -296,21 +304,21 @@ namespace Vulkan
     return *this;
   }
 
-  void Array::swap(Array &obj) noexcept
+  void StorageArray::swap(StorageArray &obj) noexcept
   {
     if (&obj == this) return;
 
     impl.swap(obj.impl);
   }
 
-  void swap(Array &lhs, Array &rhs) noexcept
+  void swap(StorageArray &lhs, StorageArray &rhs) noexcept
   {
     if (&lhs == &rhs) return;
 
     lhs.swap(rhs);
   }
 
-  Array::Array(const Array &obj)
+  StorageArray::StorageArray(const StorageArray &obj)
   {
     if (obj.impl.get() == nullptr)
     {
@@ -319,7 +327,7 @@ namespace Vulkan
     }
       
     std::lock_guard lock(obj.impl->buffers_mutex);
-    impl = std::unique_ptr<Array_impl>(new Array_impl(obj.impl->device));
+    impl = std::unique_ptr<StorageArray_impl>(new StorageArray_impl(obj.impl->device));
 
     if (obj.impl->buffers.empty() || obj.impl->memory == VK_NULL_HANDLE) return;
 
@@ -402,7 +410,7 @@ namespace Vulkan
     }
   }
 
-  Array &Array::operator=(const Array &obj)
+  StorageArray &StorageArray::operator=(const StorageArray &obj)
   {
     if (&obj == this) return *this;
 
@@ -413,7 +421,7 @@ namespace Vulkan
     }
       
     std::lock_guard lock(obj.impl->buffers_mutex);
-    impl = std::unique_ptr<Array_impl>(new Array_impl(obj.impl->device));
+    impl = std::unique_ptr<StorageArray_impl>(new StorageArray_impl(obj.impl->device));
 
     if (obj.impl->buffers.empty() || obj.impl->memory == VK_NULL_HANDLE) return *this;
 

@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
-#include <iostream>
+#include <string>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -20,9 +20,9 @@ namespace Vulkan
   public:
     SurfaceConfig() = default;
     ~SurfaceConfig() = default;
-    SurfaceConfig &SetAppTitle(const std::string text) { app_title = text; return *this; }
-    SurfaceConfig &SetWidght(const int32_t w) { widght = w; return *this; }
-    SurfaceConfig &SetHeight(const int32_t h) { height = h; return *this; }
+    auto &SetAppTitle(const std::string text) { app_title = text; return *this; }
+    auto &SetWidght(const int32_t w) { widght = w; return *this; }
+    auto &SetHeight(const int32_t h) { height = h; return *this; }
   };
 
   class Surface_impl
@@ -77,6 +77,7 @@ namespace Vulkan
     void *GetWindowUserPointer() { return impl->GetWindowUserPointer(); }
     std::pair<int32_t, int32_t> GetFramebufferSize() { return impl->GetFramebufferSize(); }
     VkBool32 IsWindowShouldClose() { return impl->IsWindowShouldClose(); }
+    bool IsValid() { return impl != nullptr; }
   };
 
   void swap(Surface &lhs, Surface &rhs) noexcept;

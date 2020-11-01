@@ -6,10 +6,9 @@
 #include <vector>
 #include <mutex>
 #include <iostream>
-#include <map>
 
 #include "Device.h"
-#include "Array.h"
+#include "StorageArray.h"
 
 namespace Vulkan
 {
@@ -49,7 +48,7 @@ namespace Vulkan
     VkDeviceSize size = 0;
     VkDeviceSize offset = 0;
     VkShaderStageFlags stage = VK_SHADER_STAGE_ALL;
-    Vulkan::DescriptorType type;
+    DescriptorType type;
     static DescriptorType MapStorageType(StorageType type);
   };
 
@@ -61,7 +60,7 @@ namespace Vulkan
   public:
     LayoutConfig() = default;
     ~LayoutConfig() = default;
-    LayoutConfig &AddBuffer(const DescriptorInfo desc_info) 
+    auto &AddBufferOrImage(const DescriptorInfo desc_info)
     { 
       if (desc_info.buffer_info.buffer == VK_NULL_HANDLE && desc_info.image_info.image_view == VK_NULL_HANDLE)
       {
@@ -147,7 +146,7 @@ namespace Vulkan
         sizes.push_back({(VkDescriptorType) type, 1});
       }
     };
-    Descriptors_impl(std::shared_ptr<Vulkan::Device> dev);
+    Descriptors_impl(std::shared_ptr<Device> dev);
     VkDescriptorPool CreateDescriptorPool(const PoolConfig &pool_conf);
     DescriptorSetLayout CreateDescriptorSetLayout(const LayoutConfig &info);
     VkResult CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &layout);
@@ -164,7 +163,7 @@ namespace Vulkan
     std::vector<VkDescriptorSet> GetDescriptorSets();
 
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
-    std::shared_ptr<Vulkan::Device> device;
+    std::shared_ptr<Device> device;
     std::vector<LayoutConfig> build_config;
     std::vector<LayoutConfig> build_config_copy;
     std::vector<DescriptorSetLayout> layouts;
@@ -193,6 +192,7 @@ namespace Vulkan
     VkDescriptorSet GetDescriptorSet(const size_t index) { return impl->GetDescriptorSet(index); }
     std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() { return impl->GetDescriptorSetLayouts(); }
     std::vector<VkDescriptorSet> GetDescriptorSets() { return impl->GetDescriptorSets(); }
+    bool IsValid() { return impl != nullptr; }
   };
 
   void swap(Descriptors &lhs, Descriptors &rhs) noexcept;

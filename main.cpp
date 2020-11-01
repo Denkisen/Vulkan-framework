@@ -7,10 +7,10 @@
 #include "Vulkan_/Instance.h"
 #include "Vulkan_/Device.h"
 #include "Vulkan_/Surface.h"
-#include "Vulkan_/Array.h"
+#include "Vulkan_/StorageArray.h"
 #include "Vulkan_/Descriptors.h"
 #include "Vulkan_/CommandPool.h"
-#include "Vulkan_/Pipeline.h"
+#include "Vulkan_/Pipelines.h"
 #include "Vulkan_/Misc.h"
 
 struct UniformData
@@ -18,35 +18,6 @@ struct UniformData
   unsigned mul;
   unsigned val[63];
 };
-
-TEST (Vulkan, Instance) 
-{
-  EXPECT_NE (VK_NULL_HANDLE, (uint64_t) Vulkan::Instance::GetInstance());
-  EXPECT_NE (VK_NULL_HANDLE, (uint64_t) Vulkan::Instance::GetInstance());
-}
-
-TEST (Vulkan, Device)
-{
-  Vulkan::Device test1(Vulkan::DeviceConfig()
-                      .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
-                      .SetQueueType(Vulkan::QueueType::ComputeType));
-  Vulkan::Device test2(Vulkan::DeviceConfig()
-                      .SetQueueType(Vulkan::QueueType::ComputeType)
-                      .SetDeviceType(Vulkan::PhysicalDeviceType::Integrated));
-  
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) test1.GetPhysicalDevice());
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) test1.GetDevice());
-  EXPECT_EQ((VkPhysicalDeviceType) Vulkan::PhysicalDeviceType::Discrete, test1.GetPhysicalDeviceProperties().deviceType);
-
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) test2.GetPhysicalDevice());
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) test2.GetDevice());
-  EXPECT_EQ((VkPhysicalDeviceType) Vulkan::PhysicalDeviceType::Integrated, test2.GetPhysicalDeviceProperties().deviceType);
-
-  Vulkan::Device test3(test2);
-
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) test3.GetDevice());
-  EXPECT_EQ((VkPhysicalDeviceType) Vulkan::PhysicalDeviceType::Integrated, test3.GetPhysicalDeviceProperties().deviceType);
-}
 
 TEST (Vulkan, Surface)
 {
@@ -65,10 +36,10 @@ TEST (Vulkan, Surface)
   
   EXPECT_NE(VK_NULL_HANDLE, (uint64_t) dev1.GetDevice());
   EXPECT_EQ((VkPhysicalDeviceType) Vulkan::PhysicalDeviceType::Discrete, dev1.GetPhysicalDeviceProperties().deviceType);
-  EXPECT_EQ(surf1->GetSurface(), dev1.GetSurface());
+  EXPECT_EQ(surf1->GetSurface(), dev1.GetSurface()->GetSurface());
 }
 
-TEST (Vulkan, Array)
+TEST (Vulkan, StorageArray)
 {
   std::vector<float> test_data1(256, 5.0);
   std::vector<float> test_data2(256, 6.0);
@@ -81,7 +52,7 @@ TEST (Vulkan, Array)
   std::shared_ptr<Vulkan::Device> dev = std::make_shared<Vulkan::Device>(Vulkan::DeviceConfig()
                                           .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
                                           .SetQueueType(Vulkan::QueueType::ComputeType));
-  Vulkan::Array array1(dev);
+  Vulkan::StorageArray array1(dev);
   EXPECT_EQ(array1.StartConfig(Vulkan::HostVisibleMemory::HostVisible), VK_SUCCESS);
   EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig()
                   .SetType(Vulkan::StorageType::Storage)
@@ -98,7 +69,7 @@ TEST (Vulkan, Array)
   EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), VK_SUCCESS);
   EXPECT_EQ(array1.SetBufferData(1, tmp), VK_SUCCESS);
 
-  Vulkan::Array array2(array1);
+  Vulkan::StorageArray array2(array1);
 
   tmp.clear();
   EXPECT_EQ(array2.GetBufferData(0, tmp), VK_SUCCESS);
@@ -137,7 +108,7 @@ TEST (Vulkan, Descriptors)
   
   std::vector<float> test_data1(256, 5.0);
   std::vector<float> test_data2(256, 6.0);
-  Vulkan::Array array1(dev);
+  Vulkan::StorageArray array1(dev);
 
   EXPECT_EQ(array1.StartConfig(Vulkan::HostVisibleMemory::HostVisible), VK_SUCCESS);
   EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig()
@@ -158,11 +129,11 @@ TEST (Vulkan, Descriptors)
   info.offset = array1.GetInfo(0).sub_buffers[0].offset;
   info.buffer_info.buffer = array1.GetInfo(0).buffer;
   info.buffer_info.buffer_view = array1.GetInfo(0).sub_buffers[0].view;
-  conf.AddBuffer(info);
+  conf.AddBufferOrImage(info);
   info.size = array1.GetInfo(0).sub_buffers[1].size;
   info.offset = array1.GetInfo(0).sub_buffers[1].offset;
   info.buffer_info.buffer_view = array1.GetInfo(0).sub_buffers[1].view;
-  conf.AddBuffer(info);
+  conf.AddBufferOrImage(info);
 
   EXPECT_EQ(desc.AddSetLayoutConfig(conf), VK_SUCCESS);
   EXPECT_EQ(desc.BuildAllSetLayoutConfigs(), VK_SUCCESS);
@@ -171,6 +142,15 @@ TEST (Vulkan, Descriptors)
   EXPECT_NE(desc.GetDescriptorSetLayout(0), (VkDescriptorSetLayout) VK_NULL_HANDLE);
 
   Vulkan::Descriptors desc1(desc);
+
+  EXPECT_EQ(desc1.AddSetLayoutConfig(conf), VK_SUCCESS);
+  EXPECT_EQ(desc1.BuildAllSetLayoutConfigs(), VK_SUCCESS);
+  EXPECT_EQ(desc1.GetLayoutsCount(), 1);
+  EXPECT_NE(desc1.GetDescriptorSet(0), (VkDescriptorSet) VK_NULL_HANDLE);
+  EXPECT_NE(desc1.GetDescriptorSetLayout(0), (VkDescriptorSetLayout) VK_NULL_HANDLE);
+
+  Vulkan::Descriptors desc2(dev);
+  desc2 = desc;
 
   EXPECT_EQ(desc1.AddSetLayoutConfig(conf), VK_SUCCESS);
   EXPECT_EQ(desc1.BuildAllSetLayoutConfigs(), VK_SUCCESS);
@@ -188,7 +168,7 @@ TEST (Vulkan, ComputePipeline)
   UniformData udata = {};
   udata.mul = 3;
   
-  Vulkan::Array array1(dev);
+  Vulkan::StorageArray array1(dev);
   EXPECT_EQ(array1.StartConfig(), VK_SUCCESS);
   EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig().AddSubBufferRange(2, input.size(), sizeof(float))), VK_SUCCESS);
   EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig().AddSubBuffer(1, sizeof(UniformData)).SetType(Vulkan::StorageType::Uniform)), VK_SUCCESS);
@@ -204,32 +184,45 @@ TEST (Vulkan, ComputePipeline)
 
   d_info.size = array1.GetInfo(0).sub_buffers[0].size;
   d_info.offset = array1.GetInfo(0).sub_buffers[0].offset;
-  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBuffer(d_info)), VK_SUCCESS);
+  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBufferOrImage(d_info)), VK_SUCCESS);
 
   d_info.size = array1.GetInfo(0).sub_buffers[1].size;
   d_info.offset = array1.GetInfo(0).sub_buffers[1].offset;
-  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBuffer(d_info)), VK_SUCCESS);
+  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBufferOrImage(d_info)), VK_SUCCESS);
 
   d_info.size = array1.GetInfo(1).size;
   d_info.offset = 0;
   d_info.type = d_info.MapStorageType(array1.GetInfo(1).type);
   d_info.buffer_info.buffer = array1.GetInfo(1).buffer;
-  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBuffer(d_info)), VK_SUCCESS);
+  EXPECT_EQ(desc.AddSetLayoutConfig(Vulkan::LayoutConfig().AddBufferOrImage(d_info)), VK_SUCCESS);
 
   EXPECT_EQ(desc.BuildAllSetLayoutConfigs(), VK_SUCCESS);
 
-  auto pipeline = std::shared_ptr<Vulkan::Pipeline>(new Vulkan::ComputePipeline(dev));
-  Vulkan::ShaderInfo s_info = {};
-  s_info.entry = "main";
-  s_info.file_path = "test.comp.spv";
-  s_info.type = Vulkan::ShaderType::Compute;
-  EXPECT_EQ(pipeline->AddShader(s_info), VK_SUCCESS);
-  EXPECT_EQ(pipeline->AddDescriptorSetLayouts(desc.GetDescriptorSetLayouts()), VK_SUCCESS);
+  Vulkan::Pipelines pipelines;
+  EXPECT_EQ(pipelines.AddPipeline(dev, Vulkan::ComputePipelineConfig()
+                              .SetShader("test.comp.spv", "main")
+                              .AddDescriptorSetLayouts(desc.GetDescriptorSetLayouts())), VK_SUCCESS);
+
+  Vulkan::ComputePipeline c_pipe(dev, Vulkan::ComputePipelineConfig()
+                              .SetShader("test.comp.spv", "main")
+                              .SetBasePipeline(pipelines.GetPipeline(0))
+                              .AddDescriptorSetLayouts(desc.GetDescriptorSetLayouts()));
+
+  EXPECT_NE(c_pipe.GetPipeline(), (VkPipeline) VK_NULL_HANDLE);
+  EXPECT_NE(pipelines.GetPipeline(0), (VkPipeline) VK_NULL_HANDLE);
+  EXPECT_EQ(pipelines.AddPipeline(std::move(c_pipe)), VK_SUCCESS);
+  EXPECT_NE(pipelines.GetPipeline(1), (VkPipeline) VK_NULL_HANDLE);
+
+  Vulkan::Pipelines pipelines2(std::move(pipelines));
+
+  EXPECT_EQ(pipelines.IsValid(), false);
+  EXPECT_EQ(pipelines2.IsValid(), true);
+  EXPECT_EQ(c_pipe.IsValid(), false);
 
   Vulkan::CommandPool pool(dev, dev->GetComputeFamilyQueueIndex().value());
   auto lock = pool.BeginCommandBuffer();
-  EXPECT_EQ(pool.BindPipeline(lock, pipeline->GetPipeline(), VK_PIPELINE_BIND_POINT_COMPUTE), VK_SUCCESS);
-  EXPECT_EQ(pool.BindDescriptorSets(lock, pipeline->GetPipelineLayout(), 
+  EXPECT_EQ(pool.BindPipeline(lock, pipelines2.GetPipeline(1), VK_PIPELINE_BIND_POINT_COMPUTE), VK_SUCCESS);
+  EXPECT_EQ(pool.BindDescriptorSets(lock, pipelines2.GetLayout(1), 
                           VK_PIPELINE_BIND_POINT_COMPUTE, desc.GetDescriptorSets(), 0, {}), VK_SUCCESS);
   EXPECT_EQ(pool.Dispatch(lock, 256, 1, 1), VK_SUCCESS);
   EXPECT_EQ(pool.EndCommandBuffer(lock), VK_SUCCESS);
@@ -246,21 +239,7 @@ TEST (Vulkan, ComputePipeline)
     std::cout << output[i] << " ";
   }
   std::cout << std::endl;
-
 }
-
-TEST (DISABLED_Vulkan, CommandPool)
-{
-  std::shared_ptr<Vulkan::Device> dev = std::make_shared<Vulkan::Device>(Vulkan::DeviceConfig()
-                                          .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
-                                          .SetQueueType(Vulkan::QueueType::ComputeType));
-  Vulkan::CommandPool pool(dev, dev->GetComputeFamilyQueueIndex().value());
-  auto lock = pool.BeginCommandBuffer();
-  EXPECT_EQ(pool.Dispatch(lock, 1, 1, 1), VK_SUCCESS);
-  EXPECT_EQ(pool.EndCommandBuffer(lock), VK_SUCCESS);
-  EXPECT_EQ(pool.GetCommandBuffersCount(), 1);
-}
-
 
 int main(int argc, char *argv[])
 {

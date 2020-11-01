@@ -17,8 +17,8 @@ namespace Vulkan
   class Misc
   {
   private:
-    static std::vector<char> LoadShaderFromFile(std::string file_name);
-    static VkShaderModule CreateShaderModule(VkDevice &dev, std::vector<char>& code);
+    static std::vector<char> LoadShaderFromFile(const std::string file_name);
+    static VkShaderModule CreateShaderModule(const VkDevice dev, const std::vector<char>& code);
   public:
     Misc() = default;
     ~Misc() = default;
@@ -32,7 +32,8 @@ namespace Vulkan
     static SwapChainDetails GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface);
     static size_t SizeOfFormat(const VkFormat format);
 
-    static VkShaderModule LoadPrecompiledShaderFromFile(VkDevice dev, std::string file_name);
+    static VkShaderModule LoadPrecompiledShaderFromFile(const VkDevice dev, const std::string file_name);
+    static VkPipelineLayout CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts);
     static std::string GetExecDirectory(const std::string argc_path);
     static std::string GetFileExtention(const std::string file);
   };

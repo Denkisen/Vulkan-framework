@@ -1,11 +1,10 @@
-#ifndef __VULKAN_ARRAY_H
-#define __VULKAN_ARRAY_H
+#ifndef __VULKAN_STORAGEARRAY_H
+#define __VULKAN_STORAGEARRAY_H
 
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
 #include <cmath>
-#include <iostream>
 #include <mutex>
 #include <cstring>
 #include <tuple>
@@ -41,7 +40,7 @@ namespace Vulkan
 
   struct buffer_t
   {
-    Vulkan::StorageType type = Vulkan::StorageType::Storage;
+    StorageType type = StorageType::Storage;
     VkDeviceSize sub_buffer_align = 16;
     VkDeviceSize size = 0;
     VkDeviceSize offset = 0;
@@ -52,9 +51,9 @@ namespace Vulkan
   class BufferConfig
   {
   private:
-    friend class Array_impl;
+    friend class StorageArray_impl;
 
-    Vulkan::StorageType buffer_type = Vulkan::StorageType::Storage;
+    StorageType buffer_type = StorageType::Storage;
     std::vector<std::tuple<VkDeviceSize, VkDeviceSize, VkFormat>> sizes;
   public:
     BufferConfig() = default;
@@ -70,21 +69,21 @@ namespace Vulkan
       for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size, format});
       return *this;
     }
-    BufferConfig &SetType(const Vulkan::StorageType type) { buffer_type = type; return *this; }
+    BufferConfig &SetType(const StorageType type) { buffer_type = type; return *this; }
   };
 
-  class Array_impl
+  class StorageArray_impl
   {
   public:
-    Array_impl() = delete;
-    Array_impl(const Array_impl &obj) = delete;
-    Array_impl(Array_impl &&obj) = delete;
-    Array_impl &operator=(const Array_impl &obj) = delete;
-    Array_impl &operator=(Array_impl &&obj) = delete;
-    ~Array_impl();
+    StorageArray_impl() = delete;
+    StorageArray_impl(const StorageArray_impl &obj) = delete;
+    StorageArray_impl(StorageArray_impl &&obj) = delete;
+    StorageArray_impl &operator=(const StorageArray_impl &obj) = delete;
+    StorageArray_impl &operator=(StorageArray_impl &&obj) = delete;
+    ~StorageArray_impl();
   private:
-    friend class Array;
-    Array_impl(std::shared_ptr<Vulkan::Device> dev);
+    friend class StorageArray;
+    StorageArray_impl(std::shared_ptr<Device> dev);
     VkDeviceSize Align(const VkDeviceSize value, const VkDeviceSize align);
     VkBufferView CreateBufferView(const VkBuffer buffer, const VkFormat format, const VkDeviceSize offset, const VkDeviceSize size);
     void Abort(std::vector<buffer_t> &buffs);
@@ -94,6 +93,7 @@ namespace Vulkan
     VkResult EndConfig();
     void Clear();
     size_t Count() { std::lock_guard lock(buffers_mutex); return buffers.size(); }
+    HostVisibleMemory GetMemoryAccess() { return access; }
     size_t SubBuffsCount(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
     buffer_t GetInfo(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index] : buffer_t(); }
     template <typename T>
@@ -106,7 +106,7 @@ namespace Vulkan
     VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data);
     void UseChunkedMapping(const bool val) { use_chunked_mapping = val; }
 
-    std::shared_ptr<Vulkan::Device> device;
+    std::shared_ptr<Device> device;
     std::vector<buffer_t> buffers;
     HostVisibleMemory access = HostVisibleMemory::HostVisible;
     VkDeviceMemory memory = VK_NULL_HANDLE;
@@ -121,24 +121,27 @@ namespace Vulkan
     std::mutex config_mutex;
   };
 
-  class Array
+  class StorageArray
   {
   private:
-    std::unique_ptr<Array_impl> impl;
+    std::unique_ptr<StorageArray_impl> impl;
   public:
-    Array() = delete;
-    Array(const Array &obj);
-    Array(Array &&obj) noexcept : impl(std::move(obj.impl)) {};
-    Array(std::shared_ptr<Vulkan::Device> dev) : impl(std::unique_ptr<Array_impl>(new Array_impl(dev))) {};
-    Array &operator=(const Array &obj);
-    Array &operator=(Array &&obj) noexcept;
-    void swap(Array &obj) noexcept;
+    StorageArray() = delete;
+    StorageArray(const StorageArray &obj);
+    StorageArray(StorageArray &&obj) noexcept : impl(std::move(obj.impl)) {};
+    StorageArray(std::shared_ptr<Device> dev) : impl(std::unique_ptr<StorageArray_impl>(new StorageArray_impl(dev))) {};
+    StorageArray &operator=(const StorageArray &obj);
+    StorageArray &operator=(StorageArray &&obj) noexcept;
+    void swap(StorageArray &obj) noexcept;
     VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) { return impl->StartConfig(val); }
     VkResult AddBuffer(const BufferConfig params) { return impl->AddBuffer(params); }
     VkResult EndConfig() {return impl->EndConfig(); }
     size_t Count() { return impl->Count(); }
+    void Clear() { impl->Clear(); }
+    bool IsValid() { return impl != nullptr; }
     size_t SubBuffsCount(const size_t index) { return impl->SubBuffsCount(index); }
     buffer_t GetInfo(const size_t index) { return impl->GetInfo(index); }
+    HostVisibleMemory GetMemoryAccess() { return impl->GetMemoryAccess(); }
     template <typename T>
     VkResult GetBufferData(const size_t index, std::vector<T> &result) { return impl->GetBufferData(index, result); }
     template <typename T>
@@ -152,10 +155,10 @@ namespace Vulkan
 #endif
   };
 
-  void swap(Array &lhs, Array &rhs) noexcept;
+  void swap(StorageArray &lhs, StorageArray &rhs) noexcept;
 
   template <typename T>
-  VkResult Array_impl::GetBufferData(const size_t index, std::vector<T> &result)
+  VkResult StorageArray_impl::GetBufferData(const size_t index, std::vector<T> &result)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -173,6 +176,12 @@ namespace Vulkan
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
+      return VK_ERROR_UNKNOWN;
+    }
+
+    if (access == HostVisibleMemory::HostInvisible)
+    {
+      Logger::EchoError("Can't get data from HostInvisible memory", __func__);
       return VK_ERROR_UNKNOWN;
     }
 
@@ -220,7 +229,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkResult Array_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result)
+  VkResult StorageArray_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -244,6 +253,12 @@ namespace Vulkan
     if (buffers[index].buffer == VK_NULL_HANDLE)
     {
       Logger::EchoError("Buffer is NULL", __func__);
+      return VK_ERROR_UNKNOWN;
+    }
+
+    if (access == HostVisibleMemory::HostInvisible)
+    {
+      Logger::EchoError("Can't get data from HostInvisible memory", __func__);
       return VK_ERROR_UNKNOWN;
     }
 
@@ -292,7 +307,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkResult Array_impl::SetBufferData(const size_t index, const std::vector<T> &data)
+  VkResult StorageArray_impl::SetBufferData(const size_t index, const std::vector<T> &data)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -316,6 +331,12 @@ namespace Vulkan
     if (data.size() * sizeof(T) > buffers[index].size)
     {
       Logger::EchoWarning("Data is too big for buffer", __func__);
+    }
+
+    if (access == HostVisibleMemory::HostInvisible)
+    {
+      Logger::EchoError("Can't get data from HostInvisible memory", __func__);
+      return VK_ERROR_UNKNOWN;
     }
 
     void *payload = nullptr;
@@ -359,7 +380,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkResult Array_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data)
+  VkResult StorageArray_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data)
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -389,6 +410,12 @@ namespace Vulkan
     if (data.size() * sizeof(T) > buffers[index].sub_buffers[sub_index].size)
     {
       Logger::EchoWarning("Data is too big for buffer", __func__);
+    }
+
+    if (access == HostVisibleMemory::HostInvisible)
+    {
+      Logger::EchoError("Can't get data from HostInvisible memory", __func__);
+      return VK_ERROR_UNKNOWN;
     }
 
     void *payload = nullptr;

@@ -6,7 +6,6 @@
 #include <vector>
 #include <mutex>
 #include <optional>
-#include <map>
 
 #include "Device.h"
 
@@ -31,7 +30,7 @@ namespace Vulkan
     ~CommandPool_impl();
   private:
     friend class CommandPool;
-    CommandPool_impl(std::shared_ptr<Vulkan::Device> dev, const uint32_t family_queue_index);
+    CommandPool_impl(std::shared_ptr<Device> dev, const uint32_t family_queue_index);
 
     VkCommandPool GetCommandPool() { return command_pool; }
     size_t GetCommandBuffersCount() { return command_buffers.size(); }
@@ -44,7 +43,7 @@ namespace Vulkan
     VkResult BindPipeline(const BufferLock buffer_lock, const VkPipeline pipeline, const VkPipelineBindPoint bind_point);
     VkResult BindDescriptorSets(const BufferLock buffer_lock, const VkPipelineLayout pipeline_layout, const VkPipelineBindPoint bind_point, const std::vector<VkDescriptorSet> sets, const uint32_t first_set, const std::vector<uint32_t> dynamic_offeset);
 
-    std::shared_ptr<Vulkan::Device> device;
+    std::shared_ptr<Device> device;
     VkCommandPool command_pool = VK_NULL_HANDLE;
     uint32_t family_queue_index = 0;
     std::mutex locks_control_mutex;
@@ -69,12 +68,13 @@ namespace Vulkan
     CommandPool() = delete;
     CommandPool(const CommandPool &obj) = delete;
     CommandPool(CommandPool &&obj) noexcept : impl(std::move(obj.impl)) {};
-    CommandPool(std::shared_ptr<Vulkan::Device> dev, const uint32_t family_queue_index) : 
+    CommandPool(std::shared_ptr<Device> dev, const uint32_t family_queue_index) : 
       impl(std::unique_ptr<CommandPool_impl>(new CommandPool_impl(dev, family_queue_index))) {};
     CommandPool &operator=(const CommandPool &obj) = delete;
     CommandPool &operator=(CommandPool &&obj) noexcept;
     ~CommandPool() = default;
     void swap(CommandPool &obj) noexcept;
+    bool IsValid() { return impl != nullptr; }
 
     VkCommandPool GetCommandPool() { return impl->GetCommandPool(); }
     size_t GetCommandBuffersCount() { return impl->GetCommandBuffersCount(); }

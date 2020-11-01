@@ -22,7 +22,7 @@ namespace Vulkan
     }
   }
 
-  CommandPool_impl::CommandPool_impl(std::shared_ptr<Vulkan::Device> dev, const uint32_t family_queue_index)
+  CommandPool_impl::CommandPool_impl(std::shared_ptr<Device> dev, const uint32_t family_queue_index)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
     {
