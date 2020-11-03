@@ -228,11 +228,13 @@ namespace Vulkan
   VkResult SwapChain_impl::ReCreate()
   {
     vkDeviceWaitIdle(device->GetDevice());
+    std::lock_guard lock(swapchain_mutex);
     return Create();
   }
 
   VkResult SwapChain_impl::SetPresentMode(const VkPresentModeKHR mode)
   {
+    std::lock_guard lock(swapchain_mutex);
     present_mode = mode;
     present_mode = GetSwapChainPresentMode();
     return VK_SUCCESS;

@@ -1,7 +1,6 @@
 #include "ImageArray.h"
 
 #include <algorithm>
-#include <atomic>
 
 namespace Vulkan
 {
@@ -13,13 +12,13 @@ namespace Vulkan
 
   void ImageArray_impl::Abort(std::vector<image_t> &imgs)
   {
-    std::for_each(imgs.begin(), imgs.end(), [&](auto &obj)
+    for (auto &obj : imgs)
     {
       if (obj.image_view != VK_NULL_HANDLE)
         vkDestroyImageView(device->GetDevice(), obj.image_view, nullptr);
       if (obj.image != VK_NULL_HANDLE)
         vkDestroyImage(device->GetDevice(), obj.image, nullptr);
-    });
+    }
   }
 
   void ImageArray_impl::Clear()
@@ -41,7 +40,7 @@ namespace Vulkan
     }
 
     device = dev;
-    align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
+    align = device->GetPhysicalDeviceProperties().limits.bufferImageGranularity;
   }
 
   VkDeviceSize ImageArray_impl::Align(const VkDeviceSize value, const VkDeviceSize align)
@@ -58,7 +57,7 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  VkResult ImageArray_impl::AddBuffer(const ImageConfig &params)
+  VkResult ImageArray_impl::AddImage(const ImageConfig &params)
   {
     std::lock_guard lock(config_mutex);
     if (params.width == 0 || params.height == 0 || params.channels == 0 || params.channels == 2 || params.channels > 4)
@@ -83,16 +82,15 @@ namespace Vulkan
 
     std::vector<image_t> tmp_images;
     tmp_images.reserve(prebuild_config.size());
-    VkDeviceSize mem_size = 0;
+
     for (auto &p : prebuild_config)
     {
+      p.sample_count = device->CheckSampleCountSupport(p.sample_count) ? p.sample_count : VK_SAMPLE_COUNT_1_BIT;
       image_t tmp = {};
       tmp.channels = p.channels;
       tmp.type = p.type;
       tmp.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-      tmp.size = p.width * p.height * p.channels * sizeof(uint8_t);
-      tmp.size = Align(tmp.size, align);
-      tmp.offset = mem_size;
+      tmp.tag = p.tag;
 
       tmp.image_info = {};
       tmp.image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -105,9 +103,9 @@ namespace Vulkan
       tmp.image_info.extent.depth = 1;
       tmp.image_info.mipLevels = p.use_mip_levels ? (uint32_t) std::floor(std::log2(std::max(p.width, p.height))) + 1 : 1;
       tmp.image_info.arrayLayers = 1;
-      tmp.image_info.format = (VkFormat) p.format;
+      tmp.image_info.format = p.format;
       tmp.image_info.tiling = (VkImageTiling) p.tiling;
-      tmp.image_info.samples = device->CheckSampleCountSupport(p.sample_count) ? p.sample_count : VK_SAMPLE_COUNT_1_BIT;
+      tmp.image_info.samples = p.sample_count;
       tmp.image_info.usage = p.type != ImageType::Multisampling ? (VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) | (VkImageUsageFlags) p.type : (VkImageUsageFlags) p.type;
 
       auto er = vkCreateImage(device->GetDevice(), &tmp.image_info, nullptr, &tmp.image);
@@ -119,48 +117,6 @@ namespace Vulkan
         return er;
       }
 
-      VkImageViewCreateInfo view_info = {};
-      view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-      view_info.image = tmp.image;
-      view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-      view_info.format = tmp.image_info.format;
-
-      switch ((Vulkan::ImageFormat) view_info.format)
-      {
-        case Vulkan::ImageFormat::Depth_32:
-          tmp.aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
-          break;
-        case Vulkan::ImageFormat::Depth_32_S8:
-        case Vulkan::ImageFormat::Depth_24_S8:
-          tmp.aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-          break;
-        case Vulkan::ImageFormat::SRGB_8:
-          tmp.aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
-          break;
-      default:
-          tmp.aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
-      }
-
-      view_info.subresourceRange.aspectMask = tmp.aspect_flags;
-      view_info.subresourceRange.baseMipLevel = 0;
-      view_info.subresourceRange.levelCount = tmp.image_info.mipLevels;
-      view_info.subresourceRange.baseArrayLayer = 0;
-      view_info.subresourceRange.layerCount = 1;
-      view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-      view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-      view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-      view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-      er = vkCreateImageView(device->GetDevice(), &view_info, nullptr, &tmp.image_view);
-      if (er != VK_SUCCESS)
-      {
-        Logger::EchoError("Failed to create texture image view", __func__);
-        Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
-        Abort(tmp_images);
-        return er;
-      }
-
-      mem_size += tmp.size;
       tmp_images.push_back(tmp);
     }
 
@@ -177,16 +133,22 @@ namespace Vulkan
     if (memory != VK_NULL_HANDLE)
       vkFreeMemory(device->GetDevice(), memory, nullptr);
 
-    std::atomic<VkDeviceSize> req_mem_size = 0;
-    std::atomic<VkMemoryRequirements> mem_req = {};
+    VkDeviceSize req_mem_size = 0;
+    VkMemoryRequirements mem_req = VkMemoryRequirements {0, 0, 0};
 
-    std::for_each(tmp_images.begin(), tmp_images.end(), [&](auto &obj)
+    for (auto &obj : tmp_images)
     {
       VkMemoryRequirements mem_req_tmp = {};
       vkGetImageMemoryRequirements(device->GetDevice(), obj.image, &mem_req_tmp);
-      mem_req = mem_req_tmp;
-      req_mem_size += mem_req.load().size;
-    });
+      if (mem_req.memoryTypeBits != 0 && mem_req_tmp.memoryTypeBits != mem_req.memoryTypeBits)
+      {
+        Logger::EchoWarning("Memory types are not equal", __func__);
+      }
+      obj.size = mem_req_tmp.size;
+      obj.offset = req_mem_size;
+      req_mem_size += obj.size;
+      mem_req = mem_req_tmp; 
+    }
 
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(device->GetPhysicalDevice(), &properties);
@@ -194,7 +156,7 @@ namespace Vulkan
     std::optional<uint32_t> mem_index;
     for (uint32_t i = 0; i < properties.memoryTypeCount; i++) 
     {
-      if (mem_req.load().memoryTypeBits & (1 << i) && 
+      if (mem_req.memoryTypeBits & (1 << i) && 
           (properties.memoryTypes[i].propertyFlags & (VkMemoryPropertyFlags) prebuild_access_config) &&
           (req_mem_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
       {
@@ -203,7 +165,7 @@ namespace Vulkan
       }
     }
 
-    if (!mem_index.has_value() || req_mem_size != mem_size)
+    if (!mem_index.has_value())
     {
       Logger::EchoError("No memory index", __func__);
       Abort(tmp_images);
@@ -227,8 +189,8 @@ namespace Vulkan
       return er;
     }
 
-    std::atomic<bool> fail = false;
-    std::for_each(tmp_images.begin(), tmp_images.end(), [&](auto &obj)
+    bool fail = false;
+    for (auto &obj : tmp_images)
     {
       auto er = vkBindImageMemory(device->GetDevice(), obj.image, memory, obj.offset);
       if (er != VK_SUCCESS)
@@ -237,7 +199,44 @@ namespace Vulkan
         Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
         fail = true;
       }
-    });
+
+      VkImageViewCreateInfo view_info = {};
+      view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+      view_info.image = obj.image;
+      view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      view_info.format = obj.image_info.format;
+
+      switch (view_info.format)
+      {
+        case VK_FORMAT_D32_SFLOAT:
+          obj.aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+          break;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+          obj.aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+          break;
+      default:
+          obj.aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
+      }
+
+      view_info.subresourceRange.aspectMask = obj.aspect_flags;
+      view_info.subresourceRange.baseMipLevel = 0;
+      view_info.subresourceRange.levelCount = obj.image_info.mipLevels;
+      view_info.subresourceRange.baseArrayLayer = 0;
+      view_info.subresourceRange.layerCount = 1;
+      view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+      view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+      view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+      view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+      er = vkCreateImageView(device->GetDevice(), &view_info, nullptr, &obj.image_view);
+      if (er != VK_SUCCESS)
+      {
+        Logger::EchoError("Failed to create texture image view", __func__);
+        Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+        fail = true;
+      }
+    }
 
     if (fail)
     {
@@ -248,7 +247,7 @@ namespace Vulkan
 
     images.swap(tmp_images);
     access = prebuild_access_config;
-    size = mem_size;
+    size = req_mem_size;
 
     return VK_SUCCESS;
   }

@@ -1,7 +1,6 @@
 #include "StorageArray.h"
 
 #include <algorithm>
-#include <atomic>
 
 namespace Vulkan
 {
@@ -13,7 +12,7 @@ namespace Vulkan
 
   void StorageArray_impl::Abort(std::vector<buffer_t> &buffs)
   {
-    std::for_each(buffs.begin(), buffs.end(), [&](auto &obj)
+    for (auto &obj : buffs)
     {
       for (auto &v : obj.sub_buffers)
       {
@@ -23,7 +22,7 @@ namespace Vulkan
 
       if (obj.buffer != VK_NULL_HANDLE)
         vkDestroyBuffer(device->GetDevice(), obj.buffer, nullptr);
-    });
+    }
   }
 
   void StorageArray_impl::Clear()
@@ -179,31 +178,6 @@ namespace Vulkan
         return er;
       }
 
-      std::atomic<bool> fail = false;
-      std::for_each(tmp_b.sub_buffers.begin(), tmp_b.sub_buffers.end(), [&](auto &obj)
-      {
-        if (obj.format != VK_FORMAT_UNDEFINED)
-        {
-          obj.view = CreateBufferView(tmp_b.buffer, obj.format, obj.offset, obj.size);
-          if (obj.view == VK_NULL_HANDLE)
-          {
-            fail = true;
-            Logger::EchoError("Can't create buffer view. Abort", __func__);
-          }
-        }
-      });
-
-      if (fail)
-      {
-        std::for_each(tmp_b.sub_buffers.begin(), tmp_b.sub_buffers.end(), [&](auto &obj)
-        {
-          if (obj.view != VK_NULL_HANDLE)
-            vkDestroyBufferView(device->GetDevice(), obj.view, nullptr);
-        });
-
-        return VK_ERROR_UNKNOWN;
-      }
-
       tmp_buffers.push_back(tmp_b);
     }
 
@@ -220,16 +194,20 @@ namespace Vulkan
     if (memory != VK_NULL_HANDLE)
       vkFreeMemory(device->GetDevice(), memory, nullptr);
 
-    std::atomic<VkDeviceSize> req_mem_size = 0;
-    std::atomic<VkMemoryRequirements> mem_req = {};
+    VkDeviceSize req_mem_size = 0;
+    VkMemoryRequirements mem_req = VkMemoryRequirements {0, 0, 0};
 
-    std::for_each(tmp_buffers.begin(), tmp_buffers.end(), [&](auto &obj)
+    for (auto &obj : tmp_buffers)
     {
       VkMemoryRequirements mem_req_tmp = {};
       vkGetBufferMemoryRequirements(device->GetDevice(), obj.buffer, &mem_req_tmp);
+      if (mem_req.memoryTypeBits != 0 && mem_req_tmp.memoryTypeBits != mem_req.memoryTypeBits)
+      {
+        Logger::EchoWarning("Memory types are not equal", __func__);
+      }
       mem_req = mem_req_tmp;
-      req_mem_size += mem_req.load().size;
-    });
+      req_mem_size += mem_req.size;
+    }
 
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(device->GetPhysicalDevice(), &properties);
@@ -237,7 +215,7 @@ namespace Vulkan
     std::optional<uint32_t> mem_index;
     for (uint32_t i = 0; i < properties.memoryTypeCount; i++) 
     {
-      if (mem_req.load().memoryTypeBits & (1 << i) && 
+      if (mem_req.memoryTypeBits & (1 << i) && 
           (properties.memoryTypes[i].propertyFlags & (VkMemoryPropertyFlags) prebuild_access_config) &&
           (req_mem_size < properties.memoryHeaps[properties.memoryTypes[i].heapIndex].size))
       {
@@ -270,17 +248,32 @@ namespace Vulkan
       return er;
     }
 
-    std::atomic<bool> fail = false;
-    std::for_each(tmp_buffers.begin(), tmp_buffers.end(), [&](auto &obj)
+    bool fail = false;
+    for (auto &bf : tmp_buffers)
     {
-      auto er = vkBindBufferMemory(device->GetDevice(), obj.buffer, memory, obj.offset);
+      auto er = vkBindBufferMemory(device->GetDevice(), bf.buffer, memory, bf.offset);
       if (er != VK_SUCCESS)
       {
         Logger::EchoError("Can't bind memory to buffer.");
         Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
         fail = true;
+        break;
       }
-    });
+
+      for (auto &sb : bf.sub_buffers)
+      {
+        if (sb.format != VK_FORMAT_UNDEFINED)
+        {
+          sb.view = CreateBufferView(bf.buffer, sb.format, sb.offset, sb.size);
+          if (sb.view == VK_NULL_HANDLE)
+          {
+            fail = true;
+            Logger::EchoError("Can't create buffer view. Abort", __func__);
+            break;
+          }
+        }
+      }
+    }
 
     if (fail)
     {

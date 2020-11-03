@@ -6,11 +6,11 @@ namespace Vulkan
   GraphicPipeline_impl::~GraphicPipeline_impl()
   {
     Logger::EchoDebug("", __func__);
-    std::for_each(shaders.begin(), shaders.end(), [&, this](auto &obj) 
+    for (auto &obj : shaders)
     { 
       if (obj.shader != VK_NULL_HANDLE) 
         vkDestroyShaderModule(device->GetDevice(), obj.shader, nullptr);
-    });
+    }
 
     if (pipeline_layout != VK_NULL_HANDLE)
     {
@@ -25,7 +25,8 @@ namespace Vulkan
     }
   }
 
-  GraphicPipeline_impl::GraphicPipeline_impl(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const GraphicPipelineConfig &params)
+  GraphicPipeline_impl::GraphicPipeline_impl(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, 
+                                             const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params)
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
     {
@@ -39,8 +40,15 @@ namespace Vulkan
       return;
     }
 
+    if (render_pass.get() == nullptr || !render_pass->IsValid() || render_pass->GetRenderPass() == VK_NULL_HANDLE)
+    {
+      Logger::EchoError("RenderPass is empty", __func__);
+      return;
+    }
+
     device = dev;
     this->swapchain = swapchain;
+    this->render_pass = render_pass;
     init_config = params;
     if (device->CheckSampleCountSupport(init_config.sample_count) != VK_TRUE)
     {
@@ -81,8 +89,8 @@ namespace Vulkan
     VkGraphicsPipelineCreateInfo pipeline_create_info = {};
     pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipeline_create_info.layout = pipeline_layout;
-   // pipeline_create_info.renderPass = render_pass->GetRenderPass();
-    pipeline_create_info.subpass = 0;
+    pipeline_create_info.renderPass = render_pass->GetRenderPass();
+    pipeline_create_info.subpass = init_config.subpass;
     pipeline_create_info.basePipelineHandle = init_config.base_pipeline;
     pipeline_create_info.flags = init_config.base_pipeline != VK_NULL_HANDLE ? VK_PIPELINE_CREATE_DERIVATIVE_BIT : VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
     pipeline_create_info.basePipelineIndex = -1;
@@ -124,15 +132,16 @@ namespace Vulkan
   {
     if (build_shaders)
     {
-      std::for_each(shaders.begin(), shaders.end(), [&, this](auto &obj) 
+      for (auto &obj : shaders)
       { 
         if (obj.shader != VK_NULL_HANDLE) 
           vkDestroyShaderModule(device->GetDevice(), obj.shader, nullptr);
-      });
+      }
       
       shaders.reserve(init_config.shader_infos.size());
       stages_config.stage_infos.reserve(init_config.shader_infos.size());
-      std::for_each(init_config.shader_infos.begin(), init_config.shader_infos.end(), [&, this](auto &obj)
+
+      for (auto &obj : init_config.shader_infos)
       {
         shaders.push_back({});
         stages_config.stage_infos.push_back({});
@@ -146,7 +155,7 @@ namespace Vulkan
         stages_config.stage_infos[i].stage = (VkShaderStageFlagBits) obj.second.type;
         stages_config.stage_infos[i].pName = shaders[i].entry.c_str();
         stages_config.stage_infos[i].flags = 0;
-      });
+      }
       
       build_shaders = false;
     }

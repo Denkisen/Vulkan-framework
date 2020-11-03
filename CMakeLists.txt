@@ -54,13 +54,12 @@ target_link_libraries(${RUNTIME_OUTPUT_NAME}
   opencv_core
   opencv_imgproc
   opencv_imgcodecs
-  atomic
   #stdc++fs
 )
 
 #Shaders
 file(GLOB_RECURSE files 
-  "Shaders/test.comp"
+  "Shaders/*"
 )
 foreach(file ${files})
   get_filename_component(FILE_NAME ${file} NAME)

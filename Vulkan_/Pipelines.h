@@ -9,6 +9,7 @@
 
 #include "Device.h"
 #include "Logger.h"
+#include "RenderPass.h"
 #include "Pipelines/ComputePipeline.h"
 #include "Pipelines/GraphicPipeline.h"
 
@@ -29,7 +30,7 @@ namespace Vulkan
     Pipelines &operator=(Pipelines &&obj) noexcept;
     void swap(Pipelines &obj) noexcept;
     VkResult AddPipeline(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params);
-    VkResult AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const GraphicPipelineConfig &params);
+    VkResult AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params);
     VkResult AddPipeline(ComputePipeline &&obj);
     VkResult AddPipeline(GraphicPipeline &&obj);
     VkPipelineLayout GetLayout(const size_t index);

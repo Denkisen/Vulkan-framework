@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
+#include <mutex>
 
 #include "Device.h"
 #include "Misc.h"
@@ -29,11 +30,11 @@ namespace Vulkan
 
     VkResult ReCreate();
     VkResult SetPresentMode(const VkPresentModeKHR mode);
-    VkSurfaceFormatKHR GetSurfaceFormat() { return format; }
-    VkSwapchainKHR GetSwapChain() { return swapchain; }
-    VkExtent2D GetExtent() { return extent; }
-    uint32_t GetImagesCount() { return images_in_swapchain; }
-    std::vector<VkImageView> GetImageViews() { return swapchain_image_views; }
+    VkSurfaceFormatKHR GetSurfaceFormat() { std::lock_guard lock(swapchain_mutex); return format; }
+    VkSwapchainKHR GetSwapChain() { std::lock_guard lock(swapchain_mutex); return swapchain; }
+    VkExtent2D GetExtent() { std::lock_guard lock(swapchain_mutex); return extent; }
+    uint32_t GetImagesCount() { std::lock_guard lock(swapchain_mutex); return images_in_swapchain; }
+    std::vector<VkImageView> GetImageViews() { std::lock_guard lock(swapchain_mutex); return swapchain_image_views; }
 
     SwapChainDetails capabilities;
     VkSurfaceFormatKHR format;
@@ -44,6 +45,7 @@ namespace Vulkan
     std::vector<VkImageView> swapchain_image_views;
     std::shared_ptr<Device> device;
     uint32_t images_in_swapchain = 0;
+    std::mutex swapchain_mutex;
   };
 
   class SwapChain

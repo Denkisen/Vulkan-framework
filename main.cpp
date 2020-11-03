@@ -12,32 +12,14 @@
 #include "Vulkan_/CommandPool.h"
 #include "Vulkan_/Pipelines.h"
 #include "Vulkan_/Misc.h"
+#include "Vulkan_/RenderPass.h"
+#include "Vulkan_/ImageArray.h"
 
 struct UniformData
 {
   unsigned mul;
   unsigned val[63];
 };
-
-TEST (Vulkan, Surface)
-{
-  std::shared_ptr<Vulkan::Surface> surf1 = std::make_shared<Vulkan::Surface>(Vulkan::SurfaceConfig().SetWidght(1200).SetHeight(800).SetAppTitle("Test"));
-
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) surf1->GetSurface());
-  EXPECT_NE(nullptr, surf1->GetWindow());
-
-  VkPhysicalDeviceFeatures f = {};
-  f.geometryShader = VK_TRUE;
-  Vulkan::Device dev1(Vulkan::DeviceConfig()
-                      .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
-                      .SetQueueType(Vulkan::QueueType::DrawingType)
-                      .SetSurface(surf1)
-                      .SetRequiredDeviceFeatures(f));
-  
-  EXPECT_NE(VK_NULL_HANDLE, (uint64_t) dev1.GetDevice());
-  EXPECT_EQ((VkPhysicalDeviceType) Vulkan::PhysicalDeviceType::Discrete, dev1.GetPhysicalDeviceProperties().deviceType);
-  EXPECT_EQ(surf1->GetSurface(), dev1.GetSurface()->GetSurface());
-}
 
 TEST (Vulkan, StorageArray)
 {
@@ -76,28 +58,6 @@ TEST (Vulkan, StorageArray)
   EXPECT_EQ(tmp.size(), test_data1.size() + test_data2.size());
   EXPECT_EQ(array2.GetSubBufferData(1, 0, test_data1), VK_SUCCESS);
   EXPECT_EQ(array2.GetSubBufferData(1, 1, test_data2), VK_SUCCESS);
-
-  std::cout << "Output:" << std::endl;
-  for (size_t i = 0; i < test_data4.size(); ++i)
-  {
-    std::cout << tmp[i] << " ";
-  }
-  std::cout << std::endl << "Next:" << std::endl;
-  for (size_t i = 0; i < test_data4.size(); ++i)
-  {
-    std::cout << tmp[test_data4.size() + i] << " ";
-  }
-  std::cout << std::endl << "Next:" << std::endl;
-  for (size_t i = 0; i < test_data1.size(); ++i)
-  {
-    std::cout << test_data1[i] << " ";
-  }
-  std::cout << std::endl << "Next:" << std::endl;
-  for (size_t i = 0; i < test_data2.size(); ++i)
-  {
-    std::cout << test_data2[i] << " ";
-  }
-  std::cout << std::endl;
 }
 
 TEST (Vulkan, Descriptors)
@@ -239,6 +199,52 @@ TEST (Vulkan, ComputePipeline)
     std::cout << output[i] << " ";
   }
   std::cout << std::endl;
+}
+
+TEST (Vulkan, RenderPass)
+{
+  std::shared_ptr<Vulkan::Surface> surf = std::make_shared<Vulkan::Surface>(Vulkan::SurfaceConfig()
+                                          .SetHeight(1042).SetWidght(1024));
+  VkPhysicalDeviceFeatures f = {};
+  f.geometryShader = VK_TRUE;
+  std::shared_ptr<Vulkan::Device> dev = std::make_shared<Vulkan::Device>(Vulkan::DeviceConfig()
+                                          .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
+                                          .SetQueueType(Vulkan::QueueType::DrawingType)
+                                          .SetSurface(surf)
+                                          .SetRequiredDeviceFeatures(f));
+
+  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, VK_PRESENT_MODE_FIFO_KHR);
+
+  Vulkan::ImageArray buffers(dev);
+  std::shared_ptr<Vulkan::RenderPass> render_pass = Vulkan::Helpers::CreateOneSubpassRenderPassMultisamplingDepth(dev, swapchain, buffers, VK_SAMPLE_COUNT_4_BIT);
+
+  EXPECT_NE(render_pass.get(), nullptr);
+}
+
+TEST (Vulkan, GraphicPipeline)
+{
+  std::shared_ptr<Vulkan::Surface> surf = std::make_shared<Vulkan::Surface>(Vulkan::SurfaceConfig()
+                                          .SetHeight(1042).SetWidght(1024));
+  VkPhysicalDeviceFeatures f = {};
+  f.geometryShader = VK_TRUE;
+  std::shared_ptr<Vulkan::Device> dev = std::make_shared<Vulkan::Device>(Vulkan::DeviceConfig()
+                                          .SetDeviceType(Vulkan::PhysicalDeviceType::Discrete)
+                                          .SetQueueType(Vulkan::QueueType::DrawingType)
+                                          .SetSurface(surf)
+                                          .SetRequiredDeviceFeatures(f));
+
+  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, VK_PRESENT_MODE_FIFO_KHR);
+
+  Vulkan::ImageArray buffers(dev);
+  std::shared_ptr<Vulkan::RenderPass> render_pass = Vulkan::Helpers::CreateOneSubpassRenderPassMultisamplingDepth(dev, swapchain, buffers, VK_SAMPLE_COUNT_4_BIT);
+
+  Vulkan::GraphicPipeline g_pipe(dev, swapchain, render_pass, Vulkan::GraphicPipelineConfig()
+                                .SetSamplesCount(VK_SAMPLE_COUNT_4_BIT)
+                                .AddShader(Vulkan::ShaderType::Vertex, "tri.vert.spv", "main")
+                                .AddShader(Vulkan::ShaderType::Fragment, "tri.frag.spv", "main")
+                                .UseDepthTesting(VK_TRUE)
+                                .UseSampleShading(VK_TRUE)
+                                .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT));
 }
 
 int main(int argc, char *argv[])

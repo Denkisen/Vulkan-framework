@@ -10,6 +10,7 @@
 #include "../Device.h"
 #include "../Logger.h"
 #include "../SwapChain.h"
+#include "../RenderPass.h"
 #include "Types.h"
 
 namespace Vulkan
@@ -58,6 +59,7 @@ namespace Vulkan
     VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT;
     VkBool32 use_sample_shading = VK_FALSE;
     float min_sample_shading = 0.25f;
+    uint32_t subpass = 0;
     
   public:
     GraphicPipelineConfig() = default;
@@ -71,7 +73,8 @@ namespace Vulkan
     auto &SetBasePipeline(const VkPipeline pipeline) { base_pipeline = pipeline; return *this; }
     auto &AddShader(const ShaderType type, const std::filesystem::path file_path, const std::string entry = "main") 
     {
-      if (std::filesystem::exists(file_path)) shader_infos[type] = {entry, file_path, type}; 
+      if (std::filesystem::exists(file_path)) shader_infos[type] = {entry, file_path, type};
+      else Logger::EchoWarning("Shader path is not exists", __func__); 
       return *this;
     }
     auto &SetPolygonMode(const VkPolygonMode mode) { polygon_mode = mode; return *this; }
@@ -90,6 +93,7 @@ namespace Vulkan
       return *this; 
     }
     auto &AddDynamicState(const VkDynamicState state) { dynamic_states.insert(state); return *this; }
+    auto &SetSubpass(const uint32_t index) { subpass = index; return *this; }
   };
 
   class GraphicPipeline_impl
@@ -105,6 +109,7 @@ namespace Vulkan
     friend class GraphicPipeline;
     std::shared_ptr<Device> device;
     std::shared_ptr<SwapChain> swapchain;
+    std::shared_ptr<RenderPass> render_pass;
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     std::vector<Shader> shaders;
@@ -130,7 +135,8 @@ namespace Vulkan
     VkResult Create();
 
 
-    GraphicPipeline_impl(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const GraphicPipelineConfig &params);
+    GraphicPipeline_impl(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, 
+                         const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params);
     VkResult ReCreate();
     VkPipeline GetPipeline() { return pipeline; }
     VkPipelineLayout GetLayout() { return pipeline_layout; }
@@ -161,8 +167,9 @@ namespace Vulkan
     GraphicPipeline() = delete;
     GraphicPipeline(const GraphicPipeline &obj) = delete;
     GraphicPipeline(GraphicPipeline &&obj) noexcept : impl(std::move(obj.impl)) {};
-    GraphicPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const GraphicPipelineConfig &params) :
-      impl(std::unique_ptr<GraphicPipeline_impl>(new GraphicPipeline_impl(dev, swapchain, params))) {};
+    GraphicPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, 
+                    const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params) :
+      impl(std::unique_ptr<GraphicPipeline_impl>(new GraphicPipeline_impl(dev, swapchain, render_pass, params))) {};
     GraphicPipeline &operator=(const GraphicPipeline &obj) = delete;
     GraphicPipeline &operator=(GraphicPipeline &&obj) noexcept;
     void swap(GraphicPipeline &obj) noexcept;

@@ -36,6 +36,7 @@ namespace Vulkan
     VkDeviceSize offset = 0;
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkBufferView view = VK_NULL_HANDLE;
+    std::string tag = "";
   };
 
   struct buffer_t

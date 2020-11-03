@@ -29,13 +29,13 @@ namespace Vulkan
     Multisampling = (VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
   };
 
-  enum class ImageFormat
-  {
-    SRGB_8 = VK_FORMAT_R8G8B8A8_SRGB,
-    Depth_32 = VK_FORMAT_D32_SFLOAT,
-    Depth_32_S8 = VK_FORMAT_D32_SFLOAT_S8_UINT,
-    Depth_24_S8 = VK_FORMAT_D24_UNORM_S8_UINT
-  };
+  // enum class ImageFormat
+  // {
+  //   SRGB_8 = VK_FORMAT_R8G8B8A8_SRGB,
+  //   Depth_32 = VK_FORMAT_D32_SFLOAT,
+  //   Depth_32_S8 = VK_FORMAT_D32_SFLOAT_S8_UINT,
+  //   Depth_24_S8 = VK_FORMAT_D24_UNORM_S8_UINT
+  // };
 
   struct image_t
   {
@@ -48,6 +48,7 @@ namespace Vulkan
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageAspectFlags aspect_flags = 0;
     VkImageCreateInfo image_info = {};
+    std::string tag = "";
   };
 
   class ImageConfig
@@ -60,8 +61,9 @@ namespace Vulkan
     bool use_mip_levels = false;
     ImageType type = ImageType::Storage;
     ImageTiling tiling = ImageTiling::Optimal;
-    ImageFormat format = ImageFormat::SRGB_8;
+    VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT;
+    std::string tag = "";
   public:
     ImageConfig() = default;
     ~ImageConfig() = default;
@@ -72,8 +74,9 @@ namespace Vulkan
     auto &PreallocateMipLevels(const bool val) { use_mip_levels = val; return *this; }
     auto &SetType(const ImageType val) { type = val; return *this; }
     auto &SetTiling(const ImageTiling val) { tiling = val; return *this; }
-    auto &SetFormat(const ImageFormat val) { format = val; return *this; }
+    auto &SetFormat(const VkFormat val) { format = val; return *this; }
     auto &SetSamplesCount(const VkSampleCountFlagBits val) { sample_count = val; return *this; }
+    auto &SetTag(const std::string val) { tag = val; return *this; }
   };
 
   class ImageArray_impl
@@ -103,7 +106,7 @@ namespace Vulkan
 
     ImageArray_impl(const std::shared_ptr<Device> dev);
     VkResult StartConfig(const HostVisibleMemory val);
-    VkResult AddBuffer(const ImageConfig &params);
+    VkResult AddImage(const ImageConfig &params);
     VkResult EndConfig();
     void Clear();
     HostVisibleMemory GetMemoryAccess() { return access; }
@@ -129,7 +132,7 @@ namespace Vulkan
     void swap(ImageArray &obj) noexcept;
     bool IsValid() { return impl != nullptr; }
     VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) { return impl->StartConfig(val); }
-    VkResult AddBuffer(const ImageConfig &params) { return impl->AddBuffer(params); }
+    VkResult AddImage(const ImageConfig &params) { return impl->AddImage(params); }
     VkResult EndConfig() { return impl->EndConfig(); }
     HostVisibleMemory GetMemoryAccess() { return impl->GetMemoryAccess(); }
     void Clear() { impl->Clear(); }

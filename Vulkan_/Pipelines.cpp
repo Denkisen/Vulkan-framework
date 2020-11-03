@@ -47,10 +47,10 @@ namespace Vulkan
     }, pipelines[pipelines.size() - 1]);
   }
 
-  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const GraphicPipelineConfig &params)
+  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params)
   {
     std::lock_guard lock(pipelines_mutex);
-    pipelines.emplace_back(GraphicPipeline(dev, swapchain, params));
+    pipelines.emplace_back(GraphicPipeline(dev, swapchain, render_pass, params));
     
     return std::visit([] (auto &&obj) -> VkResult 
     { 
