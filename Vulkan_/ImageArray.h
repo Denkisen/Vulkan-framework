@@ -111,7 +111,15 @@ namespace Vulkan
     void Clear();
     HostVisibleMemory GetMemoryAccess() { return access; }
     size_t Count() { std::lock_guard lock(images_mutex); return images.size(); }
-    image_t GetInfo(const size_t index) {std::lock_guard lock(images_mutex); return index < images.size() ? images[index] : image_t(); }
+    image_t GetInfo(const size_t index) { std::lock_guard lock(images_mutex); return index < images.size() ? images[index] : image_t(); }
+    VkResult ChangeLayout(const size_t index, VkImageLayout layout) 
+    { 
+      std::lock_guard lock(images_mutex); 
+      if (index >= images.size()) return VK_ERROR_UNKNOWN;
+
+      images[index].layout = layout; 
+      return VK_SUCCESS;
+    }
     template <typename T>
     VkResult GetImageData(const size_t index, std::vector<T> &result);
     template <typename T>
@@ -135,6 +143,7 @@ namespace Vulkan
     VkResult AddImage(const ImageConfig &params) { return impl->AddImage(params); }
     VkResult EndConfig() { return impl->EndConfig(); }
     HostVisibleMemory GetMemoryAccess() { return impl->GetMemoryAccess(); }
+    VkResult ChangeLayout(const size_t index, VkImageLayout layout) { return impl->ChangeLayout(index, layout); }
     void Clear() { impl->Clear(); }
     size_t Count() { return impl->Count(); }
     image_t GetInfo(const size_t index) { return impl->GetInfo(index); }

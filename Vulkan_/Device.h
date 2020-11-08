@@ -88,7 +88,7 @@ namespace Vulkan
     QueueType queue_flag_bits = QueueType::ComputeType;
     std::vector<Queue> queues;
 
-    friend class Device;
+    friend class Device; // TODO : noexcept
     // public
     Device_impl(const DeviceConfig params);
     static std::vector<VkPhysicalDevice> GetAllPhysicalDevices();

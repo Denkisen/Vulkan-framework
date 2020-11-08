@@ -29,7 +29,7 @@ namespace Vulkan
     return ret;
   }
 
-  VkInstance& Instance::GetInstance() 
+  VkInstance& Instance::GetInstance() noexcept
   { 
     std::lock_guard<std::mutex> lock(instance_lock);
 
@@ -38,9 +38,17 @@ namespace Vulkan
       VkResult res = VK_SUCCESS;
 
       std::vector<const char *> ins;
-      auto extensions = GetInstanceExtensions();
-      for (auto &s : extensions)
-        ins.push_back(s.c_str());
+      try
+      {
+        auto extensions = GetInstanceExtensions();
+        ins.reserve(extensions.size());
+        for (auto &s : extensions)
+          ins.push_back(s.c_str());
+      }
+      catch (...)
+      {
+
+      }
 
       VkApplicationInfo app_info = {};
       app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -60,7 +68,7 @@ namespace Vulkan
       }
 
       create_info.pApplicationInfo = &app_info;
-      create_info.ppEnabledExtensionNames = ins.data();
+      create_info.ppEnabledExtensionNames = ins.size() > 0 ? ins.data() : nullptr;
       create_info.enabledExtensionCount = (uint32_t) ins.size();
 
       res = vkCreateInstance(&create_info, nullptr, &instance);
@@ -82,7 +90,7 @@ namespace Vulkan
     return instance; 
   }
 
-  Instance::~Instance()
+  Instance::~Instance() noexcept
   {
     std::lock_guard<std::mutex> lock(instance_lock);
 

@@ -26,9 +26,9 @@ namespace Vulkan
     Instance(Instance &&obj) = delete;
     Instance& operator= (const Instance &obj) = delete;
     Instance& operator= (Instance &&obj) = delete;
-    static std::string AppName() { return app_name; }
-    static VkInstance& GetInstance();
-    ~Instance();
+    static std::string AppName() noexcept { return app_name; }
+    static VkInstance& GetInstance() noexcept;
+    ~Instance() noexcept;
   };
 }
 

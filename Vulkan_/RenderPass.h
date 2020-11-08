@@ -108,6 +108,7 @@ namespace Vulkan
     VkResult ReCreate();
     std::vector<VkFramebuffer> GetFrameBuffers() { std::lock_guard lock(render_pass_mutex); return frame_buffers; }
     uint32_t GetSubpassCount() { return conf.subpass_consfig.size(); }
+    std::shared_ptr<SwapChain> GetSwapChain() { return swapchain; }
 
     std::shared_ptr<Device> device;
     std::shared_ptr<SwapChain> swapchain;
@@ -134,6 +135,7 @@ namespace Vulkan
     VkResult ReCreate() { return impl->ReCreate(); }
     std::vector<VkFramebuffer> GetFrameBuffers() { return impl->GetFrameBuffers(); }
     uint32_t GetSubpassCount() { return impl->GetSubpassCount(); }
+    VkExtent2D GetExtent() { return impl->GetSwapChain()->GetExtent(); }
     ~RenderPass() = default;
   };
 

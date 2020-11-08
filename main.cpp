@@ -180,15 +180,17 @@ TEST (Vulkan, ComputePipeline)
   EXPECT_EQ(c_pipe.IsValid(), false);
 
   Vulkan::CommandPool pool(dev, dev->GetComputeFamilyQueueIndex().value());
-  auto lock = pool.BeginCommandBuffer();
-  EXPECT_EQ(pool.BindPipeline(lock, pipelines2.GetPipeline(1), VK_PIPELINE_BIND_POINT_COMPUTE), VK_SUCCESS);
-  EXPECT_EQ(pool.BindDescriptorSets(lock, pipelines2.GetLayout(1), 
-                          VK_PIPELINE_BIND_POINT_COMPUTE, desc.GetDescriptorSets(), 0, {}), VK_SUCCESS);
-  EXPECT_EQ(pool.Dispatch(lock, 256, 1, 1), VK_SUCCESS);
-  EXPECT_EQ(pool.EndCommandBuffer(lock), VK_SUCCESS);
+  pool.GetCommandBuffer(0, VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      .BeginCommandBuffer()
+      .BindPipeline(pipelines2.GetPipeline(1), VK_PIPELINE_BIND_POINT_COMPUTE)
+      .BindDescriptorSets(pipelines2.GetLayout(1), VK_PIPELINE_BIND_POINT_COMPUTE, desc.GetDescriptorSets(), 0, {})
+      .Dispatch(256, 1, 1)
+      .EndCommandBuffer();
 
-  EXPECT_EQ(pool.ExecuteBuffer(lock), VK_SUCCESS);
-  EXPECT_EQ(pool.WaitForExecute(lock), VK_SUCCESS);
+  EXPECT_EQ(pool.IsReady(0), true);
+
+  EXPECT_EQ(pool.ExecuteBuffer(0), VK_SUCCESS);
+  EXPECT_EQ(pool.WaitForExecute(0, UINT64_MAX), VK_SUCCESS);
 
   std::vector<float> output(256, 0.0);
   EXPECT_EQ(array1.GetSubBufferData(0, 1, output), VK_SUCCESS);
@@ -221,7 +223,7 @@ TEST (Vulkan, RenderPass)
   EXPECT_NE(render_pass.get(), nullptr);
 }
 
-TEST (Vulkan, GraphicPipeline)
+TEST (Vulkan, DISABLED_GraphicPipeline)
 {
   std::shared_ptr<Vulkan::Surface> surf = std::make_shared<Vulkan::Surface>(Vulkan::SurfaceConfig()
                                           .SetHeight(1042).SetWidght(1024));

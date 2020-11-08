@@ -20,14 +20,14 @@ namespace Vulkan
     Logger() = delete;
     Logger(const Logger &obj) = delete;
     Logger &operator=(const Logger &obj) = delete;
-    static void UseCout(const bool enable);
-    static void UseFile(const bool enable);
-    static void SetFile(const std::string file_path);
-    static void EchoInfo(std::string text, std::string func_name = "");
-    static void EchoWarning(std::string text, std::string func_name = "");
-    static void EchoError(std::string text, std::string func_name = "");
-    static void EchoDebug(std::string text, std::string func_name = "");
-    ~Logger();
+    static void UseCout(const bool enable) noexcept;
+    static void UseFile(const bool enable) noexcept;
+    static void SetFile(const std::string file_path) noexcept;
+    static void EchoInfo(std::string text, std::string func_name = "") noexcept;
+    static void EchoWarning(std::string text, std::string func_name = "") noexcept;
+    static void EchoError(std::string text, std::string func_name = "") noexcept;
+    static void EchoDebug(std::string text, std::string func_name = "") noexcept;
+    ~Logger() noexcept;
   };
 }
 

@@ -8,19 +8,19 @@ namespace Vulkan
   std::mutex Logger::echo_mutex;
   std::ofstream Logger::file;
 
-  void Logger::UseCout(const bool enable)
+  void Logger::UseCout(const bool enable) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     cout_echo = true;
   }
 
-  void Logger::UseFile(const bool enable)
+  void Logger::UseFile(const bool enable) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     file_echo = true;
   }
 
-  void Logger::SetFile(const std::string file_path)
+  void Logger::SetFile(const std::string file_path) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     if (file.is_open()) file.close();
@@ -36,7 +36,7 @@ namespace Vulkan
     }
   }
 
-  void Logger::EchoInfo(std::string text, std::string func_name)
+  void Logger::EchoInfo(std::string text, std::string func_name) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     std::string str = "Info";
@@ -63,7 +63,7 @@ namespace Vulkan
     }
   }
 
-  void Logger::EchoWarning(std::string text, std::string func_name)
+  void Logger::EchoWarning(std::string text, std::string func_name) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     std::string str = "Warning";
@@ -87,7 +87,7 @@ namespace Vulkan
     }
   }
 
-  void Logger::EchoError(std::string text, std::string func_name)
+  void Logger::EchoError(std::string text, std::string func_name) noexcept
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
     std::string str = "Error";
@@ -111,7 +111,7 @@ namespace Vulkan
     }
   }
 
-  void Logger::EchoDebug(std::string text, std::string func_name)
+  void Logger::EchoDebug(std::string text, std::string func_name) noexcept
   {
 #ifdef DEBUG
     std::lock_guard<std::mutex> lock(echo_mutex);
