@@ -3,7 +3,6 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
-#include <mutex>
 
 #include "Device.h"
 #include "RenderPass.h"
@@ -28,9 +27,9 @@ namespace Vulkan
                           const VkPipelineStageFlags src_tage_flags, 
                           const VkPipelineStageFlags dst_tage_flags) noexcept;
 
-    bool IsError() noexcept { return state == BufferState::Error; }
-    bool IsReady() noexcept { return state == BufferState::Ready; }
-    bool IsReset() noexcept { return state == BufferState::NotReady; }
+    bool IsError() const noexcept { return state == BufferState::Error; }
+    bool IsReady() const noexcept { return state == BufferState::Ready; }
+    bool IsReset() const noexcept { return state == BufferState::NotReady; }
 
     void BeginCommandBuffer() noexcept;
     void EndCommandBuffer() noexcept;
@@ -91,10 +90,10 @@ namespace Vulkan
     CommandBuffer &operator=(const CommandBuffer &obj) = delete;
     CommandBuffer &operator=(CommandBuffer &&obj) noexcept;
     void swap(CommandBuffer &obj) noexcept;
-    bool IsValid() noexcept { return impl != nullptr; }
-    bool IsError() noexcept { return !impl.get() || impl->IsError(); }
-    bool IsReady() noexcept { return impl.get() && impl->IsReady(); }
-    bool IsReset() noexcept { return impl.get() && impl->IsReset(); }
+    bool IsValid() const noexcept { return impl.get() && impl->buffer != VK_NULL_HANDLE; }
+    bool IsError() const noexcept { return !impl.get() || impl->IsError(); }
+    bool IsReady() const noexcept { return impl.get() && impl->IsReady(); }
+    bool IsReset() const noexcept { return impl.get() && impl->IsReset(); }
     auto &BeginCommandBuffer() noexcept { if (impl.get()) impl->BeginCommandBuffer(); return *this; }
     auto &EndCommandBuffer() noexcept { if (impl.get()) impl->EndCommandBuffer(); return *this; }
     auto &BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0}) noexcept { if (impl.get()) impl->BeginRenderPass(render_pass, frame_buffer_index, offset); return *this; }

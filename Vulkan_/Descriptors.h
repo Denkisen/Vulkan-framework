@@ -49,7 +49,7 @@ namespace Vulkan
     VkDeviceSize offset = 0;
     VkShaderStageFlags stage = VK_SHADER_STAGE_ALL;
     DescriptorType type;
-    static DescriptorType MapStorageType(StorageType type);
+    static DescriptorType MapStorageType(StorageType type) noexcept;
   };
 
   class LayoutConfig
@@ -60,7 +60,7 @@ namespace Vulkan
   public:
     LayoutConfig() = default;
     ~LayoutConfig() = default;
-    auto &AddBufferOrImage(const DescriptorInfo desc_info)
+    auto &AddBufferOrImage(const DescriptorInfo desc_info) noexcept
     { 
       if (desc_info.buffer_info.buffer == VK_NULL_HANDLE && desc_info.image_info.image_view == VK_NULL_HANDLE)
       {
@@ -80,8 +80,10 @@ namespace Vulkan
         return *this;
       }
 
-      switch (desc_info.type)
+      try 
       {
+        switch (desc_info.type)
+        {
         case DescriptorType::Sampler:
           if (desc_info.image_info.sampler != VK_NULL_HANDLE)
           {
@@ -112,8 +114,10 @@ namespace Vulkan
           }
         default:
           Logger::EchoError("Incompatible DescriptorType and image", __func__);
+        }
       }
-        
+      catch (...) {}
+
       return *this; 
     }
   };
@@ -126,14 +130,14 @@ namespace Vulkan
     Descriptors_impl(Descriptors_impl &&obj) = delete;
     Descriptors_impl &operator=(Descriptors_impl &&obj) = delete;
     Descriptors_impl &operator=(const Descriptors_impl &obj) = delete;
-    ~Descriptors_impl();
+    ~Descriptors_impl() noexcept;
   private:
     friend class Descriptors;
     struct PoolConfig
     {
       std::vector<VkDescriptorPoolSize> sizes;
       uint32_t max_sets = 0;
-      void AddDescriptorType(const DescriptorType type)
+      void AddDescriptorType(const DescriptorType type) noexcept
       {
         for (auto &d : sizes)
         {
@@ -143,24 +147,24 @@ namespace Vulkan
             return;
           }
         }
-        sizes.push_back({(VkDescriptorType) type, 1});
+        try { sizes.push_back({(VkDescriptorType) type, 1}); } catch (...) {}
       }
     };
-    Descriptors_impl(std::shared_ptr<Device> dev);
-    VkDescriptorPool CreateDescriptorPool(const PoolConfig &pool_conf);
-    DescriptorSetLayout CreateDescriptorSetLayout(const LayoutConfig &info);
-    VkResult CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &layout);
-    VkResult UpdateDescriptorSet(const DescriptorSetLayout &layout, const LayoutConfig &info);
-    void Destroy();
+    Descriptors_impl(std::shared_ptr<Device> dev) noexcept;
+    VkDescriptorPool CreateDescriptorPool(const PoolConfig &pool_conf) noexcept;
+    DescriptorSetLayout CreateDescriptorSetLayout(const LayoutConfig &info) noexcept;
+    VkResult CreateDescriptorSets(const VkDescriptorPool pool, DescriptorSetLayout &layout) noexcept;
+    VkResult UpdateDescriptorSet(const DescriptorSetLayout &layout, const LayoutConfig &info) noexcept;
+    void Destroy() noexcept;
 
-    VkResult AddSetLayoutConfig(const LayoutConfig &config);
-    VkResult BuildAllSetLayoutConfigs();
-    void ClearAllSetLayoutConfigs();
-    VkDeviceSize GetLayoutsCount() { return layouts.size(); }
-    VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) { return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }
-    VkDescriptorSet GetDescriptorSet(const size_t index) { return index < layouts.size() ? layouts[index].set : VK_NULL_HANDLE; }
-    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts();
-    std::vector<VkDescriptorSet> GetDescriptorSets();
+    VkResult AddSetLayoutConfig(const LayoutConfig &config) noexcept;
+    VkResult BuildAllSetLayoutConfigs() noexcept;
+    void ClearAllSetLayoutConfigs() noexcept;
+    size_t GetLayoutsCount() noexcept { std::lock_guard lock(layouts_mutex); return layouts.size(); }
+    VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) noexcept { std::lock_guard lock(layouts_mutex); return index < layouts.size() ? layouts[index].layout : VK_NULL_HANDLE; }
+    VkDescriptorSet GetDescriptorSet(const size_t index) noexcept { std::lock_guard lock(layouts_mutex); return index < layouts.size() ? layouts[index].set : VK_NULL_HANDLE; }
+    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() noexcept;
+    std::vector<VkDescriptorSet> GetDescriptorSets() noexcept;
 
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
     std::shared_ptr<Device> device;
@@ -177,22 +181,22 @@ namespace Vulkan
     std::unique_ptr<Descriptors_impl> impl;
   public:
     Descriptors() = delete;
-    Descriptors(const Descriptors &obj);
+    Descriptors(const Descriptors &obj) noexcept;
     Descriptors(Descriptors &&obj) noexcept;
-    Descriptors(std::shared_ptr<Device> dev) : impl(std::unique_ptr<Descriptors_impl>(new Descriptors_impl(dev))) {}
-    Descriptors &operator=(const Descriptors &obj);
+    Descriptors(std::shared_ptr<Device> dev) noexcept : impl(std::unique_ptr<Descriptors_impl>(new Descriptors_impl(dev))) {}
+    Descriptors &operator=(const Descriptors &obj) noexcept;
     Descriptors &operator=(Descriptors &&obj) noexcept;
     void swap(Descriptors &obj) noexcept;
     ~Descriptors() = default;
-    VkResult AddSetLayoutConfig(const LayoutConfig &config) { return impl->AddSetLayoutConfig(config); }
-    VkResult BuildAllSetLayoutConfigs() { return impl->BuildAllSetLayoutConfigs(); }
-    void ClearAllSetLayoutConfigs() { impl->ClearAllSetLayoutConfigs(); }
-    VkDeviceSize GetLayoutsCount() { return impl->GetLayoutsCount(); }
-    VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) { return impl->GetDescriptorSetLayout(index); }
-    VkDescriptorSet GetDescriptorSet(const size_t index) { return impl->GetDescriptorSet(index); }
-    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() { return impl->GetDescriptorSetLayouts(); }
-    std::vector<VkDescriptorSet> GetDescriptorSets() { return impl->GetDescriptorSets(); }
-    bool IsValid() { return impl != nullptr; }
+    VkResult AddSetLayoutConfig(const LayoutConfig &config) noexcept { if (impl.get()) return impl->AddSetLayoutConfig(config); return VK_ERROR_UNKNOWN; }
+    VkResult BuildAllSetLayoutConfigs() noexcept { if (impl.get()) return impl->BuildAllSetLayoutConfigs(); return VK_ERROR_UNKNOWN; }
+    void ClearAllSetLayoutConfigs() noexcept { if (impl.get()) impl->ClearAllSetLayoutConfigs(); }
+    size_t GetLayoutsCount() noexcept { if (impl.get()) return impl->GetLayoutsCount(); return 0; }
+    VkDescriptorSetLayout GetDescriptorSetLayout(const size_t index) noexcept { if (impl.get()) return impl->GetDescriptorSetLayout(index); return VK_NULL_HANDLE; }
+    VkDescriptorSet GetDescriptorSet(const size_t index) noexcept { if (impl.get()) return impl->GetDescriptorSet(index); return VK_NULL_HANDLE; }
+    std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() noexcept { if (impl.get()) return impl->GetDescriptorSetLayouts(); return {}; }
+    std::vector<VkDescriptorSet> GetDescriptorSets() noexcept { if (impl.get()) return impl->GetDescriptorSets(); return {}; }
+    bool IsValid() const noexcept { return impl.get() && impl->descriptor_pool != VK_NULL_HANDLE; }
   };
 
   void swap(Descriptors &lhs, Descriptors &rhs) noexcept;

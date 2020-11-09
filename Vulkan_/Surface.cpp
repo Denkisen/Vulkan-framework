@@ -4,7 +4,7 @@
 
 namespace Vulkan
 {
-  Surface_impl::~Surface_impl()
+  Surface_impl::~Surface_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
     if (surface != VK_NULL_HANDLE)
@@ -21,7 +21,7 @@ namespace Vulkan
     glfwTerminate();
   }
 
-  Surface_impl::Surface_impl(const SurfaceConfig &params)
+  Surface_impl::Surface_impl(const SurfaceConfig &params) noexcept
   {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -49,7 +49,7 @@ namespace Vulkan
     }
   }
 
-  std::pair<int32_t, int32_t> Surface_impl::GetFramebufferSize()
+  std::pair<int32_t, int32_t> Surface_impl::GetFramebufferSize() const noexcept
   {
     std::pair<int32_t, int32_t> res;
     glfwGetFramebufferSize(window, &res.first, &res.second);

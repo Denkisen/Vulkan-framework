@@ -3,7 +3,7 @@
 
 namespace Vulkan
 {
-  ComputePipeline_impl::~ComputePipeline_impl()
+  ComputePipeline_impl::~ComputePipeline_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
     if (shader.shader != VK_NULL_HANDLE)
@@ -24,9 +24,9 @@ namespace Vulkan
     }
   }
 
-  ComputePipeline_impl::ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params)
+  ComputePipeline_impl::ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) noexcept
   {
-    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || !dev->IsValid())
     {
       Logger::EchoError("Device is empty", __func__);
       return;

@@ -6,7 +6,7 @@
 
 namespace Vulkan
 {
-  SwapChain_impl::~SwapChain_impl()
+  SwapChain_impl::~SwapChain_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
 
@@ -23,9 +23,9 @@ namespace Vulkan
     }
   }
 
-  SwapChain_impl::SwapChain_impl(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode)
+  SwapChain_impl::SwapChain_impl(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode) noexcept
   {
-    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || !dev->IsValid())
     {
       Logger::EchoError("Device is empty", __func__);
       return;
@@ -41,7 +41,7 @@ namespace Vulkan
     }
   }
 
-  VkResult SwapChain_impl::Create()
+  VkResult SwapChain_impl::Create() noexcept
   {
     capabilities = Misc::GetSwapChainDetails(device->GetPhysicalDevice(), device->GetSurface()->GetSurface());
     format = GetSwapChainFormat();
@@ -122,7 +122,15 @@ namespace Vulkan
       return er;
     }
 
-    swapchain_images.resize(images_in_swapchain);
+    try
+    {
+      swapchain_images.resize(images_in_swapchain);
+    }
+    catch (...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
+    
     er = vkGetSwapchainImagesKHR(device->GetDevice(), swapchain, &images_in_swapchain, swapchain_images.data());
     if (er != VK_SUCCESS)
     {
@@ -134,7 +142,7 @@ namespace Vulkan
     return CreateImageViews();
   }
 
-  VkResult SwapChain_impl::CreateImageViews()
+  VkResult SwapChain_impl::CreateImageViews() noexcept
   {
     for (auto image_view : swapchain_image_views) 
     {
@@ -142,7 +150,14 @@ namespace Vulkan
         vkDestroyImageView(device->GetDevice(), image_view, nullptr);
     }
 
-    swapchain_image_views.resize(swapchain_images.size());
+    try
+    {
+      swapchain_image_views.resize(swapchain_images.size());
+    }
+    catch(...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
     
     for (size_t i = 0; i < swapchain_image_views.size(); ++i)
     {
@@ -172,21 +187,21 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  VkSurfaceFormatKHR SwapChain_impl::GetSwapChainFormat()
+  VkSurfaceFormatKHR SwapChain_impl::GetSwapChainFormat() const noexcept
   {
-    auto format = std::find_if(capabilities.formats.begin(), capabilities.formats.end(), [](VkSurfaceFormatKHR &x) {
+    auto format = std::find_if(capabilities.formats.begin(), capabilities.formats.end(), [](auto &x) {
       return x.format == VK_FORMAT_B8G8R8A8_SRGB && x.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     });
 
     if (format != capabilities.formats.end())
     {
-      return (*format);
+      return *format;
     }
 
     return capabilities.formats[0];
   }
 
-  VkPresentModeKHR SwapChain_impl::GetSwapChainPresentMode()
+  VkPresentModeKHR SwapChain_impl::GetSwapChainPresentMode() const noexcept
   {
     if (std::find(capabilities.present_modes.begin(), capabilities.present_modes.end(), present_mode) != capabilities.present_modes.end())
       return present_mode;
@@ -195,7 +210,7 @@ namespace Vulkan
     return VK_PRESENT_MODE_FIFO_KHR;
   }
 
-  VkExtent2D SwapChain_impl::GetSwapChainExtent()
+  VkExtent2D SwapChain_impl::GetSwapChainExtent() noexcept
   {
     auto er = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->GetPhysicalDevice(), device->GetSurface()->GetSurface(), &capabilities.capabilities);
     if (er != VK_SUCCESS)
@@ -225,14 +240,14 @@ namespace Vulkan
     }
   }
 
-  VkResult SwapChain_impl::ReCreate()
+  VkResult SwapChain_impl::ReCreate() noexcept
   {
     vkDeviceWaitIdle(device->GetDevice());
     std::lock_guard lock(swapchain_mutex);
     return Create();
   }
 
-  VkResult SwapChain_impl::SetPresentMode(const VkPresentModeKHR mode)
+  VkResult SwapChain_impl::SetPresentMode(const VkPresentModeKHR mode) noexcept
   {
     std::lock_guard lock(swapchain_mutex);
     present_mode = mode;
@@ -244,7 +259,21 @@ namespace Vulkan
   {
     if (&obj == this) return *this;
 
-    impl = std::move(obj.impl);
+    if (obj.impl.get() && impl.get())
+    {
+      std::scoped_lock lock(obj.impl->swapchain_mutex, impl->swapchain_mutex);
+      impl = std::move(obj.impl);
+    }
+    else if (obj.impl.get())
+    {
+      std::lock_guard lock(obj.impl->swapchain_mutex);
+      impl = std::move(obj.impl);
+    }
+    else
+    {
+      impl = std::move(obj.impl);
+    }
+
     return *this;
   }
 
@@ -252,7 +281,20 @@ namespace Vulkan
   {
     if (&obj == this) return;
 
-    impl.swap(obj.impl);
+    if (obj.impl.get() && impl.get())
+    {
+      std::scoped_lock lock(obj.impl->swapchain_mutex, impl->swapchain_mutex);
+      impl.swap(obj.impl);
+    }
+    else if (obj.impl.get())
+    {
+      std::lock_guard lock(obj.impl->swapchain_mutex);
+      impl.swap(obj.impl);
+    }
+    else
+    {
+      impl.swap(obj.impl);
+    }
   }
 
   void swap(SwapChain &lhs, SwapChain &rhs) noexcept

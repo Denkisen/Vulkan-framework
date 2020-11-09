@@ -5,14 +5,14 @@
 
 namespace Vulkan
 {
-  Sampler_impl::~Sampler_impl()
+  Sampler_impl::~Sampler_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
   }
 
-  Sampler_impl::Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params)
+  Sampler_impl::Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params) noexcept
   {
-    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || !dev->IsValid())
     {
       Logger::EchoError("Device is empty", __func__);
       return;

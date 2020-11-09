@@ -8,13 +8,13 @@ namespace Vulkan::Helpers
                                                             Vulkan::ImageArray &buffers,
                                                             const VkSampleCountFlagBits samples_count)
   {
-    if (dev.get() == nullptr || !dev->IsValid() || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || !dev->IsValid())
     {
       Logger::EchoError("Device is invalid", __func__);
       return nullptr;
     }
 
-    if (swapchain.get() == nullptr || !swapchain->IsValid() || swapchain->GetSwapChain() == VK_NULL_HANDLE)
+    if (swapchain.get() == nullptr || !swapchain->IsValid())
     {
       Logger::EchoError("Device is invalid", __func__);
       return nullptr;

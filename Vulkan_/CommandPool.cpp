@@ -3,7 +3,7 @@
 
 namespace Vulkan
 {
-  CommandPool_impl::~CommandPool_impl()
+  CommandPool_impl::~CommandPool_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
     command_buffers.clear();
@@ -18,7 +18,7 @@ namespace Vulkan
     }
   }
 
-  CommandPool_impl::CommandPool_impl(std::shared_ptr<Device> dev, const uint32_t family_queue_index)
+  CommandPool_impl::CommandPool_impl(std::shared_ptr<Device> dev, const uint32_t family_queue_index) noexcept
   {
     if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
     {
@@ -43,7 +43,7 @@ namespace Vulkan
     this->family_queue_index = family_queue_index;
   }
 
-  CommandBuffer &CommandPool_impl::GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level)
+  CommandBuffer &CommandPool_impl::GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (buffer_index < command_buffers.size())
@@ -52,16 +52,21 @@ namespace Vulkan
     }
     else
     {
-      while (command_buffers.size() <= buffer_index)
+      try
       {
-        command_buffers.push_back(CommandBuffer(device, command_pool, new_buffer_level));
+        while (command_buffers.size() <= buffer_index)
+        {
+          command_buffers.push_back(CommandBuffer(device, command_pool, new_buffer_level));
+        }
+        return command_buffers[command_buffers.size() - 1];
       }
+      catch (...) { }
 
-      return command_buffers[command_buffers.size() - 1];
+      return dummy_buffer;
     }
   }
 
-  void CommandPool_impl::ResetCommandBuffer(const uint32_t buffer_index)
+  void CommandPool_impl::ResetCommandBuffer(const uint32_t buffer_index) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (buffer_index < command_buffers.size())
@@ -70,13 +75,13 @@ namespace Vulkan
     }
   }
 
-  void CommandPool_impl::PopLastCommandBuffer()
+  void CommandPool_impl::PopLastCommandBuffer() noexcept
   {
     std::lock_guard lock(buffers_lock);
     command_buffers.pop_back();
   }
 
-  bool CommandPool_impl::IsError(const uint32_t buffer_index)
+  bool CommandPool_impl::IsError(const uint32_t buffer_index) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (buffer_index < command_buffers.size())
@@ -87,7 +92,7 @@ namespace Vulkan
     return true;
   }
 
-  bool CommandPool_impl::IsReady(const uint32_t buffer_index)
+  bool CommandPool_impl::IsReady(const uint32_t buffer_index) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (buffer_index < command_buffers.size())
@@ -98,7 +103,7 @@ namespace Vulkan
     return false;
   }
 
-  bool CommandPool_impl::IsReset(const uint32_t buffer_index)
+  bool CommandPool_impl::IsReset(const uint32_t buffer_index) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (buffer_index < command_buffers.size())
@@ -109,7 +114,7 @@ namespace Vulkan
     return true;
   }
 
-  VkResult CommandPool_impl::ExecuteBuffer(const uint32_t buffer_index)
+  VkResult CommandPool_impl::ExecuteBuffer(const uint32_t buffer_index) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (command_buffers.size() <= buffer_index || !command_buffers[buffer_index].IsReady())
@@ -121,7 +126,7 @@ namespace Vulkan
     return command_buffers[buffer_index].ExecuteBuffer(family_queue_index);
   }
 
-  VkResult CommandPool_impl::WaitForExecute(const uint32_t buffer_index, const uint64_t timeout)
+  VkResult CommandPool_impl::WaitForExecute(const uint32_t buffer_index, const uint64_t timeout) noexcept
   {
     std::lock_guard lock(buffers_lock);
     if (command_buffers.size() <= buffer_index || !command_buffers[buffer_index].IsReady())

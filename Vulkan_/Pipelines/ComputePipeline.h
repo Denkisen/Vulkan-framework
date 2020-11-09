@@ -20,20 +20,20 @@ namespace Vulkan
     VkPipeline base_pipeline = VK_NULL_HANDLE;
     ShaderInfo shader_info;
   public:
-    ComputePipelineConfig() = default;
-    ~ComputePipelineConfig() = default;
-    auto &AddDescriptorSetLayout(const VkDescriptorSetLayout layout) { if (layout != VK_NULL_HANDLE) desc_layouts.push_back(layout); return *this; }
-    auto &AddDescriptorSetLayouts(const std::vector<VkDescriptorSetLayout> layouts) 
+    ComputePipelineConfig() noexcept = default;
+    ~ComputePipelineConfig() noexcept = default;
+    auto &AddDescriptorSetLayout(const VkDescriptorSetLayout layout) noexcept { if (layout != VK_NULL_HANDLE) try { desc_layouts.push_back(layout); } catch (...) { } return *this; }
+    auto &AddDescriptorSetLayouts(const std::vector<VkDescriptorSetLayout> layouts) noexcept
     { 
-      std::copy_if(layouts.begin(), layouts.end(), std::back_inserter(desc_layouts), [] (const auto &obj) { return obj != VK_NULL_HANDLE; });
+      try { std::copy_if(layouts.begin(), layouts.end(), std::back_inserter(desc_layouts), [] (const auto &obj) { return obj != VK_NULL_HANDLE; }); } catch (...) { }
       return *this;
     }
-    auto &SetShader(const std::filesystem::path file_path, const std::string entry = "main") 
+    auto &SetShader(const std::filesystem::path file_path, const std::string entry = "main") noexcept
     { 
       if (std::filesystem::exists(file_path)) shader_info = {entry, file_path, ShaderType::Compute}; 
       return *this; 
     }
-    auto &SetBasePipeline(const VkPipeline pipeline) { base_pipeline = pipeline; return *this; }
+    auto &SetBasePipeline(const VkPipeline pipeline) noexcept { base_pipeline = pipeline; return *this; }
   };
 
   class ComputePipeline_impl
@@ -44,7 +44,7 @@ namespace Vulkan
     ComputePipeline_impl(ComputePipeline_impl &&obj) = delete;
     ComputePipeline_impl &operator=(const ComputePipeline_impl &obj) = delete;
     ComputePipeline_impl &operator=(ComputePipeline_impl &&obj) = delete;
-    ~ComputePipeline_impl();
+    ~ComputePipeline_impl() noexcept;
   private:
     friend class ComputePipeline;
     std::shared_ptr<Device> device;
@@ -54,9 +54,9 @@ namespace Vulkan
     bool is_base = false;
     Shader shader;
 
-    ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params);
-    VkPipeline GetPipeline() { return pipeline; }
-    VkPipelineLayout GetLayout() { return pipeline_layout; }
+    ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) noexcept;
+    VkPipeline GetPipeline() const noexcept { return pipeline; }
+    VkPipelineLayout GetLayout() const noexcept { return pipeline_layout; }
   };
 
   class ComputePipeline
@@ -67,16 +67,16 @@ namespace Vulkan
     ComputePipeline() = delete;
     ComputePipeline(const ComputePipeline &obj) = delete;
     ComputePipeline(ComputePipeline &&obj) noexcept : impl(std::move(obj.impl)) {};
-    ComputePipeline(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) :
+    ComputePipeline(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) noexcept :
       impl(std::unique_ptr<ComputePipeline_impl>(new ComputePipeline_impl(dev, params))) {};
     ComputePipeline &operator=(const ComputePipeline &obj) = delete;
     ComputePipeline &operator=(ComputePipeline &&obj) noexcept;
     void swap(ComputePipeline &obj) noexcept;
 
-    VkPipeline GetPipeline() { return impl->GetPipeline(); }
-    VkPipelineLayout GetLayout() { return impl->GetLayout(); }
-    bool IsValid() { return impl != nullptr; }
-    ~ComputePipeline() = default;
+    VkPipeline GetPipeline() const noexcept { if (impl.get()) return impl->GetPipeline(); return VK_NULL_HANDLE; }
+    VkPipelineLayout GetLayout() const noexcept { if (impl.get()) return impl->GetLayout(); return VK_NULL_HANDLE; }
+    bool IsValid() const noexcept { return impl.get() && impl->pipeline != VK_NULL_HANDLE; }
+    ~ComputePipeline() noexcept = default;
   };
 
   void swap(ComputePipeline &lhs, ComputePipeline &rhs) noexcept;

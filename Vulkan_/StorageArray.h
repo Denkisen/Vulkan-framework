@@ -57,20 +57,22 @@ namespace Vulkan
     StorageType buffer_type = StorageType::Storage;
     std::vector<std::tuple<VkDeviceSize, VkDeviceSize, VkFormat>> sizes;
   public:
-    BufferConfig() = default;
-    ~BufferConfig() = default;
+    BufferConfig() noexcept = default;
+    ~BufferConfig() noexcept = default;
 
-    BufferConfig &AddSubBuffer(const VkDeviceSize length, const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) 
+    BufferConfig &AddSubBuffer(const VkDeviceSize length, const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) noexcept
     { 
-      sizes.push_back({length, item_size, format}); return *this; 
+      try { sizes.push_back({length, item_size, format}); } catch (...) { }
+
+      return *this; 
     }
     BufferConfig &AddSubBufferRange(const VkDeviceSize buffers_count, const VkDeviceSize length, 
-                                    const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) 
+                                    const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED) noexcept
     {
-      for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size, format});
+      try { for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size, format}); } catch (...) { }
       return *this;
     }
-    BufferConfig &SetType(const StorageType type) { buffer_type = type; return *this; }
+    BufferConfig &SetType(const StorageType type) noexcept { buffer_type = type; return *this; }
   };
 
   class StorageArray_impl
@@ -81,31 +83,30 @@ namespace Vulkan
     StorageArray_impl(StorageArray_impl &&obj) = delete;
     StorageArray_impl &operator=(const StorageArray_impl &obj) = delete;
     StorageArray_impl &operator=(StorageArray_impl &&obj) = delete;
-    ~StorageArray_impl();
+    ~StorageArray_impl() noexcept;
   private:
     friend class StorageArray;
-    StorageArray_impl(std::shared_ptr<Device> dev);
-    VkDeviceSize Align(const VkDeviceSize value, const VkDeviceSize align);
-    VkBufferView CreateBufferView(const VkBuffer buffer, const VkFormat format, const VkDeviceSize offset, const VkDeviceSize size);
-    void Abort(std::vector<buffer_t> &buffs);
+    StorageArray_impl(std::shared_ptr<Device> dev) noexcept;
+    VkBufferView CreateBufferView(const VkBuffer buffer, const VkFormat format, const VkDeviceSize offset, const VkDeviceSize size) noexcept;
+    void Abort(std::vector<buffer_t> &buffs) const noexcept;
 
-    VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible);
-    VkResult AddBuffer(const BufferConfig params);
-    VkResult EndConfig();
-    void Clear();
-    size_t Count() { std::lock_guard lock(buffers_mutex); return buffers.size(); }
-    HostVisibleMemory GetMemoryAccess() { return access; }
-    size_t SubBuffsCount(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
-    buffer_t GetInfo(const size_t index) { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index] : buffer_t(); }
+    VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) noexcept;
+    VkResult AddBuffer(const BufferConfig params) noexcept;
+    VkResult EndConfig() noexcept;
+    void Clear() noexcept;
+    size_t Count() noexcept { std::lock_guard lock(buffers_mutex); return buffers.size(); }
+    HostVisibleMemory GetMemoryAccess() const noexcept { return access; }
+    size_t SubBuffsCount(const size_t index) noexcept { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
+    buffer_t GetInfo(const size_t index) noexcept { std::lock_guard lock(buffers_mutex); return index < buffers.size() ? buffers[index] : buffer_t(); }
     template <typename T>
-    VkResult GetBufferData(const size_t index, std::vector<T> &result);
+    VkResult GetBufferData(const size_t index, std::vector<T> &result) noexcept;
     template <typename T>
-    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result);
+    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) noexcept;
     template <typename T>
-    VkResult SetBufferData(const size_t index, const std::vector<T> &data);
+    VkResult SetBufferData(const size_t index, const std::vector<T> &data) noexcept;
     template <typename T>
-    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data);
-    void UseChunkedMapping(const bool val) { use_chunked_mapping = val; }
+    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) noexcept;
+    void UseChunkedMapping(const bool val) noexcept { use_chunked_mapping = val; }
 
     std::shared_ptr<Device> device;
     std::vector<buffer_t> buffers;
@@ -128,38 +129,38 @@ namespace Vulkan
     std::unique_ptr<StorageArray_impl> impl;
   public:
     StorageArray() = delete;
-    StorageArray(const StorageArray &obj);
+    StorageArray(const StorageArray &obj) noexcept;
     StorageArray(StorageArray &&obj) noexcept : impl(std::move(obj.impl)) {};
-    StorageArray(std::shared_ptr<Device> dev) : impl(std::unique_ptr<StorageArray_impl>(new StorageArray_impl(dev))) {};
-    StorageArray &operator=(const StorageArray &obj);
+    StorageArray(std::shared_ptr<Device> dev) noexcept : impl(std::unique_ptr<StorageArray_impl>(new StorageArray_impl(dev))) {};
+    StorageArray &operator=(const StorageArray &obj) noexcept;
     StorageArray &operator=(StorageArray &&obj) noexcept;
     void swap(StorageArray &obj) noexcept;
-    VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) { return impl->StartConfig(val); }
-    VkResult AddBuffer(const BufferConfig params) { return impl->AddBuffer(params); }
-    VkResult EndConfig() {return impl->EndConfig(); }
-    size_t Count() { return impl->Count(); }
-    void Clear() { impl->Clear(); }
-    bool IsValid() { return impl != nullptr; }
-    size_t SubBuffsCount(const size_t index) { return impl->SubBuffsCount(index); }
-    buffer_t GetInfo(const size_t index) { return impl->GetInfo(index); }
-    HostVisibleMemory GetMemoryAccess() { return impl->GetMemoryAccess(); }
+    VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) noexcept { if (impl.get()) return impl->StartConfig(val); return VK_ERROR_UNKNOWN; }
+    VkResult AddBuffer(const BufferConfig params) noexcept { if (impl.get()) return impl->AddBuffer(params); return VK_ERROR_UNKNOWN; }
+    VkResult EndConfig() noexcept { if (impl.get()) return impl->EndConfig(); return VK_ERROR_UNKNOWN; }
+    size_t Count() const noexcept { if (impl.get()) return impl->Count(); return 0; }
+    void Clear() noexcept { if (impl.get()) impl->Clear(); }
+    bool IsValid() const noexcept { return impl.get() && impl->device->IsValid(); }
+    size_t SubBuffsCount(const size_t index) noexcept { if (impl.get()) return impl->SubBuffsCount(index); return 0; }
+    buffer_t GetInfo(const size_t index) noexcept { if (impl.get()) return impl->GetInfo(index); return {}; }
+    HostVisibleMemory GetMemoryAccess() const noexcept { if (impl.get()) return impl->GetMemoryAccess(); return HostVisibleMemory::HostVisible; }
     template <typename T>
-    VkResult GetBufferData(const size_t index, std::vector<T> &result) { return impl->GetBufferData(index, result); }
+    VkResult GetBufferData(const size_t index, std::vector<T> &result) noexcept { if (impl.get()) return impl->GetBufferData(index, result); return VK_ERROR_UNKNOWN; }
     template <typename T>
-    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) { return impl->GetSubBufferData(index, sub_index, result); }
+    VkResult GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) noexcept { if (impl.get()) return impl->GetSubBufferData(index, sub_index, result); return VK_ERROR_UNKNOWN; }
     template <typename T>
-    VkResult SetBufferData(const size_t index, const std::vector<T> &data) { return impl->SetBufferData(index, data); }
+    VkResult SetBufferData(const size_t index, const std::vector<T> &data) noexcept { if (impl.get()) return impl->SetBufferData(index, data); return VK_ERROR_UNKNOWN; }
     template <typename T>
-    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) { return impl->SetSubBufferData(index, sub_index, data); }
+    VkResult SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) noexcept { if (impl.get()) return impl->SetSubBufferData(index, sub_index, data); return VK_ERROR_UNKNOWN; }
 #ifdef DEBUG
-    void UseChunkedMapping(const bool val) { impl->UseChunkedMapping(val); }
+    void UseChunkedMapping(const bool val) noexcept { if (impl.get()) impl->UseChunkedMapping(val); }
 #endif
   };
 
   void swap(StorageArray &lhs, StorageArray &rhs) noexcept;
 
   template <typename T>
-  VkResult StorageArray_impl::GetBufferData(const size_t index, std::vector<T> &result)
+  VkResult StorageArray_impl::GetBufferData(const size_t index, std::vector<T> &result) noexcept
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -186,51 +187,58 @@ namespace Vulkan
       return VK_ERROR_UNKNOWN;
     }
 
-    std::vector<T> tmp(std::ceil(buffers[index].size / sizeof(T)));
-    void *payload = nullptr;
-
-    auto er = vkMapMemory(device->GetDevice(), memory, buffers[index].offset, buffers[index].size, 0, &payload);
-
-    if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
+    try
     {
-      Logger::EchoError("Can't map memory.", __func__);
-      Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return VK_ERROR_UNKNOWN;
-    }
+      std::vector<T> tmp(std::ceil(buffers[index].size / sizeof(T)));
+      void *payload = nullptr;
 
-    if (use_chunked_mapping && er == VK_SUCCESS)
-      vkUnmapMemory(device->GetDevice(), memory);
+      auto er = vkMapMemory(device->GetDevice(), memory, buffers[index].offset, buffers[index].size, 0, &payload);
 
-    if (!use_chunked_mapping && er == VK_SUCCESS)
-    {
-      std::memcpy(tmp.data(), payload, buffers[index].size);
-      vkUnmapMemory(device->GetDevice(), memory);
-      result.swap(tmp);
-    }
-    else
-    {
-      VkDeviceSize offset = buffers[index].offset;
-      for (VkDeviceSize i = 0; i < buffers[index].size / align; ++i)
+      if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
       {
-        er = vkMapMemory(device->GetDevice(), memory, offset, align, 0, &payload);
-        if (er != VK_SUCCESS)
-        {
-          Logger::EchoError("Can't map memory.", __func__);
-          return VK_ERROR_UNKNOWN;
-        }
-
-        std::memcpy(((uint8_t *) tmp.data()) + (i * align), payload, align);
-        vkUnmapMemory(device->GetDevice(), memory);
-        offset += align;
+        Logger::EchoError("Can't map memory.", __func__);
+        Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
+        return VK_ERROR_UNKNOWN;
       }
-      result.swap(tmp);
+
+      if (use_chunked_mapping && er == VK_SUCCESS)
+        vkUnmapMemory(device->GetDevice(), memory);
+
+      if (!use_chunked_mapping && er == VK_SUCCESS)
+      {
+        std::memcpy(tmp.data(), payload, buffers[index].size);
+        vkUnmapMemory(device->GetDevice(), memory);
+        result.swap(tmp);
+      }
+      else
+      {
+        VkDeviceSize offset = buffers[index].offset;
+        for (VkDeviceSize i = 0; i < buffers[index].size / align; ++i)
+        {
+          er = vkMapMemory(device->GetDevice(), memory, offset, align, 0, &payload);
+          if (er != VK_SUCCESS)
+          {
+            Logger::EchoError("Can't map memory.", __func__);
+            return VK_ERROR_UNKNOWN;
+          }
+
+          std::memcpy(((uint8_t *)tmp.data()) + (i * align), payload, align);
+          vkUnmapMemory(device->GetDevice(), memory);
+          offset += align;
+        }
+        result.swap(tmp);
+      }
+    }
+    catch (...) 
+    {
+      return VK_ERROR_UNKNOWN;
     }
 
     return VK_SUCCESS;
   }
 
   template <typename T>
-  VkResult StorageArray_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result)
+  VkResult StorageArray_impl::GetSubBufferData(const size_t index, const size_t sub_index, std::vector<T> &result) noexcept
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -263,52 +271,59 @@ namespace Vulkan
       return VK_ERROR_UNKNOWN;
     }
 
-    std::vector<T> tmp(std::ceil(buffers[index].sub_buffers[sub_index].size / sizeof(T)));
-    void *payload = nullptr;
-
-    auto main_offset = buffers[index].offset + buffers[index].sub_buffers[sub_index].offset;
-    auto er = vkMapMemory(device->GetDevice(), memory, main_offset, buffers[index].sub_buffers[sub_index].size, 0, &payload);
-
-    if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
+    try
     {
-      Logger::EchoError("Can't map memory.", __func__);
-      Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-      return VK_ERROR_UNKNOWN;
-    }
+      std::vector<T> tmp(std::ceil(buffers[index].sub_buffers[sub_index].size / sizeof(T)));
+      void *payload = nullptr;
 
-    if (use_chunked_mapping && er == VK_SUCCESS)
-      vkUnmapMemory(device->GetDevice(), memory);
+      auto main_offset = buffers[index].offset + buffers[index].sub_buffers[sub_index].offset;
+      auto er = vkMapMemory(device->GetDevice(), memory, main_offset, buffers[index].sub_buffers[sub_index].size, 0, &payload);
 
-    if (!use_chunked_mapping && er == VK_SUCCESS)
-    {
-      std::memcpy(tmp.data(), payload, buffers[index].sub_buffers[sub_index].size);
-      vkUnmapMemory(device->GetDevice(), memory);
-      result.swap(tmp);
-    }
-    else
-    {
-      VkDeviceSize offset = main_offset;
-      for (VkDeviceSize i = 0; i < buffers[index].sub_buffers[sub_index].size / buffers[index].sub_buffer_align; ++i)
+      if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
       {
-        er = vkMapMemory(device->GetDevice(), memory, offset, buffers[index].sub_buffer_align, 0, &payload);
-        if (er != VK_SUCCESS)
-        {
-          Logger::EchoError("Can't map memory.", __func__);
-          return VK_ERROR_UNKNOWN;
-        }
-
-        std::memcpy(((uint8_t *) tmp.data()) + (i * buffers[index].sub_buffer_align), payload, buffers[index].sub_buffer_align);
-        vkUnmapMemory(device->GetDevice(), memory);
-        offset += buffers[index].sub_buffer_align;
+        Logger::EchoError("Can't map memory.", __func__);
+        Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
+        return VK_ERROR_UNKNOWN;
       }
-      result.swap(tmp);
+
+      if (use_chunked_mapping && er == VK_SUCCESS)
+        vkUnmapMemory(device->GetDevice(), memory);
+
+      if (!use_chunked_mapping && er == VK_SUCCESS)
+      {
+        std::memcpy(tmp.data(), payload, buffers[index].sub_buffers[sub_index].size);
+        vkUnmapMemory(device->GetDevice(), memory);
+        result.swap(tmp);
+      }
+      else
+      {
+        VkDeviceSize offset = main_offset;
+        for (VkDeviceSize i = 0; i < buffers[index].sub_buffers[sub_index].size / buffers[index].sub_buffer_align; ++i)
+        {
+          er = vkMapMemory(device->GetDevice(), memory, offset, buffers[index].sub_buffer_align, 0, &payload);
+          if (er != VK_SUCCESS)
+          {
+            Logger::EchoError("Can't map memory.", __func__);
+            return VK_ERROR_UNKNOWN;
+          }
+
+          std::memcpy(((uint8_t *)tmp.data()) + (i * buffers[index].sub_buffer_align), payload, buffers[index].sub_buffer_align);
+          vkUnmapMemory(device->GetDevice(), memory);
+          offset += buffers[index].sub_buffer_align;
+        }
+        result.swap(tmp);
+      }
+    }
+    catch (...) 
+    {
+      return VK_ERROR_UNKNOWN;
     }
 
     return VK_SUCCESS;
   }
 
   template <typename T>
-  VkResult StorageArray_impl::SetBufferData(const size_t index, const std::vector<T> &data)
+  VkResult StorageArray_impl::SetBufferData(const size_t index, const std::vector<T> &data) noexcept
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())
@@ -381,7 +396,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  VkResult StorageArray_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data)
+  VkResult StorageArray_impl::SetSubBufferData(const size_t index, const size_t sub_index, const std::vector<T> &data) noexcept
   {
     std::lock_guard lock(buffers_mutex);
     if (index >= buffers.size())

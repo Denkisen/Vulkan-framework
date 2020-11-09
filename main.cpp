@@ -175,8 +175,6 @@ TEST (Vulkan, ComputePipeline)
 
   Vulkan::Pipelines pipelines2(std::move(pipelines));
 
-  EXPECT_EQ(pipelines.IsValid(), false);
-  EXPECT_EQ(pipelines2.IsValid(), true);
   EXPECT_EQ(c_pipe.IsValid(), false);
 
   Vulkan::CommandPool pool(dev, dev->GetComputeFamilyQueueIndex().value());

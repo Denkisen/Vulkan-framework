@@ -3,7 +3,7 @@
 
 namespace Vulkan
 {
-  GraphicPipeline_impl::~GraphicPipeline_impl()
+  GraphicPipeline_impl::~GraphicPipeline_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
     for (auto &obj : shaders)
@@ -26,21 +26,21 @@ namespace Vulkan
   }
 
   GraphicPipeline_impl::GraphicPipeline_impl(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, 
-                                             const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params)
+                                             const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params) noexcept
   {
-    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
+    if (dev.get() == nullptr || !dev->IsValid())
     {
       Logger::EchoError("Device is empty", __func__);
       return;
     }
 
-    if (swapchain.get() == nullptr || !swapchain->IsValid() || swapchain->GetSwapChain() == VK_NULL_HANDLE)
+    if (swapchain.get() == nullptr || !swapchain->IsValid())
     {
       Logger::EchoError("SwapChain is empty", __func__);
       return;
     }
 
-    if (render_pass.get() == nullptr || !render_pass->IsValid() || render_pass->GetRenderPass() == VK_NULL_HANDLE)
+    if (render_pass.get() == nullptr || !render_pass->IsValid())
     {
       Logger::EchoError("RenderPass is empty", __func__);
       return;
@@ -64,15 +64,15 @@ namespace Vulkan
     }
   }
 
-  VkResult GraphicPipeline_impl::ReCreate()
+  VkResult GraphicPipeline_impl::ReCreate() noexcept
   {
+    std::scoped_lock lock(config_mutex, pipeline_mutex);
     vkDeviceWaitIdle(device->GetDevice());
     return Create();
   }
 
-  VkResult GraphicPipeline_impl::Create()
+  VkResult GraphicPipeline_impl::Create() noexcept
   {
-    std::lock_guard lock(config_mutex);
     SetupVertexInput();
     SetupInputAssembly();
     SetupViewportState();
@@ -128,7 +128,7 @@ namespace Vulkan
     return er;
   }
 
-  void GraphicPipeline_impl::BuildShaders()
+  void GraphicPipeline_impl::BuildShaders() noexcept
   {
     if (build_shaders)
     {
@@ -138,8 +138,15 @@ namespace Vulkan
           vkDestroyShaderModule(device->GetDevice(), obj.shader, nullptr);
       }
       
-      shaders.reserve(init_config.shader_infos.size());
-      stages_config.stage_infos.reserve(init_config.shader_infos.size());
+      try
+      {
+        shaders.reserve(init_config.shader_infos.size());
+        stages_config.stage_infos.reserve(init_config.shader_infos.size());
+      }
+      catch (...) 
+      { 
+        return; 
+      }
 
       for (auto &obj : init_config.shader_infos)
       {
@@ -161,7 +168,7 @@ namespace Vulkan
     }
   }
 
-  void GraphicPipeline_impl::BuildLayout()
+  void GraphicPipeline_impl::BuildLayout() noexcept
   {
     if (pipeline_layout == VK_NULL_HANDLE || build_layout)
     {
@@ -173,7 +180,7 @@ namespace Vulkan
     }
   }
 
-  void GraphicPipeline_impl::SetupVertexInput()
+  void GraphicPipeline_impl::SetupVertexInput() noexcept
   {
     stages_config.vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
@@ -193,14 +200,14 @@ namespace Vulkan
     }
   }
 
-  void GraphicPipeline_impl::SetupInputAssembly()
+  void GraphicPipeline_impl::SetupInputAssembly() noexcept
   {
     stages_config.input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     stages_config.input_assembly.topology = init_config.primitive_topology;
     stages_config.input_assembly.primitiveRestartEnable = VK_FALSE;
   }
 
-  void GraphicPipeline_impl::SetupViewports()
+  void GraphicPipeline_impl::SetupViewports() noexcept
   {
     stages_config.viewports.clear();
 
@@ -212,10 +219,10 @@ namespace Vulkan
     port.minDepth = 0.0f;
     port.maxDepth = 1.0f;
 
-    stages_config.viewports.push_back(port);
+    try { stages_config.viewports.push_back(port); } catch (...) { }
   }
 
-  void GraphicPipeline_impl::SetupScissors()
+  void GraphicPipeline_impl::SetupScissors() noexcept
   {
     stages_config.scissors.clear();
 
@@ -223,10 +230,10 @@ namespace Vulkan
     scissor.offset = {0, 0};
     scissor.extent = swapchain->GetExtent();
 
-    stages_config.scissors.push_back(scissor);
+    try { stages_config.scissors.push_back(scissor); } catch (...) { }
   }
 
-  void GraphicPipeline_impl::SetupViewportState()
+  void GraphicPipeline_impl::SetupViewportState() noexcept
   {
     SetupViewports();
     SetupScissors();
@@ -238,7 +245,7 @@ namespace Vulkan
     stages_config.viewport_state.pScissors = stages_config.scissors.data();
   }
 
-  void GraphicPipeline_impl::SetupRasterizer()
+  void GraphicPipeline_impl::SetupRasterizer() noexcept
   {
     stages_config.rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     stages_config.rasterizer.depthClampEnable = VK_FALSE;
@@ -253,7 +260,7 @@ namespace Vulkan
     stages_config.rasterizer.depthBiasSlopeFactor = 0.0f;
   }
 
-  void GraphicPipeline_impl::SetupMultisampling()
+  void GraphicPipeline_impl::SetupMultisampling() noexcept
   {
     stages_config.multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     stages_config.multisampling.sampleShadingEnable = init_config.use_sample_shading;
@@ -264,7 +271,7 @@ namespace Vulkan
     stages_config.multisampling.alphaToOneEnable = VK_FALSE;
   }
 
-  void GraphicPipeline_impl::SetupColorBlending()
+  void GraphicPipeline_impl::SetupColorBlending() noexcept
   {
     stages_config.color_blend_attachments.clear();
 
@@ -278,31 +285,36 @@ namespace Vulkan
     color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-    stages_config.color_blend_attachments.push_back(color_blend_attachment);
+    try { stages_config.color_blend_attachments.push_back(color_blend_attachment); } catch (...) { }
 
     stages_config.color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     stages_config.color_blending.logicOpEnable = VK_FALSE;
     stages_config.color_blending.logicOp = VK_LOGIC_OP_COPY;
     stages_config.color_blending.attachmentCount = (uint32_t) stages_config.color_blend_attachments.size();
-    stages_config.color_blending.pAttachments = stages_config.color_blend_attachments.data();
+    stages_config.color_blending.pAttachments = stages_config.color_blend_attachments.size() > 0 ? stages_config.color_blend_attachments.data() : nullptr;
     stages_config.color_blending.blendConstants[0] = 0.0f;
     stages_config.color_blending.blendConstants[1] = 0.0f;
     stages_config.color_blending.blendConstants[2] = 0.0f;
     stages_config.color_blending.blendConstants[3] = 0.0f;
   }
 
-  void GraphicPipeline_impl::SetupDynamicState()
+  void GraphicPipeline_impl::SetupDynamicState() noexcept
   {
     stages_config.dynamic_states.clear();
-    stages_config.dynamic_states.reserve(init_config.dynamic_states.size());
-    std::copy(init_config.dynamic_states.begin(), init_config.dynamic_states.end(), std::back_inserter(stages_config.dynamic_states));
+
+    try
+    {
+      stages_config.dynamic_states.reserve(init_config.dynamic_states.size());
+      std::copy(init_config.dynamic_states.begin(), init_config.dynamic_states.end(), std::back_inserter(stages_config.dynamic_states));
+    }
+    catch (...) { }
 
     stages_config.dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     stages_config.dynamic_state.dynamicStateCount = (uint32_t) stages_config.dynamic_states.size();
-    stages_config.dynamic_state.pDynamicStates = stages_config.dynamic_states.data();
+    stages_config.dynamic_state.pDynamicStates = stages_config.dynamic_states.size() > 0 ? stages_config.dynamic_states.data() : nullptr;
   }
 
-  void GraphicPipeline_impl::SetupDepthStencil()
+  void GraphicPipeline_impl::SetupDepthStencil() noexcept
   {
     stages_config.depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     stages_config.depth_stencil.depthTestEnable = init_config.use_depth_testing;
@@ -316,34 +328,42 @@ namespace Vulkan
     stages_config.depth_stencil.back = {};
   }
 
-  void GraphicPipeline_impl::SetupTessellation()
+  void GraphicPipeline_impl::SetupTessellation() noexcept
   {
     stages_config.tessellation.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
     stages_config.tessellation.flags = 0;
     stages_config.tessellation.patchControlPoints = 10;
   }
 
-  VkResult GraphicPipeline_impl::AddDescriptorSetLayout(const VkDescriptorSetLayout layout)
+  VkResult GraphicPipeline_impl::AddDescriptorSetLayout(const VkDescriptorSetLayout layout) noexcept
   {
     std::lock_guard lock(config_mutex);
     if (layout != VK_NULL_HANDLE) 
-      init_config.desc_layouts.push_back(layout);
+      try { init_config.desc_layouts.push_back(layout); } catch (...) { return VK_ERROR_UNKNOWN; }
   
     build_layout = true;
 
     return VK_SUCCESS;
   }
 
-  VkResult GraphicPipeline_impl::AddDescriptorSetLayouts(const std::vector<VkDescriptorSetLayout> layouts)
+  VkResult GraphicPipeline_impl::AddDescriptorSetLayouts(const std::vector<VkDescriptorSetLayout> layouts) noexcept
   {
     std::lock_guard lock(config_mutex);
-    std::copy_if(layouts.begin(), layouts.end(), std::back_inserter(init_config.desc_layouts), [] (const auto &obj) { return obj != VK_NULL_HANDLE; });
+    try
+    {
+      std::copy_if(layouts.begin(), layouts.end(), std::back_inserter(init_config.desc_layouts), [](const auto &obj) { return obj != VK_NULL_HANDLE; });
+    }
+    catch (...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
+    
     build_layout = true;
 
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::ClearDescriptorSetLayouts()
+  VkResult GraphicPipeline_impl::ClearDescriptorSetLayouts() noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.desc_layouts.clear();
@@ -352,64 +372,73 @@ namespace Vulkan
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetBasePipeline(const VkPipeline pipeline)
+  VkResult GraphicPipeline_impl::SetBasePipeline(const VkPipeline pipeline) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.base_pipeline = pipeline;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::AddShader(const ShaderType type, const std::filesystem::path file_path, const std::string entry)
+  VkResult GraphicPipeline_impl::AddShader(const ShaderType type, const std::filesystem::path file_path, const std::string entry) noexcept
   {
     std::lock_guard lock(config_mutex);
-    init_config.shader_infos[type] = {entry, file_path, type};
+    try
+    {
+      init_config.shader_infos[type] = {entry, file_path, type};
+    }
+    catch (...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
+    
     build_shaders = true;
+
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetPolygonMode(const VkPolygonMode mode)
+  VkResult GraphicPipeline_impl::SetPolygonMode(const VkPolygonMode mode) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.polygon_mode = mode;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetPrimitiveTopology(const VkPrimitiveTopology topology)
+  VkResult GraphicPipeline_impl::SetPrimitiveTopology(const VkPrimitiveTopology topology) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.primitive_topology = topology;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetFace(const VkFrontFace face)
+  VkResult GraphicPipeline_impl::SetFace(const VkFrontFace face) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.front_face = face;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetCullMode(const VkCullModeFlags mode)
+  VkResult GraphicPipeline_impl::SetCullMode(const VkCullModeFlags mode) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.cull_mode = mode;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::UseDepthTesting(const VkBool32 val)
+  VkResult GraphicPipeline_impl::UseDepthTesting(const VkBool32 val) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.use_depth_testing = val;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::UseDepthBias(const VkBool32 val)
+  VkResult GraphicPipeline_impl::UseDepthBias(const VkBool32 val) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.use_depth_bias = val;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetSamplesCount(const VkSampleCountFlagBits val)
+  VkResult GraphicPipeline_impl::SetSamplesCount(const VkSampleCountFlagBits val) noexcept
   {
     std::lock_guard lock(config_mutex);
     if (device->CheckSampleCountSupport(val) == VK_TRUE)
@@ -424,29 +453,37 @@ namespace Vulkan
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::UseSampleShading(const VkBool32 val)
+  VkResult GraphicPipeline_impl::UseSampleShading(const VkBool32 val) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.use_sample_shading = val;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::SetMinSampleShading(const float val)
+  VkResult GraphicPipeline_impl::SetMinSampleShading(const float val) noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.min_sample_shading = val;
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::AddInputBinding(const GraphicPipelineConfig::InputBinding conf)
+  VkResult GraphicPipeline_impl::AddInputBinding(const GraphicPipelineConfig::InputBinding conf) noexcept
   {
     std::lock_guard lock(config_mutex);
-    init_config.input_bindings.push_back(conf.binding_desc);
-    std::copy(conf.attribute_desc.begin(), conf.attribute_desc.end(), std::back_inserter(init_config.input_attributes));
+    try
+    {
+      init_config.input_bindings.push_back(conf.binding_desc);
+      std::copy(conf.attribute_desc.begin(), conf.attribute_desc.end(), std::back_inserter(init_config.input_attributes));
+    }
+    catch (...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
+
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::ClearInputBindings()
+  VkResult GraphicPipeline_impl::ClearInputBindings() noexcept
   {
     std::lock_guard lock(config_mutex);
     init_config.input_attributes.clear();
@@ -454,10 +491,18 @@ namespace Vulkan
     return VK_SUCCESS;
   }
   
-  VkResult GraphicPipeline_impl::AddDynamicState(const VkDynamicState state)
+  VkResult GraphicPipeline_impl::AddDynamicState(const VkDynamicState state) noexcept
   {
     std::lock_guard lock(config_mutex);
-    init_config.dynamic_states.insert(state);
+    try
+    {
+      init_config.dynamic_states.insert(state);
+    }
+    catch (...)
+    {
+      return VK_ERROR_UNKNOWN;
+    }
+    
     return VK_SUCCESS;
   }
 
@@ -465,7 +510,21 @@ namespace Vulkan
   {
     if (&obj == this) return *this;
 
-    impl = std::move(obj.impl);
+    if (obj.impl.get() && impl.get())
+    {
+      std::scoped_lock lock(obj.impl->config_mutex, obj.impl->pipeline_mutex, impl->config_mutex, impl->pipeline_mutex);
+      impl = std::move(obj.impl);
+    }
+    else if (obj.impl.get())
+    {
+      std::scoped_lock lock(obj.impl->config_mutex, obj.impl->pipeline_mutex);
+      impl = std::move(obj.impl);
+    }
+    else
+    {
+      impl = std::move(obj.impl);
+    }
+
     return *this;
   }
 
@@ -473,7 +532,20 @@ namespace Vulkan
   {
     if (&obj == this) return;
 
-    impl.swap(obj.impl);
+    if (obj.impl.get() && impl.get())
+    {
+      std::scoped_lock lock(obj.impl->config_mutex, obj.impl->pipeline_mutex, impl->config_mutex, impl->pipeline_mutex);
+      impl.swap(obj.impl);
+    }
+    else if (obj.impl.get())
+    {
+      std::scoped_lock lock(obj.impl->config_mutex, obj.impl->pipeline_mutex);
+      impl.swap(obj.impl);
+    }
+    else
+    {
+      impl.swap(obj.impl);
+    }
   }
 
   void swap(GraphicPipeline &lhs, GraphicPipeline &rhs) noexcept
