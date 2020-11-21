@@ -1,105 +1,77 @@
-#ifndef __CPU_NW_VULKAN_COMMANDPOOL_H
-#define __CPU_NW_VULKAN_COMMANDPOOL_H
+#ifndef __VULKAN_COMMAND_POOL_H
+#define __VULKAN_COMMAND_POOL_H
 
 #include <vulkan/vulkan.h>
-#include <iostream>
-#include <vector>
-#include <optional>
 #include <memory>
+#include <vector>
 #include <mutex>
-#include <map>
+#include <optional>
 
 #include "Device.h"
-#include "Supply.h"
-#include "Buffer.h"
-#include "Image.h"
-#include "RenderPass.h"
-#include "Sampler.h"
+#include "CommandBuffer.h"
 
 namespace Vulkan
 {
-  struct BufferLock
+  class CommandPool_impl
   {
+  public:
+    CommandPool_impl() = delete;
+    CommandPool_impl(const CommandPool_impl &obj) = delete;
+    CommandPool_impl(CommandPool_impl &&obj) = delete;
+    CommandPool_impl &operator=(const CommandPool_impl &obj) = delete;
+    CommandPool_impl &operator=(CommandPool_impl &&obj) = delete;
+    ~CommandPool_impl() noexcept;
   private:
-    std::optional<uint32_t> index;
-    std::shared_ptr<std::mutex> lock;
     friend class CommandPool;
+    std::shared_ptr<Device> device;
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+    uint32_t family_queue_index = 0;
+    std::vector<CommandBuffer> command_buffers;
+    CommandBuffer dummy_buffer;
+
+    CommandPool_impl(std::shared_ptr<Device> dev, const uint32_t family_queue_index);
+    VkCommandPool GetCommandPool() const noexcept { return command_pool; }
+    size_t GetCommandBuffersCount() const noexcept { return command_buffers.size(); }
+    CommandBuffer &GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    void ResetCommandBuffer(const uint32_t buffer_index);
+    void PopLastCommandBuffer() noexcept;
+    VkResult ExecuteBuffer(const uint32_t buffer_index);
+    VkResult WaitForExecute(const uint32_t buffer_index, const uint64_t timeout = UINT64_MAX);
+    bool IsError(const uint32_t buffer_index) const noexcept;
+    bool IsReady(const uint32_t buffer_index) const noexcept;
+    bool IsReset(const uint32_t buffer_index) const noexcept;
   };
 
   class CommandPool
   {
   private:
-    std::shared_ptr<Vulkan::Device> device;
-    VkCommandPool command_pool = VK_NULL_HANDLE;
-    std::vector<std::pair<VkCommandBufferLevel, VkCommandBuffer>> command_buffers;
-    std::mutex block_mutex;
-    std::map<uint32_t, std::shared_ptr<std::mutex>> blocks;
-    uint32_t family_queue_index = 0;
-    void Destroy();
-    void BufferBarrier(const BufferLock buffer_lock, const VkBuffer buffer, 
-                      const std::pair<VkAccessFlags, VkAccessFlags> access_flags, 
-                      const std::pair<VkPipelineStageFlags, VkPipelineStageFlags> stage_flags, 
-                      const std::pair<uint32_t, uint32_t> offset_size);
+    std::unique_ptr<CommandPool_impl> impl;
+    CommandBuffer dummy_buffer;
   public:
     CommandPool() = delete;
     CommandPool(const CommandPool &obj) = delete;
-    CommandPool(std::shared_ptr<Vulkan::Device> dev, const uint32_t family_queue_index);
-    CommandPool& operator= (const CommandPool &obj) = delete;
-    const VkCommandBuffer& operator[] (const BufferLock buffer_lock) const 
-    { 
-      return command_buffers[buffer_lock.index.value()].second; 
-    }
-    VkCommandPool GetCommandPool() const { return command_pool; }
-    size_t GetCommandBuffersCount() const { return command_buffers.size(); }
+    CommandPool(CommandPool &&obj) noexcept : impl(std::move(obj.impl)) {};
+    CommandPool(std::shared_ptr<Device> dev, const uint32_t family_queue_index) : 
+      impl(std::unique_ptr<CommandPool_impl>(new CommandPool_impl(dev, family_queue_index))) {};
+    CommandPool &operator=(const CommandPool &obj) = delete;
+    CommandPool &operator=(CommandPool &&obj) noexcept;
+    ~CommandPool() noexcept = default;
+    void swap(CommandPool &obj) noexcept;
+    bool IsValid() const noexcept { return impl.get() && impl->command_pool != VK_NULL_HANDLE; }
 
-    void ExecuteBuffer(const BufferLock buffer_lock);
-    void BeginCommandBuffer(const BufferLock buffer_lock, 
-                      const VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-    void EndCommandBuffer(const BufferLock buffer_lock);
-    void BindPipeline(const BufferLock buffer_lock, const VkPipeline pipeline, 
-                      const VkPipelineBindPoint bind_point);
-    void BeginRenderPass(const BufferLock buffer_lock, 
-                      const std::shared_ptr<Vulkan::RenderPass> render_pass, 
-                      const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0});
-    void EndRenderPass(const BufferLock buffer_lock);
-    void BindVertexBuffers(const BufferLock buffer_lock, const std::vector<VkBuffer> buffers, 
-                      const std::vector<VkDeviceSize> offsets, const uint32_t first_binding, 
-                      const uint32_t binding_count);
-    void BindIndexBuffer(const BufferLock buffer_lock, const VkBuffer buffer, 
-                      const VkIndexType index_type, const VkDeviceSize offset = 0);
-    void BindDescriptorSets(const BufferLock buffer_lock, const VkPipelineLayout pipeline_layout, 
-                      const VkPipelineBindPoint bind_point, 
-                      const std::vector<VkDescriptorSet> sets, 
-                      const std::vector<uint32_t> dynamic_offeset, 
-                      const uint32_t first_set = 0);
-    void DrawIndexed(const BufferLock buffer_lock, const uint32_t index_count, 
-                      const uint32_t first_index, const uint32_t vertex_offset = 0, 
-                      const uint32_t instance_count = 1, const uint32_t first_instance = 0);
-    void Draw(const BufferLock buffer_lock, const uint32_t vertex_count, 
-                      const uint32_t first_vertex = 0, const uint32_t instance_count = 1, 
-                      const uint32_t first_instance = 0);
-    void Dispatch(const BufferLock buffer_lock, const uint32_t x, const uint32_t y, 
-                      const uint32_t z);
-    void CopyBuffer(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, 
-                      const std::shared_ptr<IBuffer> dst, std::vector<VkBufferCopy> regions);
-    void CopyBuffer(const BufferLock buffer_lock, const VkBuffer src, const VkBuffer dst, 
-                      std::vector<VkBufferCopy> regions);
-    void CopyBufferToImage(const BufferLock buffer_lock, const std::shared_ptr<IBuffer> src, 
-                      const std::shared_ptr<Image> dst, const std::vector<VkBufferImageCopy> regions);
-    void TransitionImageLayout(const BufferLock buffer_lock, const std::shared_ptr<Image> image, 
-                      const VkImageLayout old_layout, const VkImageLayout new_layout, const uint32_t mip_level = 0, const bool transit_all_mip_levels = true);
-    void GenerateMipLevels(const BufferLock buffer_lock, const std::shared_ptr<Image> image, 
-                      const std::shared_ptr<Vulkan::Sampler> sampler);
-    void SetViewport(const BufferLock buffer_lock, const std::vector<VkViewport> &viewports);
-    void SetDepthBias(const BufferLock buffer_lock, const float depth_bias_constant_factor, 
-                      const float depth_bias_clamp, const float depth_bias_slope_factor);
-    void CopyBufferBarrier(const BufferLock buffer_lock, const VkBuffer buffer, 
-                      const uint32_t offset, const uint32_t size, const VkPipelineStageFlags dst_stage);
-    void HostWriteBufferBarrier(const BufferLock buffer_lock, const VkBuffer buffer, 
-                      const uint32_t offset, const uint32_t size, const VkPipelineStageFlags dst_stage);
-    BufferLock OrderBufferLock();
-    void ReleaseBufferLock(BufferLock &buffer_lock);
-    ~CommandPool();
+    VkCommandPool GetCommandPool() const noexcept { if (impl.get()) return impl->GetCommandPool(); return VK_NULL_HANDLE; }
+    size_t GetCommandBuffersCount() const noexcept { if (impl.get()) return impl->GetCommandBuffersCount(); return 0; }
+    CommandBuffer& GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) { if (impl.get()) return impl->GetCommandBuffer(buffer_index, new_buffer_level); return dummy_buffer; }
+    void ResetCommandBuffer(const uint32_t buffer_index) { if (impl.get()) impl->ResetCommandBuffer(buffer_index); }
+    void PopLastCommandBuffer() noexcept { if (impl.get()) impl->PopLastCommandBuffer(); }
+    VkResult ExecuteBuffer(const uint32_t buffer_index) { if (impl.get()) return impl->ExecuteBuffer(buffer_index); return VK_ERROR_UNKNOWN; }
+    VkResult WaitForExecute(const uint32_t buffer_index, const uint64_t timeout = UINT64_MAX) { if (impl.get()) return impl-> WaitForExecute(buffer_index, timeout); return VK_ERROR_UNKNOWN; }
+    bool IsError(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsError(buffer_index); return true; }
+    bool IsReady(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReady(buffer_index); return false; }
+    bool IsReset(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReset(buffer_index); return true; }
   };
+
+  void swap(CommandPool &lhs, CommandPool &rhs) noexcept;
 }
+
 #endif

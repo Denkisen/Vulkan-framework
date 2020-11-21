@@ -1,9 +1,10 @@
-#ifndef __CPU_NW_VULKAN_INSTANCE_H
-#define __CPU_NW_VULKAN_INSTANCE_H
+#ifndef __VULKAN_INSTANCE_H
+#define __VULKAN_INSTANCE_H
 
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <mutex>
 
 #define APP_VERSION VK_MAKE_VERSION(1, 0, 0)
 #define ENGINE_VERSION VK_MAKE_VERSION(1, 0, 0)
@@ -14,18 +15,20 @@ namespace Vulkan
   {
   private:
     static VkInstance instance;
-    static size_t counter;
-    VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
-    std::string app_name = "Application";
-    std::string engine_name = "MarisaCompute";
-    template <typename T> friend class Offload;
+    static VkDebugUtilsMessengerEXT debug_messenger;
+    static std::string app_name;
+    static std::string engine_name;
+    static std::mutex instance_lock;
+    static std::vector<std::string> GetInstanceExtensions();
   public:
-    Instance();
+    Instance() = delete;
     Instance(const Instance &obj) = delete;
+    Instance(Instance &&obj) = delete;
     Instance& operator= (const Instance &obj) = delete;
-    std::string AppName() { return app_name; }
-    VkInstance& GetInstance() { return instance; }
-    ~Instance();
+    Instance& operator= (Instance &&obj) = delete;
+    static std::string AppName() noexcept { return app_name; }
+    static VkInstance& GetInstance();
+    ~Instance() noexcept;
   };
 }
 

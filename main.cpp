@@ -4,16 +4,16 @@
 #include <optional>
 #include <gtest/gtest.h>
 
-#include "Vulkan_/Instance.h"
-#include "Vulkan_/Device.h"
-#include "Vulkan_/Surface.h"
-#include "Vulkan_/StorageArray.h"
-#include "Vulkan_/Descriptors.h"
-#include "Vulkan_/CommandPool.h"
-#include "Vulkan_/Pipelines.h"
-#include "Vulkan_/Misc.h"
-#include "Vulkan_/RenderPass.h"
-#include "Vulkan_/ImageArray.h"
+#include "Vulkan/Instance.h"
+#include "Vulkan/Device.h"
+#include "Vulkan/Surface.h"
+#include "Vulkan/StorageArray.h"
+#include "Vulkan/Descriptors.h"
+#include "Vulkan/CommandPool.h"
+#include "Vulkan/Pipelines.h"
+#include "Vulkan/Misc.h"
+#include "Vulkan/RenderPass.h"
+#include "Vulkan/ImageArray.h"
 
 struct UniformData
 {

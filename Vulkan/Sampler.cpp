@@ -1,54 +1,77 @@
 #include "Sampler.h"
+#include "Logger.h"
+
+#include <algorithm>
 
 namespace Vulkan
 {
-  Sampler::~Sampler()
+  Sampler_impl::~Sampler_impl() noexcept
   {
-#ifdef DEBUG
-    std::cout << __func__ << std::endl;
-#endif
-    if (device.get() != nullptr && device->GetDevice() != VK_NULL_HANDLE)
+    Logger::EchoDebug("", __func__);
+    if (sampler != VK_NULL_HANDLE)
+      vkDestroySampler(device->GetDevice(), sampler, nullptr);
+  }
+
+  Sampler_impl::Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params)
+  {
+    if (dev.get() == nullptr || !dev->IsValid())
     {
-      if (sampler != VK_NULL_HANDLE)
-      {
-        vkDestroySampler(device->GetDevice(), sampler, nullptr);
-        sampler = nullptr;
-      }
+      Logger::EchoError("Device is empty", __func__);
+      return;
     }
-    device.reset();
-  }
 
-  Sampler::Sampler(std::shared_ptr<Vulkan::Device> dev, const uint32_t lod_levels)
-  {
-    Create(dev, lod_levels);
-  }
-
-  void Sampler::Create(std::shared_ptr<Vulkan::Device> dev, const uint32_t lod_levels)
-  {
-    if (dev.get() == nullptr || dev->GetDevice() == VK_NULL_HANDLE)
-      throw std::runtime_error("Device is nullptr.");
-    
-    lod_max = lod_levels;
     device = dev;
+    conf = params;
+    conf.max_anisotropy = std::max(0.0f, std::min(conf.max_anisotropy, device->GetPhysicalDeviceProperties().limits.maxSamplerAnisotropy));
+    conf.mip_lod_bias = std::max(0.0f, std::min(conf.mip_lod_bias, device->GetPhysicalDeviceProperties().limits.maxSamplerLodBias));
+    conf.lod_min = std::max(0.0f, conf.lod_min);
+    conf.lod_max = std::max(0.0f, conf.lod_max);
+
     VkSamplerCreateInfo sampler_info = {};
     sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_info.magFilter = mag_filter;
-    sampler_info.minFilter = min_filter;
+    sampler_info.magFilter = params.mag_filter;
+    sampler_info.minFilter = params.min_filter;
     sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.anisotropyEnable = (VkBool32) enable_anisotropy;
-    sampler_info.maxAnisotropy = max_anisotropy;
+    sampler_info.anisotropyEnable = (VkBool32) conf.enable_anisotropy;
+    sampler_info.maxAnisotropy = conf.max_anisotropy;
     sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     sampler_info.unnormalizedCoordinates = VK_FALSE;
     sampler_info.compareEnable = VK_FALSE;
     sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-    sampler_info.mipmapMode = mipmap_mode;
-    sampler_info.mipLodBias = mip_lod_bias;
-    sampler_info.minLod = lod_min;
-    sampler_info.maxLod = lod_max;
+    sampler_info.mipmapMode = conf.mipmap_mode;
+    sampler_info.mipLodBias = conf.mip_lod_bias;
+    sampler_info.minLod = conf.lod_min;
+    sampler_info.maxLod = conf.lod_max;
 
-    if (vkCreateSampler(device->GetDevice(), &sampler_info, nullptr, &sampler) != VK_SUCCESS)
-      throw std::runtime_error("failed to create texture sampler!");
+    auto er = vkCreateSampler(device->GetDevice(), &sampler_info, nullptr, &sampler);
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Failed to create texture sampler");
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+    }
+  }
+
+  Sampler &Sampler::operator=(Sampler &&obj) noexcept
+  {
+    if (&obj == this) return *this;
+
+    impl = std::move(obj.impl);
+    return *this;
+  }
+
+  void Sampler::swap(Sampler &obj) noexcept
+  {
+    if (&obj == this) return;
+
+    impl.swap(obj.impl);
+  }
+
+  void swap(Sampler &lhs, Sampler &rhs) noexcept
+  {
+    if (&lhs == &rhs) return;
+
+    lhs.swap(rhs);
   }
 }

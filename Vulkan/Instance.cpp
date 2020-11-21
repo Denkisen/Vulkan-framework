@@ -1,70 +1,100 @@
 #include "Instance.h"
-#include "Supply.h"
+#include "Misc.h"
+#include "Logger.h"
 
-VkInstance Vulkan::Instance::instance = VK_NULL_HANDLE;
-size_t Vulkan::Instance::counter = 0;
-
-Vulkan::Instance::Instance()
+namespace Vulkan
 {
-  counter++;
-  if (instance != VK_NULL_HANDLE) return;
+  VkInstance Instance::instance = VK_NULL_HANDLE;
+  VkDebugUtilsMessengerEXT Instance::debug_messenger = VK_NULL_HANDLE;
+  std::string Instance::app_name = "Application";
+  std::string Instance::engine_name = "Marisa";
+  std::mutex Instance::instance_lock;
 
-  VkResult res = VK_SUCCESS;
-
-  VkApplicationInfo app_info = {};
-  VkInstanceCreateInfo create_info = {};
-
-  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.pApplicationName = app_name.c_str();
-  app_info.applicationVersion = APP_VERSION;
-  app_info.pEngineName = engine_name.c_str();
-  app_info.engineVersion = ENGINE_VERSION;
-  app_info.apiVersion = VK_API_VERSION_1_1;
-
-  create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  if (Vulkan::Supply::ValidationLayers.size() > 0)
+  std::vector<std::string> Instance::GetInstanceExtensions()
   {
-    create_info.enabledLayerCount = (uint32_t) Vulkan::Supply::ValidationLayers.size();
-    create_info.ppEnabledLayerNames = Vulkan::Supply::ValidationLayers.data();
+    uint32_t ext_count = 0;
+    std::vector<std::string> ret;
+    if (vkEnumerateInstanceExtensionProperties(nullptr, &ext_count, nullptr) == VK_SUCCESS)
+    {
+      std::vector<VkExtensionProperties> props(ext_count);
+      if (vkEnumerateInstanceExtensionProperties(nullptr, &ext_count, props.data()) == VK_SUCCESS)
+      {
+        for (auto &ext : props) 
+        {
+          ret.push_back(ext.extensionName);
+        }
+      }
+    }
+
+    return ret;
   }
 
-  create_info.pApplicationInfo = &app_info;
+  VkInstance& Instance::GetInstance()
+  { 
+    std::lock_guard<std::mutex> lock(instance_lock);
 
-  auto instance_extentions = Supply::GetInstanceExtensions();
-  std::vector<const char *> ins;
-  for (auto &s : instance_extentions)
-  {
-    ins.push_back(s.c_str());
+    if (instance == VK_NULL_HANDLE)
+    {
+      VkResult res = VK_SUCCESS;
+
+      std::vector<const char*> ins;
+      auto extensions = GetInstanceExtensions();
+      ins.reserve(extensions.size());
+      for (auto& s : extensions) ins.push_back(s.c_str());
+
+      VkApplicationInfo app_info = {};
+      app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+      app_info.pApplicationName = app_name.c_str();
+      app_info.applicationVersion = APP_VERSION;
+      app_info.pEngineName = engine_name.c_str();
+      app_info.engineVersion = ENGINE_VERSION;
+      app_info.apiVersion = VK_API_VERSION_1_1;
+
+      VkInstanceCreateInfo create_info = {};
+      create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+
+      if (Misc::RequiredLayers.size() > 0)
+      {
+        create_info.enabledLayerCount = (uint32_t)Misc::RequiredLayers.size();
+        create_info.ppEnabledLayerNames = Misc::RequiredLayers.data();
+      }
+
+      create_info.pApplicationInfo = &app_info;
+      create_info.ppEnabledExtensionNames = ins.size() > 0 ? ins.data() : nullptr;
+      create_info.enabledExtensionCount = (uint32_t)ins.size();
+
+      res = vkCreateInstance(&create_info, nullptr, &instance);
+
+      if (res == VK_SUCCESS)
+      {
+#ifdef DEBUG
+        Misc::CreateDebugerMessenger(instance, debug_messenger);
+#endif
+      }
+      else
+      {
+        instance = VK_NULL_HANDLE;
+      }
+    }
+
+    Logger::EchoDebug("instance handle: " + std::to_string((uint64_t) instance), __func__);
+
+    return instance; 
   }
-  create_info.ppEnabledExtensionNames = ins.data();
-  create_info.enabledExtensionCount = (uint32_t) ins.size();
 
-  res = vkCreateInstance(&create_info, nullptr, &instance);
-  
-#ifdef DEBUG
-    std::cout << "Using debug layer"<< std::endl;
-    if (res == VK_SUCCESS)
-      Supply::CreateDebugerMessenger(instance, debug_messenger);
-    std::cout << __func__ << "() return " << res << std::endl;
-#endif
-
-  if (res != VK_SUCCESS)
-    throw std::runtime_error("Can't create Instance");
-}
-  
-Vulkan::Instance::~Instance()
-{
-  counter--;
-  if (counter > 0) return;
-#ifdef DEBUG
-    std::cout << __func__ << std::endl;
-#endif
-  if (instance != VK_NULL_HANDLE)
+  Instance::~Instance() noexcept
   {
+    std::lock_guard<std::mutex> lock(instance_lock);
+
+    Logger::EchoDebug("", __func__);
+
+    if (instance != VK_NULL_HANDLE)
+    {
 #ifdef DEBUG
-    Supply::DestroyDebugerMessenger(instance, debug_messenger);
+      Misc::DestroyDebugerMessenger(instance, debug_messenger);
 #endif
-    vkDestroyInstance(instance, nullptr);
+      vkDestroyInstance(instance, nullptr);
+      instance = VK_NULL_HANDLE;
+    }
   }
-  instance = VK_NULL_HANDLE;
 }

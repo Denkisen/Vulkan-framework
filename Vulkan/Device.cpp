@@ -1,85 +1,63 @@
 #include "Device.h"
+#include "Logger.h"
+#include "Instance.h"
+#include "Misc.h"
 
 #include <map>
-#include <cstring>
-#include <algorithm>
 
 namespace Vulkan
 {
-  void Device::Create()
+  Device_impl::~Device_impl() noexcept
   {
-    
-    if (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    Logger::EchoDebug("", __func__);
+    if (device != VK_NULL_HANDLE)
     {
-      if (!p_device.device_features.geometryShader)
-        throw std::runtime_error("Device has no geometry shader.");
-
-      auto ext = Vulkan::Supply::GetPhysicalDeviceExtensions(p_device.device);
-      for (auto s : ext)
-      {
-        bool found = false;
-        for (auto &e : Vulkan::Supply::RequiredGraphicDeviceExtensions)
-        {
-          if (std::string(e) == s)
-          {
-            found = true;
-            break;
-          }
-        }
-        if (!found)
-          std::runtime_error("Extension (" + std::string(s) + ") not supported");
-      }
-
-      auto swap_chain_details = Vulkan::Supply::GetSwapChainDetails(p_device.device, surface.surface);
-      if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
-        throw std::runtime_error("Swap chain does not support any formats or presentation modes.");
+      vkDestroyDevice(device, nullptr);
+      device = VK_NULL_HANDLE;
     }
-
-    queues = FindFamilyQueues();
-
-    if (queues.empty())
-      throw std::runtime_error("No suitable family queues");
-
-    std::map<uint32_t, Vulkan::Queue> min_queues;
-    std::for_each(queues.begin(), queues.end(), [&min_queues](Vulkan::Queue &t) { if (t.family.has_value()) min_queues.insert({t.family.value(), t}); });
-
-    VkDeviceCreateInfo device_create_info = {};
-    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    for (auto &family : min_queues)
-    {
-      VkDeviceQueueCreateInfo queue_create_info = {};  
-      queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      queue_create_info.queueFamilyIndex = family.first;
-      queue_create_info.queueCount = 1;
-      queue_create_info.pQueuePriorities = &family.second.queue_priority;
-      queue_create_infos.push_back(queue_create_info);
-    }
-
-    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_create_info.pQueueCreateInfos = queue_create_infos.data();
-    device_create_info.queueCreateInfoCount = (uint32_t) queue_create_infos.size();
-    device_create_info.pEnabledFeatures = &p_device.device_features;
-#ifdef DEBUG
-    device_create_info.enabledLayerCount = (uint32_t) Vulkan::Supply::ValidationLayers.size();
-    device_create_info.ppEnabledLayerNames = Vulkan::Supply::ValidationLayers.data();
-#endif
-    if (queue_flag_bits == Vulkan::QueueType::DrawingType  || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
-    {
-      device_create_info.enabledExtensionCount = (uint32_t) Vulkan::Supply::RequiredGraphicDeviceExtensions.size();
-      device_create_info.ppEnabledExtensionNames = Vulkan::Supply::RequiredGraphicDeviceExtensions.data();
-    }
-    
-    if(vkCreateDevice(p_device.device, &device_create_info, nullptr, &device) != VK_SUCCESS)
-      throw std::runtime_error("Can't create device.");
-#ifdef DEBUG
-      std::cout << "Device is ready." << std::endl;
-#endif
   }
 
-  std::vector<Queue> Device::FindFamilyQueues()
+  VkDeviceSize Device_impl::GetPhisicalDevicesCount()
+  {
+    uint32_t device_count = 0;
+    vkEnumeratePhysicalDevices(Instance::GetInstance(), &device_count, nullptr);
+    return (VkDeviceSize) device_count;
+  }
+
+  std::vector<VkPhysicalDevice> Device_impl::GetAllPhysicalDevices()
+  {
+    std::vector<VkPhysicalDevice> ret(GetPhisicalDevicesCount(), VK_NULL_HANDLE);
+    uint32_t count = (uint32_t) ret.size();
+    if (ret.empty() || vkEnumeratePhysicalDevices(Instance::GetInstance(), &count, ret.data()) != VK_SUCCESS) 
+      ret.clear();
+
+    return ret;
+  }
+
+  std::vector<std::string> Device_impl::GetPhysicalDeviceExtensions(const VkPhysicalDevice &device)
+  {
+    uint32_t count = 0;
+    std::vector<std::string> ret;
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr) != VK_SUCCESS)
+      return ret;
+
+    std::vector<VkExtensionProperties> available_extensions(count);
+    if (vkEnumerateDeviceExtensionProperties(device, nullptr, &count, available_extensions.data()) != VK_SUCCESS)
+      return ret;
+    
+    for (size_t i = 0; i < count; ++i)
+    {
+      ret.push_back(available_extensions[i].extensionName);
+    }
+
+    return ret;
+  }
+
+  std::vector<Queue> Device_impl::FindFamilyQueues() const
   {
     std::vector<Queue> ret;
-    uint32_t family_queues_count = Vulkan::Supply::GetFamilyQueuesCount(p_device.device);
+    uint32_t family_queues_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(p_device.device, &family_queues_count, nullptr);
 
     if (family_queues_count == 0)
       return ret;
@@ -92,16 +70,16 @@ namespace Vulkan
     ret[1].purpose = QueuePurpose::PresentationPurpose;
     ret[2].purpose = QueuePurpose::ComputePurpose;
 
-    for (uint32_t i = 0; i < family_queues_count; ++i)
+    for (VkDeviceSize i = 0; i < family_queues_count; ++i)
     {
-      if (queue_families[i].queueFlags & (VkQueueFlags) Vulkan::QueueType::ComputeType && !ret[2].family.has_value())
+      if (queue_families[i].queueFlags & (VkQueueFlags)QueueType::ComputeType && !ret[2].family.has_value())
       {
         ret[2].family = i;
         ret[2].props = queue_families[i];
         ret[2].queue_priority = 1.0f;
       }
 
-      if (queue_families[i].queueFlags & (VkQueueFlags) Vulkan::QueueType::DrawingType)
+      if (queue_families[i].queueFlags & (VkQueueFlags)QueueType::DrawingType)
       {
         VkBool32 present = false;
         if (!ret[0].family.has_value())
@@ -110,10 +88,12 @@ namespace Vulkan
           ret[0].props = queue_families[i];
           ret[0].queue_priority = 1.0f;
         }
-        
-        if (queue_flag_bits != Vulkan::QueueType::ComputeType && vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface.surface, &present) != VK_SUCCESS)
+
+        if (queue_flag_bits != QueueType::ComputeType && vkGetPhysicalDeviceSurfaceSupportKHR(p_device.device, i, surface->GetSurface(), &present) != VK_SUCCESS)
         {
-          throw std::runtime_error("Can't check surface support.");
+          Logger::EchoError("Can't check surface support", __func__);
+          ret.clear();
+          return ret;
         }
 
         if (present && !ret[1].family.has_value())
@@ -125,20 +105,23 @@ namespace Vulkan
       }
 
       bool done = true;
-      for(size_t j = 0; j < 3; ++j)
+      for (size_t j = 0; j < 3; ++j)
       {
         if (queue_flag_bits == QueueType::ComputeType)
         {
-          if (j == 0 && j == 1) continue;
+          if (j == 0 && j == 1)
+            continue;
         }
         if (queue_flag_bits == QueueType::DrawingType)
         {
-          if (j == 2) continue;
+          if (j == 2)
+            continue;
         }
         if (!ret[i].family.has_value())
           done = false;
       }
-      if (done) break;
+      if (done)
+        break;
     }
 
     if (queue_flag_bits == QueueType::ComputeType)
@@ -160,67 +143,100 @@ namespace Vulkan
     return ret;
   }
 
-  void Device::CreateSurface()
+  Device_impl::Device_impl(const DeviceConfig params)
   {
-    Vulkan::Instance instance;
-    if (glfwCreateWindowSurface(instance.GetInstance(), surface.window, nullptr, &surface.surface) != VK_SUCCESS)
-      throw std::runtime_error("Can't create surface");
-  }
+    surface = params.surface;
+    queue_flag_bits = params.queue_flags;
 
-  Device::Device(uint32_t device_index, Vulkan::QueueType queue_flags, GLFWwindow *window)
-  {
-    queue_flag_bits = queue_flags;
-    surface.window = window;
-    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
-      CreateSurface();
-    
-    Instance instance;
-    std::vector<VkPhysicalDevice> devices = Vulkan::Supply::GetAllPhysicalDevices(instance.GetInstance());
+    auto devices = GetAllPhysicalDevices();
 
     if (devices.empty())
-      throw std::runtime_error("No Physical Devices.");
-    if (device_index >= devices.size())
-      throw std::runtime_error("Invalid device index.");
-
-    p_device.device = devices[device_index];
-    p_device.device_features = Vulkan::Supply::GetPhysicalDeviceFeatures(p_device.device);
-    p_device.device_index = device_index;
-    vkGetPhysicalDeviceProperties(p_device.device, &p_device.device_properties);
-    Create();
-  }
-
-  Device::Device(Vulkan::PhysicalDeviceType type, Vulkan::QueueType queue_flags, GLFWwindow *window)
-  {
-    queue_flag_bits = queue_flags;
-    surface.window = window;
-    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
-      CreateSurface();
-
-    Instance instance;
-    auto devices = Vulkan::Supply::GetPhysicalDevicesByType(instance.GetInstance(), (VkPhysicalDeviceType) type);
-
-    if (devices.empty())
-      throw std::runtime_error("devices.empty() : No Physical Devices.");
-
-    std::multimap<uint32_t, PhysicalDevice> ranking;
-    for (size_t i = 0; i < devices.size(); ++i)
     {
-      PhysicalDevice p;
-      uint32_t rank = 0;
-      p.device = devices[i];
-      p.device_index = i;
-      vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
-      p.device_features = Vulkan::Supply::GetPhysicalDeviceFeatures(p.device);
+      Logger::EchoError("No devices has found", __func__);
+      return;
+    };
 
-      switch (queue_flag_bits)
+    // Prio: Name > index > type
+    if (!params.device_name.empty())
+    {
+      Logger::EchoDebug("Looking for device with name = " + params.device_name, __func__);
+      for (VkDeviceSize i = 0; i < devices.size(); ++i)
       {
-        case Vulkan::QueueType::ComputeType:
+        PhysicalDevice p;
+        p.device = devices[i];
+        vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
+        vkGetPhysicalDeviceFeatures(p.device, &p.device_features);
+        p.device_index = i;
+        if (params.device_name == std::string(p.device_properties.deviceName))
+        {
+          p_device = p;
+          Logger::EchoInfo("Found device with index = " + std::to_string(i), __func__);
+          auto dev = Create(params.p_device_features);
+          if (dev != VK_NULL_HANDLE)
+          {
+            device = dev;
+            break;
+          }
+          else
+          {
+            Logger::EchoWarning("Can't create device with index = " + std::to_string(i), __func__);
+            p_device = {};
+          }
+        }
+      }
+    }
+
+    if (device == VK_NULL_HANDLE && params.device_index.has_value())
+    {
+      if (params.device_index >= devices.size())
+        Logger::EchoDebug("No device with index = " + std::to_string(params.device_index.value()), __func__);
+      else
+      {
+        PhysicalDevice p;
+        p.device = devices[params.device_index.value()];
+        vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
+        vkGetPhysicalDeviceFeatures(p.device, &p.device_features);
+        p.device_index = params.device_index.value();
+        p_device = p;
+        Logger::EchoInfo("Found device with index = " + std::to_string(p.device_index), __func__);
+        auto dev = Create(params.p_device_features);
+        if (dev != VK_NULL_HANDLE)
+        {
+          device = dev;
+        }
+        else
+        {
+          Logger::EchoWarning("Can't create device with index = " + std::to_string(p.device_index), __func__);
+          p_device = {};
+        }
+      }
+    }
+
+    if (device == VK_NULL_HANDLE)
+    {
+      std::multimap<VkDeviceSize, PhysicalDevice> ranking;
+      auto adv = ranking.end();
+      for (size_t i = 0; i < devices.size(); ++i)
+      {
+        PhysicalDevice p;
+        VkDeviceSize rank = 0;
+        p.device = devices[i];
+        p.device_index = i;
+        vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
+        vkGetPhysicalDeviceFeatures(p.device, &p.device_features);
+
+        if ((VkPhysicalDeviceType)params.p_device_type != p.device_properties.deviceType)
+          continue;
+
+        switch (queue_flag_bits)
+        {
+        case QueueType::ComputeType:
           rank++;
           rank += p.device_properties.limits.maxComputeSharedMemorySize;
           break;
-        case Vulkan::QueueType::DrawingAndComputeType:
+        case QueueType::DrawingAndComputeType:
           rank += p.device_properties.limits.maxComputeSharedMemorySize;
-        case Vulkan::QueueType::DrawingType:
+        case QueueType::DrawingType:
           if (!p.device_features.geometryShader || !p.device_features.samplerAnisotropy)
           {
             rank = 0;
@@ -229,95 +245,160 @@ namespace Vulkan
           rank++;
           rank += p.device_properties.limits.maxImageDimension2D;
           break;
+        }
+        rank += p.device_properties.limits.maxUniformBufferRange;
+        rank += p.device_properties.limits.maxStorageBufferRange;
+        rank += p.device_properties.limits.maxMemoryAllocationCount;
+        rank += p.device_properties.limits.maxBoundDescriptorSets;
+
+        adv = ranking.insert(adv, std::pair<VkDeviceSize, PhysicalDevice>(rank, p));
       }
-      rank += p.device_properties.limits.maxUniformBufferRange;
-      rank += p.device_properties.limits.maxStorageBufferRange;
-      rank += p.device_properties.limits.maxMemoryAllocationCount;
-      rank += p.device_properties.limits.maxBoundDescriptorSets;
-      
-#ifdef DEBUG
-      std::cout << std::string(p.device_properties.deviceName) << " rank :" << rank << std::endl;
-#endif
-      ranking.insert(std::pair<uint32_t, PhysicalDevice>(rank, p));
-    }
 
-    if (ranking.empty())
-      throw std::runtime_error("ranking.empty() : No Physical Devices.");
-
-    for (auto &dev : ranking)
-    {
-      try
+      if (ranking.empty())
       {
-        p_device = dev.second;
-#ifdef DEBUG
-        std::cout << "Try to create " << std::string(p_device.device_properties.deviceName) << " rank :" << dev.first << std::endl;
-#endif
-        Create();
-      }
-      catch(const std::exception& e)
-      {
-        std::cout << e.what() << '\n';
-      }
-    }
-  }
-
-  Device::Device(std::string device_name, Vulkan::QueueType queue_flags, GLFWwindow *window)
-  {
-    queue_flag_bits = queue_flags;
-    surface.window = window;
-    if (surface.window != nullptr && (queue_flag_bits == Vulkan::QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType))
-      CreateSurface();
-
-    Instance instance;
-    std::vector<VkPhysicalDevice> devices = Vulkan::Supply::GetAllPhysicalDevices(instance.GetInstance());
-
-    if (devices.empty())
-      throw std::runtime_error("No Physical Devices.");
-    
-    for (size_t i = 0; i < devices.size(); ++i)
-    {
-      PhysicalDevice p;
-      p.device = devices[i];
-      vkGetPhysicalDeviceProperties(p.device, &p.device_properties);
-      p.device_features = Vulkan::Supply::GetPhysicalDeviceFeatures(p.device);
-      p.device_index = i;
-      if (device_name == std::string(p.device_properties.deviceName))
-      {
-        p_device = p;
-        Create();
+        Logger::EchoError("No devices has found", __func__);
         return;
       }
+
+      for (auto& it : ranking)
+      {
+        p_device = it.second;
+
+        auto dev = Create(params.p_device_features);
+        if (dev != VK_NULL_HANDLE)
+        {
+          device = dev;
+          break;
+        }
+        else
+        {
+          Logger::EchoWarning("Can't create device with index = " + std::to_string(p_device.device_index), __func__);
+          p_device = {};
+        }
+      }
     }
-    throw std::runtime_error("No device with given name.");
-  }
 
-  Device::~Device()
-  {
-#ifdef DEBUG
-    std::cout << __func__ << std::endl;
-#endif
-    if (device != VK_NULL_HANDLE)
-      vkDestroyDevice(device, nullptr);
-    device = VK_NULL_HANDLE;
-
-    if (surface.surface != VK_NULL_HANDLE)
+    if (device == VK_NULL_HANDLE || p_device.device == VK_NULL_HANDLE)
     {
-      Vulkan::Instance instance;
-      vkDestroySurfaceKHR(instance.GetInstance(), surface.surface, nullptr);
-      surface.surface = VK_NULL_HANDLE;
+      p_device = {};
+      device = VK_NULL_HANDLE;
+      Logger::EchoError("No suitable devices", __func__);
     }
   }
 
-  VkQueue Device::GetGraphicQueue()
+  VkDevice Device_impl::Create(const VkPhysicalDeviceFeatures features)
   {
-    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    VkDevice res = VK_NULL_HANDLE;
+
+    for (VkDeviceSize i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i)
+    {
+      VkBool32 req_val = ((VkBool32*)&features)[i];
+      VkBool32 p_val = ((VkBool32*)&p_device.device_features)[i];
+      if (req_val && !p_val)
+      {
+        Logger::EchoError("Device has no feature", __func__);
+        return res;
+      }
+    }
+
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
+    {
+      auto ext = GetPhysicalDeviceExtensions(p_device.device);
+      for (auto s : Misc::RequiredGraphicDeviceExtensions)
+      {
+        bool found = false;
+        for (auto& e : ext)
+        {
+          if (std::string(e) == s)
+          {
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+        {
+          Logger::EchoError("Extension (" + std::string(s) + ") not supported", __func__);
+          return res;
+        }
+      }
+
+      auto swap_chain_details = Misc::GetSwapChainDetails(p_device.device, surface->GetSurface());
+      if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
+      {
+        Logger::EchoError("Swap chain does not support any formats or presentation modes", __func__);
+        return res;
+      }
+    }
+
+    queues = FindFamilyQueues();
+    if (queues.empty())
+    {
+      Logger::EchoError("No suitable family queues", __func__);
+      return res;
+    }
+
+    std::map<VkDeviceSize, Queue> min_queues;
+    auto adv = min_queues.end();
+    for (auto& q : queues)
+    {
+      if (q.family.has_value())
+        adv = min_queues.insert(adv, { q.family.value(), q });
+    }
+
+    VkDeviceCreateInfo device_create_info = {};
+    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    for (auto& family : min_queues)
+    {
+      VkDeviceQueueCreateInfo queue_create_info = {};
+      queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+      queue_create_info.queueFamilyIndex = family.first;
+      queue_create_info.queueCount = 1;
+      queue_create_info.pQueuePriorities = &family.second.queue_priority;
+      queue_create_infos.push_back(queue_create_info);
+    }
+
+    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pQueueCreateInfos = queue_create_infos.data();
+    device_create_info.queueCreateInfoCount = (uint32_t)queue_create_infos.size();
+    device_create_info.pEnabledFeatures = &p_device.device_features;
+    device_create_info.enabledLayerCount = (uint32_t)Misc::RequiredLayers.size();
+    device_create_info.ppEnabledLayerNames = Misc::RequiredLayers.data();
+
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
+    {
+      device_create_info.enabledExtensionCount = (uint32_t)Misc::RequiredGraphicDeviceExtensions.size();
+      device_create_info.ppEnabledExtensionNames = Misc::RequiredGraphicDeviceExtensions.data();
+    }
+
+    auto er = vkCreateDevice(p_device.device, &device_create_info, nullptr, &res);
+
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Device has not created", __func__);
+      Logger::EchoDebug("Device name = " + std::string(p_device.device_properties.deviceName), __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+    }
+    else
+    {
+      req_p_device_features = features;
+      Logger::EchoDebug("Device has created, name = " + std::string(p_device.device_properties.deviceName), __func__);
+    }
+    
+    return res;
+  }
+
+  VkQueue Device_impl::GetGraphicQueue() const
+  {
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
         if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
             q.purpose == QueuePurpose::GraphicPurpose) && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
+          VkQueue res = VK_NULL_HANDLE;
+          vkGetDeviceQueue(device, q.family.value(), 0, &res);
+          return res;
         }
       }
     }
@@ -325,16 +406,18 @@ namespace Vulkan
     return VK_NULL_HANDLE;
   }
 
-  VkQueue Device::GetPresentQueue()
+  VkQueue Device_impl::GetPresentQueue() const
   {
-    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
         if ((q.purpose == QueuePurpose::PresentationAndGraphicPurpose || 
             q.purpose == QueuePurpose::PresentationPurpose) && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
+          VkQueue res = VK_NULL_HANDLE;
+          vkGetDeviceQueue(device, q.family.value(), 0, &res);
+          return res;
         }
       }
     }
@@ -342,15 +425,17 @@ namespace Vulkan
     return VK_NULL_HANDLE;
   }
 
-  VkQueue Device::GetComputeQueue()
+  VkQueue Device_impl::GetComputeQueue() const
   {
-    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
         if (q.purpose == QueuePurpose::ComputePurpose && q.family.has_value())
         {
-          return Vulkan::Supply::GetQueueFormFamilyIndex(device, q.family.value());
+          VkQueue res = VK_NULL_HANDLE;
+          vkGetDeviceQueue(device, q.family.value(), 0, &res);
+          return res;
         }
       }
     }
@@ -358,10 +443,10 @@ namespace Vulkan
     return VK_NULL_HANDLE;
   }
 
-  std::optional<uint32_t> Device::GetGraphicFamilyQueueIndex()
+  std::optional<uint32_t> Device_impl::GetGraphicFamilyQueueIndex() const
   {
     std::optional<uint32_t> ret;
-    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
@@ -377,10 +462,10 @@ namespace Vulkan
     return ret;
   }
 
-  std::optional<uint32_t> Device::GetPresentFamilyQueueIndex()
+  std::optional<uint32_t> Device_impl::GetPresentFamilyQueueIndex() const
   {
     std::optional<uint32_t> ret;
-    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    if (queue_flag_bits == QueueType::DrawingType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
@@ -396,11 +481,11 @@ namespace Vulkan
     return ret;
   }
 
-  std::optional<uint32_t> Device::GetComputeFamilyQueueIndex()
+  std::optional<uint32_t> Device_impl::GetComputeFamilyQueueIndex() const
   {
     std::optional<uint32_t> ret;
 
-    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == Vulkan::QueueType::DrawingAndComputeType)
+    if (queue_flag_bits == QueueType::ComputeType || queue_flag_bits == QueueType::DrawingAndComputeType)
     {
       for (auto &q : queues)
       {
@@ -415,32 +500,71 @@ namespace Vulkan
     return ret;
   }
 
-  std::pair<uint32_t, uint32_t> Device::GetWindowSize()
-  {
-    std::pair<uint32_t, uint32_t> ret;
-    if (surface.window == nullptr)
-      return ret;
-
-    int w, h;
-    glfwGetFramebufferSize(surface.window, &w, &h);
-    ret = std::make_pair<uint32_t, uint32_t> ((uint32_t) w, (uint32_t) h);
-
-    return ret;
-  }
-
-  bool Device::CheckMultisampling(VkSampleCountFlagBits x)
-  {
-    VkSampleCountFlags counts = p_device.device_properties.limits.framebufferColorSampleCounts & 
-                                p_device.device_properties.limits.framebufferDepthSampleCounts;
-
-    return counts & x;
-  }
-
-  VkFormatProperties Device::GetFormatProperties(const VkFormat format)
+  VkFormatProperties Device_impl::GetFormatProperties(const VkFormat format) const
   {
     VkFormatProperties format_properties;
     vkGetPhysicalDeviceFormatProperties(p_device.device, format, &format_properties);
 
     return format_properties;
+  }
+
+  bool Device_impl::CheckMultisampling(VkSampleCountFlagBits x) const noexcept
+  {
+    return (p_device.device_properties.limits.framebufferColorSampleCounts & 
+            p_device.device_properties.limits.framebufferDepthSampleCounts) & x;
+  }
+
+  VkQueue Device_impl::GetQueueFormFamilyIndex(const uint32_t index) const
+  {
+    VkQueue q;
+    vkGetDeviceQueue(device, index, 0, &q);
+    return q;
+  }
+
+  Device &Device::operator=(const Device &obj)
+  {
+    if (&obj == this) return *this;
+    DeviceConfig conf;
+    conf.SetDeviceIndex(obj.impl->p_device.device_index);
+    conf.SetDeviceType((PhysicalDeviceType) obj.impl->p_device.device_properties.deviceType);
+    conf.SetQueueType(obj.impl->queue_flag_bits);
+    conf.SetRequiredDeviceFeatures(obj.impl->req_p_device_features);
+    conf.SetSurface(obj.impl->surface);
+    impl = std::unique_ptr<Device_impl>(new Device_impl(conf));
+
+    return *this;
+  }
+
+  Device::Device(const Device &obj)
+  {
+    DeviceConfig conf;
+    conf.SetDeviceIndex(obj.impl->p_device.device_index);
+    conf.SetDeviceType((PhysicalDeviceType) obj.impl->p_device.device_properties.deviceType);
+    conf.SetQueueType(obj.impl->queue_flag_bits);
+    conf.SetRequiredDeviceFeatures(obj.impl->req_p_device_features);
+    conf.SetSurface(obj.impl->surface);
+    impl = std::unique_ptr<Device_impl>(new Device_impl(conf));
+  }
+
+  Device &Device::operator=(Device &&obj) noexcept
+  {
+    if (&obj == this) return *this;
+
+    impl = std::move(obj.impl);
+    return *this;
+  }
+
+  void Device::swap(Device &obj) noexcept
+  {
+    if (&obj == this) return;
+
+    impl.swap(obj.impl);
+  }
+
+  void swap(Device &lhs, Device &rhs) noexcept
+  {
+    if (&lhs == &rhs) return;
+
+    lhs.swap(rhs);
   }
 }

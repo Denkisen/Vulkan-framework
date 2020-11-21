@@ -1,26 +1,21 @@
 #include "SwapChain.h"
+#include "Logger.h"
+#include "Instance.h"
 
 #include <algorithm>
-#include <optional>
 
 namespace Vulkan
 {
-  void SwapChain::Destroy()
+  SwapChain_impl::~SwapChain_impl() noexcept
   {
+    Logger::EchoDebug("", __func__);
+
     for (auto image_view : swapchain_image_views) 
     {
       if (image_view != VK_NULL_HANDLE)
         vkDestroyImageView(device->GetDevice(), image_view, nullptr);
     }
-    swapchain_image_views.clear();
-  }
 
-  SwapChain::~SwapChain()
-  {
-#ifdef DEBUG
-    std::cout << __func__ << std::endl;
-#endif
-    Destroy();
     if (swapchain != VK_NULL_HANDLE)
     {
       vkDestroySwapchainKHR(device->GetDevice(), swapchain, nullptr);
@@ -28,22 +23,30 @@ namespace Vulkan
     }
   }
 
-  SwapChain::SwapChain(std::shared_ptr<Vulkan::Device> dev, const VkPresentModeKHR mode)
+  SwapChain_impl::SwapChain_impl(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode)
   {
-    if (dev.get() == nullptr)
-      throw std::runtime_error("Device pointer is not valid.");
+    if (dev.get() == nullptr || !dev->IsValid())
+    {
+      Logger::EchoError("Device is empty", __func__);
+      return;
+    }
+
     device = dev;
     present_mode = mode;
-    Create();
+    if (auto er = Create(); er != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't create swapchain", __func__);
+      return;
+    }
   }
 
-  void SwapChain::Create()
+  VkResult SwapChain_impl::Create()
   {
-    capabilities = device->GetSwapChainDetails();
+    capabilities = Misc::GetSwapChainDetails(device->GetPhysicalDevice(), device->GetSurface()->GetSurface());
     format = GetSwapChainFormat();
     present_mode = GetSwapChainPresentMode();
     extent = GetSwapChainExtent();
-    images_in_swapchain = capabilities.capabilities.minImageCount + 5;
+    images_in_swapchain = capabilities.capabilities.minImageCount + 2;
 
     if (capabilities.capabilities.maxImageCount > 0 && images_in_swapchain > capabilities.capabilities.maxImageCount) 
     {
@@ -54,11 +57,14 @@ namespace Vulkan
     auto p_index = device->GetPresentFamilyQueueIndex();
 
     if (!g_index.has_value() || !p_index.has_value())
-      throw std::runtime_error("Graphic or Present queue is not available.");
+    {
+      Logger::EchoError("Graphic or Present queue is not available", __func__);
+      return VK_ERROR_UNKNOWN;
+    }
 
     VkSwapchainCreateInfoKHR create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    create_info.surface = device->GetSurface();
+    create_info.surface = device->GetSurface()->GetSurface();
     create_info.minImageCount = images_in_swapchain;
     create_info.imageFormat = format.format;
     create_info.imageColorSpace = format.colorSpace;
@@ -69,7 +75,8 @@ namespace Vulkan
     create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     create_info.presentMode = present_mode;
     create_info.clipped = VK_TRUE;
-    old_swapchain = swapchain;
+    
+    VkSwapchainKHR old_swapchain = swapchain;
     create_info.oldSwapchain = old_swapchain;
 
     uint32_t queue_family_indices[] = 
@@ -91,8 +98,14 @@ namespace Vulkan
       create_info.pQueueFamilyIndices = nullptr;
     }
 
-    if (vkCreateSwapchainKHR(device->GetDevice(), &create_info, nullptr, &swapchain) != VK_SUCCESS) 
-      throw std::runtime_error("Failed to create swap chain!");
+    auto er = vkCreateSwapchainKHR(device->GetDevice(), &create_info, nullptr, &swapchain);
+    if (er != VK_SUCCESS) 
+    {
+      Logger::EchoError("Failed to create swap chain", __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+      swapchain = old_swapchain;
+      return er;
+    }
     
     if (old_swapchain != VK_NULL_HANDLE)
     {
@@ -100,19 +113,28 @@ namespace Vulkan
       old_swapchain = VK_NULL_HANDLE;
     }
 
-    swapchain_images.clear();
-    if (vkGetSwapchainImagesKHR(device->GetDevice(), swapchain, &images_in_swapchain, nullptr) != VK_SUCCESS)
-      throw std::runtime_error("Failed to get swap chain images!");
+    er = vkGetSwapchainImagesKHR(device->GetDevice(), swapchain, &images_in_swapchain, nullptr);
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Failed to get swap chain images", __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+      return er;
+    }
 
     swapchain_images.resize(images_in_swapchain);
+    
+    er = vkGetSwapchainImagesKHR(device->GetDevice(), swapchain, &images_in_swapchain, swapchain_images.data());
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Failed to get swap chain images", __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+      return er;
+    }
 
-    if (vkGetSwapchainImagesKHR(device->GetDevice(), swapchain, &images_in_swapchain, swapchain_images.data()) != VK_SUCCESS)
-      throw std::runtime_error("Failed to get swap chain images!");
-
-    CreateImageViews();
+    return CreateImageViews();
   }
 
-  void SwapChain::CreateImageViews()
+  VkResult SwapChain_impl::CreateImageViews()
   {
     for (auto image_view : swapchain_image_views) 
     {
@@ -138,40 +160,52 @@ namespace Vulkan
       create_info.subresourceRange.levelCount = 1;
       create_info.subresourceRange.baseArrayLayer = 0;
       create_info.subresourceRange.layerCount = 1;
-
-      if (vkCreateImageView(device->GetDevice(), &create_info, nullptr, &swapchain_image_views[i]) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create image views!");
+      auto er = vkCreateImageView(device->GetDevice(), &create_info, nullptr, &swapchain_image_views[i]);
+      if (er != VK_SUCCESS)
+      {
+        Logger::EchoError("Failed to create image views", __func__);
+        Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+        return VK_ERROR_UNKNOWN;
+      }
     }
+
+    return VK_SUCCESS;
   }
 
-  VkSurfaceFormatKHR SwapChain::GetSwapChainFormat()
+  VkSurfaceFormatKHR SwapChain_impl::GetSwapChainFormat() const
   {
-    auto format = std::find_if(capabilities.formats.begin(), capabilities.formats.end(), [](VkSurfaceFormatKHR &x) {
+    auto format = std::find_if(capabilities.formats.begin(), capabilities.formats.end(), [](auto &x) {
       return x.format == VK_FORMAT_B8G8R8A8_SRGB && x.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     });
 
     if (format != capabilities.formats.end())
     {
-      return (*format);
+      return *format;
     }
 
     return capabilities.formats[0];
   }
 
-  VkPresentModeKHR SwapChain::GetSwapChainPresentMode()
+  VkPresentModeKHR SwapChain_impl::GetSwapChainPresentMode() const
   {
     if (std::find(capabilities.present_modes.begin(), capabilities.present_modes.end(), present_mode) != capabilities.present_modes.end())
       return present_mode;
 
+    Logger::EchoWarning("Using default presentation mode", __func__);
     return VK_PRESENT_MODE_FIFO_KHR;
   }
 
-  VkExtent2D SwapChain::GetSwapChainExtent()
+  VkExtent2D SwapChain_impl::GetSwapChainExtent()
   {
-    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->GetPhysicalDevice(), device->GetSurface(), &capabilities.capabilities) != VK_SUCCESS)
-      throw std::runtime_error("Can't get surface capabilities.");
+    auto er = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->GetPhysicalDevice(), device->GetSurface()->GetSurface(), &capabilities.capabilities);
+    if (er != VK_SUCCESS)
+    {
+      Logger::EchoError("Can't get surface capabilities", __func__);
+      Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
+      return {};
+    }
 
-    size = device->GetWindowSize();
+    auto size = device->GetSurface()->GetFramebufferSize();
 
     if (capabilities.capabilities.currentExtent.width != UINT32_MAX) 
     {
@@ -179,7 +213,11 @@ namespace Vulkan
     } 
     else 
     {
-      VkExtent2D actual_extent = {size.first, size.second};
+      VkExtent2D actual_extent = 
+      {
+        size.first >= 0 ? (uint32_t) size.first : 0,
+        size.second >= 0 ? (uint32_t) size.second : 0
+      };
       actual_extent.width = std::max(capabilities.capabilities.minImageExtent.width, std::min(capabilities.capabilities.maxImageExtent.width, actual_extent.width));
       actual_extent.height = std::max(capabilities.capabilities.minImageExtent.height, std::min(capabilities.capabilities.maxImageExtent.height, actual_extent.height));
 
@@ -187,15 +225,39 @@ namespace Vulkan
     }
   }
 
-  void SwapChain::ReBuildSwapChain()
+  VkResult SwapChain_impl::ReCreate()
   {
     vkDeviceWaitIdle(device->GetDevice());
-    Destroy();
-    Create();
+    return Create();
   }
 
-  void SwapChain::SetPresentationMode(const VkPresentModeKHR mode)
+  VkResult SwapChain_impl::SetPresentMode(const VkPresentModeKHR mode)
   {
     present_mode = mode;
+    present_mode = GetSwapChainPresentMode();
+    return VK_SUCCESS;
+  }
+
+  SwapChain &SwapChain::operator=(SwapChain &&obj) noexcept
+  {
+    if (&obj == this) return *this;
+
+    impl = std::move(obj.impl);
+
+    return *this;
+  }
+
+  void SwapChain::swap(SwapChain &obj) noexcept
+  {
+    if (&obj == this) return;
+
+    impl.swap(obj.impl);
+  }
+
+  void swap(SwapChain &lhs, SwapChain &rhs) noexcept
+  {
+    if (&lhs == &rhs) return;
+
+    lhs.swap(rhs);
   }
 }

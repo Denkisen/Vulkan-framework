@@ -27,8 +27,8 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 add_executable(${RUNTIME_OUTPUT_NAME} main.cpp)
 
 file(GLOB_RECURSE files 
-  "Vulkan_/*.cpp"
-  "Vulkan_/Pipelines/*.cpp"
+  "Vulkan/*.cpp"
+  "Vulkan/Pipelines/*.cpp"
   "libs/*.cpp"
 )
 foreach(file ${files})
