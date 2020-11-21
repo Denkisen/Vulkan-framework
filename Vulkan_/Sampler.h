@@ -22,7 +22,7 @@ namespace Vulkan
     float lod_min = 0.0; 
     float lod_max = 0.0; 
   public:
-    SamplerConfig() noexcept = default;
+    SamplerConfig() = default;
     ~SamplerConfig() noexcept = default;
     auto &SetLODMax(const float val) noexcept { lod_max = val; return *this; }
     auto &SetLODMin(const float val) noexcept { lod_min = val; return *this; }
@@ -45,7 +45,7 @@ namespace Vulkan
     Sampler_impl &operator=(Sampler_impl &&obj) = delete;
   private:
     friend class Sampler;
-    Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params) noexcept;
+    Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params);
     VkSampler GetSampler() const noexcept { return sampler; }
     VkFilter GetMinificationFilter() const noexcept { return conf.min_filter; }
     VkFilter GetMagnificationFilter() const noexcept { return conf.mag_filter; }
@@ -63,12 +63,12 @@ namespace Vulkan
     Sampler() = delete;
     Sampler(const Sampler &obj) = delete;
     Sampler &operator=(const Sampler &obj) = delete;
-    ~Sampler() = default;
+    ~Sampler() noexcept = default;
     Sampler(Sampler &&obj) noexcept : impl(std::move(obj.impl)) {};
-    Sampler(const std::shared_ptr<Device> dev, const SamplerConfig &params) noexcept : impl(std::unique_ptr<Sampler_impl>(new Sampler_impl(dev, params))) {};
+    Sampler(const std::shared_ptr<Device> dev, const SamplerConfig &params) : impl(std::unique_ptr<Sampler_impl>(new Sampler_impl(dev, params))) {};
     Sampler &operator=(Sampler &&obj) noexcept;
     void swap(Sampler &obj) noexcept;
-    bool IsValid() { return impl.get() && impl->sampler != VK_NULL_HANDLE; }
+    bool IsValid() const noexcept { return impl.get() && impl->sampler != VK_NULL_HANDLE; }
     VkSampler GetSampler() const noexcept { if (impl.get()) return impl->GetSampler(); return VK_NULL_HANDLE; }
     VkFilter GetMinificationFilter() const noexcept { if (impl.get()) return impl->GetMinificationFilter(); return VK_FILTER_NEAREST; }
     VkFilter GetMagnificationFilter() const noexcept { if (impl.get()) return impl->GetMagnificationFilter(); return VK_FILTER_NEAREST; }

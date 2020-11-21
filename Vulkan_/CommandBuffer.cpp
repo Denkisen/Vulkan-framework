@@ -13,7 +13,7 @@ namespace Vulkan
       vkFreeCommandBuffers(device->GetDevice(), pool, 1, &buffer);
   }
 
-  CommandBuffer_impl::CommandBuffer_impl(const std::shared_ptr<Device> dev, const VkCommandPool pool, const VkCommandBufferLevel level) noexcept
+  CommandBuffer_impl::CommandBuffer_impl(const std::shared_ptr<Device> dev, const VkCommandPool pool, const VkCommandBufferLevel level)
   {
     if (dev.get() == nullptr || !dev->IsValid() || dev->GetDevice() == VK_NULL_HANDLE)
     {
@@ -70,7 +70,7 @@ namespace Vulkan
                         (uint32_t) image_bariers.size(), image_bariers.size() > 0 ? image_bariers.data() : nullptr);
   }
 
-  void CommandBuffer_impl::BeginCommandBuffer() noexcept
+  void CommandBuffer_impl::BeginCommandBuffer()
   {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -91,7 +91,7 @@ namespace Vulkan
     }
   }
 
-  void CommandBuffer_impl::EndCommandBuffer() noexcept
+  void CommandBuffer_impl::EndCommandBuffer()
   {
     if (state != BufferState::OnWrite) return;
 
@@ -107,7 +107,7 @@ namespace Vulkan
     }
   }
 
-  void CommandBuffer_impl::ResetCommandBuffer() noexcept
+  void CommandBuffer_impl::ResetCommandBuffer()
   {
     if (auto er = vkResetCommandBuffer(buffer, 0); er != VK_SUCCESS) 
     {
@@ -121,7 +121,7 @@ namespace Vulkan
     }
   }
 
-  VkResult CommandBuffer_impl::ExecuteBuffer(const uint32_t family_queue_index) noexcept
+  VkResult CommandBuffer_impl::ExecuteBuffer(const uint32_t family_queue_index)
   {
     if (state != BufferState::Ready) return VK_NOT_READY;
 
@@ -149,7 +149,7 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  VkResult CommandBuffer_impl::WaitForExecute(const uint64_t timeout) noexcept
+  VkResult CommandBuffer_impl::WaitForExecute(const uint64_t timeout)
   {
     if (state != BufferState::Ready) return VK_NOT_READY;
     
@@ -171,7 +171,7 @@ namespace Vulkan
     return VK_SUCCESS;
   }
 
-  void CommandBuffer_impl::BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset) noexcept
+  void CommandBuffer_impl::BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset)
   {
     if (state != BufferState::OnWrite) return;
 
@@ -209,7 +209,7 @@ namespace Vulkan
     vkCmdEndRenderPass(buffer);
   }
 
-  void CommandBuffer_impl::NextSubpass() noexcept
+  void CommandBuffer_impl::NextSubpass()
   {
     if (state != BufferState::OnWrite) return;
 
@@ -310,7 +310,7 @@ namespace Vulkan
     vkCmdSetDepthBias(buffer, depth_bias_constant_factor, depth_bias_clamp, depth_bias_slope_factor);
   }
 
-  void CommandBuffer_impl::ImageLayoutTransition(ImageArray &image, const size_t image_index, const VkImageLayout new_layout, const uint32_t mip_level, const bool transit_all_mip_levels) noexcept
+  void CommandBuffer_impl::ImageLayoutTransition(ImageArray &image, const size_t image_index, const VkImageLayout new_layout, const uint32_t mip_level, const bool transit_all_mip_levels)
   {
     if (state != BufferState::OnWrite) return;
 

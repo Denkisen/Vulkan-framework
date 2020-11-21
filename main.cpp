@@ -44,9 +44,7 @@ TEST (Vulkan, StorageArray)
                   .AddSubBuffer(test_data3.size(), sizeof(float))
                   .AddSubBuffer(test_data4.size(), sizeof(float))), VK_SUCCESS);
   EXPECT_EQ(array1.EndConfig(), VK_SUCCESS);
-#ifdef DEBUG
-  array1.UseChunkedMapping(false);
-#endif
+
   EXPECT_EQ(array1.SetSubBufferData(0, 0, test_data1), VK_SUCCESS);
   EXPECT_EQ(array1.SetSubBufferData(0, 1, test_data2), VK_SUCCESS);
   EXPECT_EQ(array1.SetBufferData(1, tmp), VK_SUCCESS);

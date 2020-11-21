@@ -57,10 +57,7 @@ namespace Vulkan
       if (cout_echo)
         std::cout << str << std::endl;      
     }
-    catch(const std::exception& e)
-    {
-
-    }
+    catch(...) { }
   }
 
   void Logger::EchoWarning(std::string text, std::string func_name) noexcept
@@ -81,10 +78,7 @@ namespace Vulkan
       if (cout_echo)
         std::cout << str << std::endl;      
     }
-    catch(const std::exception& e)
-    {
-
-    }
+    catch(...) { }
   }
 
   void Logger::EchoError(std::string text, std::string func_name) noexcept
@@ -105,10 +99,7 @@ namespace Vulkan
       if (cout_echo)
         std::cout << str << std::endl;      
     }
-    catch(const std::exception& e)
-    {
-
-    }
+    catch(...) { }
   }
 
   void Logger::EchoDebug(std::string text, std::string func_name) noexcept
@@ -130,16 +121,17 @@ namespace Vulkan
       if (cout_echo)
         std::cout << str << std::endl;      
     }
-    catch(const std::exception& e)
-    {
-
-    }
+    catch(...) { }
 #endif
   }
 
   Logger::~Logger()
   {
     std::lock_guard<std::mutex> lock(echo_mutex);
-    if (file.is_open()) file.close();
+    try
+    {
+      if (file.is_open()) file.close();
+    }
+    catch(...) { }
   }
 }

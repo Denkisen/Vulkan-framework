@@ -36,84 +36,56 @@ namespace Vulkan
     lhs.swap(rhs);
   }
 
-  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) noexcept
+  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params)
   {
     std::lock_guard lock(pipelines_mutex);
-    try
-    {
-      pipelines.emplace_back(ComputePipeline(dev, params));
-    
-      return std::visit([] (auto &&obj) -> VkResult 
-      { 
-        return obj.GetPipeline() != VK_NULL_HANDLE ? VK_SUCCESS : VK_INCOMPLETE; 
-      }, pipelines[pipelines.size() - 1]);
-    }
-    catch (...)
-    {
-      return VK_ERROR_UNKNOWN;
-    }
 
-  }
+    pipelines.emplace_back(ComputePipeline(dev, params));
 
-  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params) noexcept
-  {
-    std::lock_guard lock(pipelines_mutex);
-    try
-    {
-      pipelines.emplace_back(GraphicPipeline(dev, swapchain, render_pass, params));
-
-      return std::visit([](auto &&obj) -> VkResult 
+    return std::visit([](auto&& obj) -> VkResult
       {
         return obj.GetPipeline() != VK_NULL_HANDLE ? VK_SUCCESS : VK_INCOMPLETE;
       }, pipelines[pipelines.size() - 1]);
-    }
-    catch (...)
-    {
-      return VK_ERROR_UNKNOWN;
-    }
+
   }
 
-  VkResult Pipelines::AddPipeline(ComputePipeline &&obj) noexcept
+  VkResult Pipelines::AddPipeline(const std::shared_ptr<Device> dev, const std::shared_ptr<SwapChain> swapchain, const std::shared_ptr<RenderPass> render_pass, const GraphicPipelineConfig &params)
+  {
+    std::lock_guard lock(pipelines_mutex);
+
+    pipelines.emplace_back(GraphicPipeline(dev, swapchain, render_pass, params));
+
+    return std::visit([](auto&& obj) -> VkResult
+      {
+        return obj.GetPipeline() != VK_NULL_HANDLE ? VK_SUCCESS : VK_INCOMPLETE;
+      }, pipelines[pipelines.size() - 1]);
+  }
+
+  VkResult Pipelines::AddPipeline(ComputePipeline &&obj)
   {
     std::lock_guard lock(pipelines_mutex);
     if (obj.GetPipeline() != VK_NULL_HANDLE)
     {
-      try
-      {
-        pipelines.emplace_back(std::move(obj));
-      }
-      catch (...)
-      {
-        return VK_ERROR_UNKNOWN;
-      }
+      pipelines.emplace_back(std::move(obj));
+      return VK_SUCCESS;
     }
-    else 
-      return VK_INCOMPLETE;
-    
-    return VK_SUCCESS;
+
+    return VK_INCOMPLETE;
   }
 
-  VkResult Pipelines::AddPipeline(GraphicPipeline &&obj) noexcept
+  VkResult Pipelines::AddPipeline(GraphicPipeline &&obj)
   {
     std::lock_guard lock(pipelines_mutex);
     if (obj.GetPipeline() != VK_NULL_HANDLE)
     {
-      try
-      {
-        pipelines.emplace_back(std::move(obj));
-      }
-      catch (...)
-      {
-        return VK_ERROR_UNKNOWN;
-      }
+      pipelines.emplace_back(std::move(obj));
+      return VK_SUCCESS;
     }
-    else 
-      return VK_INCOMPLETE;
-    
-    return VK_SUCCESS;
+
+    return VK_INCOMPLETE;
   }
 
-  VkPipelineLayout Pipelines::GetLayout(const size_t index) noexcept
+  VkPipelineLayout Pipelines::GetLayout(const size_t index)
   {
     std::lock_guard lock(pipelines_mutex);
     if (index >= pipelines.size())
@@ -125,7 +97,7 @@ namespace Vulkan
     return std::visit([] (auto &&obj) -> VkPipelineLayout { return obj.GetLayout(); }, pipelines[index]);
   }
 
-  VkPipeline Pipelines::GetPipeline(const size_t index) noexcept
+  VkPipeline Pipelines::GetPipeline(const size_t index)
   {
     std::lock_guard lock(pipelines_mutex);
     if (index >= pipelines.size())

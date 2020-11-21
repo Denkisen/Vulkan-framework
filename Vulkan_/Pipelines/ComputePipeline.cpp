@@ -24,7 +24,7 @@ namespace Vulkan
     }
   }
 
-  ComputePipeline_impl::ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params) noexcept
+  ComputePipeline_impl::ComputePipeline_impl(const std::shared_ptr<Device> dev, const ComputePipelineConfig &params)
   {
     if (dev.get() == nullptr || !dev->IsValid())
     {
@@ -62,7 +62,6 @@ namespace Vulkan
     pipeline_create_info.layout = pipeline_layout;
     pipeline_create_info.basePipelineHandle = params.base_pipeline;
     pipeline_create_info.flags = params.base_pipeline != VK_NULL_HANDLE ? VK_PIPELINE_CREATE_DERIVATIVE_BIT : VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
-    is_base = params.base_pipeline == VK_NULL_HANDLE;
 
     auto er = vkCreateComputePipelines(device->GetDevice(), VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &pipeline);
       

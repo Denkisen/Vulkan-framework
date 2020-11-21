@@ -208,7 +208,7 @@ namespace Vulkan
     return VK_FALSE;
   }
 
-  VkResult Misc::CreateDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger) noexcept
+  VkResult Misc::CreateDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger)
   {
     VkDebugUtilsMessengerCreateInfoEXT create_d_info = {};
     create_d_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -220,13 +220,13 @@ namespace Vulkan
     return func(instance, &create_d_info, nullptr, &debug_messenger);
   }
 
-  void Misc::DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger) noexcept
+  void Misc::DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger)
   {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     func(instance, debug_messenger, nullptr);
   }
 
-  SwapChainDetails Misc::GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface) noexcept
+  SwapChainDetails Misc::GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface)
   {
     SwapChainDetails ret;
     if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &ret.capabilities) != VK_SUCCESS)
@@ -244,14 +244,7 @@ namespace Vulkan
 
     if (count != 0) 
     {
-      try
-      {
-        ret.formats.resize(count);
-      }
-      catch (...)
-      {
-        return ret;
-      }
+      ret.formats.resize(count);
       
       if (vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, ret.formats.data()) != VK_SUCCESS)
       {
@@ -269,14 +262,7 @@ namespace Vulkan
 
     if (count != 0) 
     {
-      try
-      {
-        ret.present_modes.resize(count);
-      }
-      catch (...)
-      {
-        return ret;
-      }
+      ret.present_modes.resize(count);
       
       if (vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, ret.present_modes.data()) != VK_SUCCESS)
       {
@@ -411,7 +397,7 @@ namespace Vulkan
     }
   }
 
-  VkPipelineLayout Misc::CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts) noexcept
+  VkPipelineLayout Misc::CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts)
   {
     VkPipelineLayout result = VK_NULL_HANDLE;
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};

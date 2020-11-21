@@ -13,15 +13,22 @@ namespace Vulkan
       surface = VK_NULL_HANDLE;
     }
 
-    if (window != nullptr)
+    try
     {
-      glfwDestroyWindow(window);
-      window = nullptr;
+      if (window != nullptr)
+      {
+        glfwDestroyWindow(window);
+        window = nullptr;
+      }
+      glfwTerminate();
     }
-    glfwTerminate();
+    catch (...)
+    {
+      Logger::EchoError("Error while destroying surface", __func__);
+    }
   }
 
-  Surface_impl::Surface_impl(const SurfaceConfig &params) noexcept
+  Surface_impl::Surface_impl(const SurfaceConfig &params)
   {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -49,7 +56,7 @@ namespace Vulkan
     }
   }
 
-  std::pair<int32_t, int32_t> Surface_impl::GetFramebufferSize() const noexcept
+  std::pair<int32_t, int32_t> Surface_impl::GetFramebufferSize() const
   {
     std::pair<int32_t, int32_t> res;
     glfwGetFramebufferSize(window, &res.first, &res.second);

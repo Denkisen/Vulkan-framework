@@ -8,9 +8,11 @@ namespace Vulkan
   Sampler_impl::~Sampler_impl() noexcept
   {
     Logger::EchoDebug("", __func__);
+    if (sampler != VK_NULL_HANDLE)
+      vkDestroySampler(device->GetDevice(), sampler, nullptr);
   }
 
-  Sampler_impl::Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params) noexcept
+  Sampler_impl::Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params)
   {
     if (dev.get() == nullptr || !dev->IsValid())
     {

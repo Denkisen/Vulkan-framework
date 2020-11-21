@@ -43,7 +43,8 @@ namespace Vulkan
     VkImageView image_view = VK_NULL_HANDLE;
     ImageType type = ImageType::Storage;
     VkDeviceSize size = 0;
-    VkDeviceSize offset = 0;
+    HostVisibleMemory access = HostVisibleMemory::HostVisible;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
     uint32_t channels = 4;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageAspectFlags aspect_flags = 0;
@@ -62,10 +63,11 @@ namespace Vulkan
     ImageType type = ImageType::Storage;
     ImageTiling tiling = ImageTiling::Optimal;
     VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+    HostVisibleMemory access = HostVisibleMemory::HostInvisible;
     VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT;
     std::string tag = "";
   public:
-    ImageConfig() noexcept = default;
+    ImageConfig() = default;
     ~ImageConfig() noexcept = default;
     auto &SetSize(const uint32_t im_height, const uint32_t im_width, const uint32_t im_channels = 4) noexcept 
     { 
@@ -76,7 +78,8 @@ namespace Vulkan
     auto &SetTiling(const ImageTiling val) noexcept { tiling = val; return *this; }
     auto &SetFormat(const VkFormat val) noexcept { format = val; return *this; }
     auto &SetSamplesCount(const VkSampleCountFlagBits val) noexcept { sample_count = val; return *this; }
-    auto &SetTag(const std::string val) noexcept { try { tag = val; } catch (...) { } return *this; }
+    auto &SetTag(const std::string val) { tag = val; return *this; }
+    auto &SetMemoryAccess(const HostVisibleMemory val) { access = val; return *this; }
   };
 
   class ImageArray_impl
@@ -92,37 +95,28 @@ namespace Vulkan
     friend class ImageArray;
     std::shared_ptr<Device> device;
     std::vector<image_t> images;
-    HostVisibleMemory access = HostVisibleMemory::HostVisible;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkDeviceSize size = 0;
-    VkDeviceSize align = 256;
     std::vector<ImageConfig> prebuild_config;
-    HostVisibleMemory prebuild_access_config = HostVisibleMemory::HostVisible;
-    std::mutex images_mutex;
-    std::mutex config_mutex;
 
     void Abort(std::vector<image_t> &imgs) const noexcept;
 
-    ImageArray_impl(const std::shared_ptr<Device> dev) noexcept;
-    VkResult StartConfig(const HostVisibleMemory val) noexcept;
-    VkResult AddImage(const ImageConfig &params) noexcept;
-    VkResult EndConfig() noexcept;
+    ImageArray_impl(const std::shared_ptr<Device> dev);
+    VkResult StartConfig() noexcept;
+    VkResult AddImage(const ImageConfig &params);
+    VkResult EndConfig();
     void Clear() noexcept;
-    HostVisibleMemory GetMemoryAccess() const noexcept { return access; }
-    size_t Count() noexcept { std::lock_guard lock(images_mutex); return images.size(); }
-    image_t GetInfo(const size_t index) noexcept { std::lock_guard lock(images_mutex); return index < images.size() ? images[index] : image_t(); }
+    size_t Count() const noexcept { return images.size(); }
+    image_t GetInfo(const size_t index) const { return index < images.size() ? images[index] : image_t(); }
     VkResult ChangeLayout(const size_t index, VkImageLayout layout) noexcept 
     { 
-      std::lock_guard lock(images_mutex); 
       if (index >= images.size()) return VK_ERROR_UNKNOWN;
 
       images[index].layout = layout; 
       return VK_SUCCESS;
     }
     template <typename T>
-    VkResult GetImageData(const size_t index, std::vector<T> &result) noexcept;
+    VkResult GetImageData(const size_t index, std::vector<T> &result) const;
     template <typename T>
-    VkResult SetImageData(const size_t index, const std::vector<T> &data) noexcept;
+    VkResult SetImageData(const size_t index, const std::vector<T> &data);
   };
 
   class ImageArray
@@ -131,40 +125,38 @@ namespace Vulkan
     std::unique_ptr<ImageArray_impl> impl;
   public:
     ImageArray() = delete;
-    ImageArray(const ImageArray &obj) noexcept;
+    ImageArray(const ImageArray &obj);
     ImageArray(ImageArray &&obj) noexcept : impl(std::move(obj.impl)) {};
-    ImageArray(const std::shared_ptr<Device> dev) noexcept : impl(std::unique_ptr<ImageArray_impl>(new ImageArray_impl(dev))) {};
-    ImageArray &operator=(const ImageArray &obj) noexcept;
+    ImageArray(const std::shared_ptr<Device> dev) : impl(std::unique_ptr<ImageArray_impl>(new ImageArray_impl(dev))) {};
+    ImageArray &operator=(const ImageArray &obj);
     ImageArray &operator=(ImageArray &&obj) noexcept;
     void swap(ImageArray &obj) noexcept;
     bool IsValid() const noexcept { return impl.get() && impl->device->IsValid(); }
-    VkResult StartConfig(const HostVisibleMemory val = HostVisibleMemory::HostVisible) noexcept { if (impl.get()) return impl->StartConfig(val); return VK_ERROR_UNKNOWN; }
-    VkResult AddImage(const ImageConfig &params) noexcept { if (impl.get()) return impl->AddImage(params); return VK_ERROR_UNKNOWN; }
-    VkResult EndConfig() noexcept { return impl->EndConfig(); return VK_ERROR_UNKNOWN; }
-    HostVisibleMemory GetMemoryAccess() const noexcept { if (impl.get()) return impl->GetMemoryAccess(); return HostVisibleMemory::HostVisible; }
+    VkResult StartConfig() noexcept { if (impl.get()) return impl->StartConfig(); return VK_ERROR_UNKNOWN; }
+    VkResult AddImage(const ImageConfig &params) { if (impl.get()) return impl->AddImage(params); return VK_ERROR_UNKNOWN; }
+    VkResult EndConfig() { return impl->EndConfig(); return VK_ERROR_UNKNOWN; }
     VkResult ChangeLayout(const size_t index, VkImageLayout layout) noexcept { if (impl.get()) return impl->ChangeLayout(index, layout); return VK_ERROR_UNKNOWN; }
     void Clear() noexcept { impl->Clear(); }
-    size_t Count() noexcept { return impl->Count(); return 0; }
-    image_t GetInfo(const size_t index) noexcept { if (impl.get()) return impl->GetInfo(index); return {}; }
+    size_t Count() const noexcept { return impl->Count(); return 0; }
+    image_t GetInfo(const size_t index) { if (impl.get()) return impl->GetInfo(index); return {}; }
     template <typename T>
-    VkResult GetImageData(const size_t index, std::vector<T> &result) noexcept { if (impl.get()) return impl->GetImageData(index, result); return VK_ERROR_UNKNOWN; }
+    VkResult GetImageData(const size_t index, std::vector<T> &result) const { if (impl.get()) return impl->GetImageData(index, result); return VK_ERROR_UNKNOWN; }
     template <typename T>
-    VkResult SetImageData(const size_t index, const std::vector<T> &data) noexcept { if (impl.get()) return impl->SetImageData(index, data); return VK_ERROR_UNKNOWN; }
+    VkResult SetImageData(const size_t index, const std::vector<T> &data) { if (impl.get()) return impl->SetImageData(index, data); return VK_ERROR_UNKNOWN; }
   };
 
   void swap(ImageArray &lhs, ImageArray &rhs) noexcept;
 
   template <typename T>
-  VkResult ImageArray_impl::GetImageData(const size_t index, std::vector<T> &result) noexcept
+  VkResult ImageArray_impl::GetImageData(const size_t index, std::vector<T> &result) const
   {
-    std::lock_guard lock(images_mutex);
     if (index >= images.size())
     {
       Logger::EchoError("Index is out of range", __func__);
       return VK_ERROR_UNKNOWN;
     }
 
-    if (memory == VK_NULL_HANDLE)
+    if (images[index].memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
       return VK_ERROR_UNKNOWN;
@@ -176,70 +168,63 @@ namespace Vulkan
       return VK_ERROR_UNKNOWN;
     }
 
-    if (access == HostVisibleMemory::HostInvisible)
+    if (images[index].access == HostVisibleMemory::HostInvisible)
     {
       Logger::EchoError("Can't get data from HostInvisible memory", __func__);
       return VK_ERROR_UNKNOWN;
     }
 
-    try
+    std::vector<T> tmp(std::ceil(images[index].size / sizeof(T)));
+    void* payload = nullptr;
+
+    auto er = vkMapMemory(device->GetDevice(), images[index].memory, 0, images[index].size, 0, &payload);
+
+    if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
     {
-      std::vector<T> tmp(std::ceil(images[index].size / sizeof(T)));
-      void *payload = nullptr;
-
-      auto er = vkMapMemory(device->GetDevice(), memory, images[index].offset, images[index].size, 0, &payload);
-
-      if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
-      {
-        Logger::EchoError("Can't map memory.", __func__);
-        Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
-        return VK_ERROR_UNKNOWN;
-      }
-
-      if (er == VK_SUCCESS)
-      {
-        std::memcpy(tmp.data(), payload, images[index].size);
-        vkUnmapMemory(device->GetDevice(), memory);
-        result.swap(tmp);
-      }
-      else
-      {
-        VkDeviceSize offset = images[index].offset;
-        for (VkDeviceSize i = 0; i < images[index].size / align; ++i)
-        {
-          er = vkMapMemory(device->GetDevice(), memory, offset, align, 0, &payload);
-          if (er != VK_SUCCESS)
-          {
-            Logger::EchoError("Can't map memory.", __func__);
-            return VK_ERROR_UNKNOWN;
-          }
-
-          std::memcpy(((uint8_t *)tmp.data()) + (i * align), payload, align);
-          vkUnmapMemory(device->GetDevice(), memory);
-          offset += align;
-        }
-        result.swap(tmp);
-      }
-    }
-    catch (...)
-    {
+      Logger::EchoError("Can't map memory.", __func__);
+      Logger::EchoDebug("Return code =" + std::to_string(er), __func__);
       return VK_ERROR_UNKNOWN;
+    }
+
+    if (er == VK_SUCCESS)
+    {
+      std::memcpy(tmp.data(), payload, images[index].size);
+      vkUnmapMemory(device->GetDevice(), images[index].memory);
+      result.swap(tmp);
+    }
+    else
+    {
+      VkDeviceSize offset = 0;
+      VkDeviceSize align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
+      for (VkDeviceSize i = 0; i < images[index].size / align; ++i)
+      {
+        er = vkMapMemory(device->GetDevice(), images[index].memory, offset, align, 0, &payload);
+        if (er != VK_SUCCESS)
+        {
+          Logger::EchoError("Can't map memory.", __func__);
+          return VK_ERROR_UNKNOWN;
+        }
+
+        std::memcpy(((uint8_t*)tmp.data()) + (i * align), payload, align);
+        vkUnmapMemory(device->GetDevice(), images[index].memory);
+        offset += align;
+      }
+      result.swap(tmp);
     }
 
     return VK_SUCCESS;
   }
 
   template <typename T>
-  VkResult ImageArray_impl::SetImageData(const size_t index, const std::vector<T> &data) noexcept
+  VkResult ImageArray_impl::SetImageData(const size_t index, const std::vector<T> &data)
   {
-    std::lock_guard lock(images_mutex);
     if (index >= images.size())
     {
       Logger::EchoError("Index is out of range", __func__);
       return VK_ERROR_UNKNOWN;
     }
 
-    if (memory == VK_NULL_HANDLE)
+    if (images[index].memory == VK_NULL_HANDLE)
     {
       Logger::EchoError("Memory is NULL", __func__);
       return VK_ERROR_UNKNOWN;
@@ -256,7 +241,7 @@ namespace Vulkan
       Logger::EchoWarning("Data is too big for buffer", __func__);
     }
 
-    if (access == HostVisibleMemory::HostInvisible)
+    if (images[index].access == HostVisibleMemory::HostInvisible)
     {
       Logger::EchoError("Can't get data from HostInvisible memory", __func__);
       return VK_ERROR_UNKNOWN;
@@ -264,7 +249,7 @@ namespace Vulkan
 
     void *payload = nullptr;
 
-    auto er = vkMapMemory(device->GetDevice(), memory, images[index].offset, images[index].size, 0, &payload);
+    auto er = vkMapMemory(device->GetDevice(), images[index].memory, 0, images[index].size, 0, &payload);
 
     if (er != VK_SUCCESS && er != VK_ERROR_MEMORY_MAP_FAILED)
     {
@@ -276,14 +261,15 @@ namespace Vulkan
     if (er == VK_SUCCESS)
     {
       std::memcpy(payload, data.data(), std::min(images[index].size, data.size() * sizeof(T)));
-      vkUnmapMemory(device->GetDevice(), memory);
+      vkUnmapMemory(device->GetDevice(), images[index].memory);
     }
     else
     {
-      VkDeviceSize offset = images[index].offset;
+      VkDeviceSize offset = 0;
+      VkDeviceSize align = device->GetPhysicalDeviceProperties().limits.minMemoryMapAlignment;
       for (VkDeviceSize i = 0; i < std::min(images[index].size, data.size() * sizeof(T)) / align; ++i)
       {
-        er = vkMapMemory(device->GetDevice(), memory, offset, align, 0, &payload);
+        er = vkMapMemory(device->GetDevice(), images[index].memory, offset, align, 0, &payload);
         if (er != VK_SUCCESS)
         {
           Logger::EchoError("Can't map memory.", __func__);
@@ -291,7 +277,7 @@ namespace Vulkan
         }
 
         std::memcpy(payload, ((uint8_t *) data.data()) + (i * align), align);
-        vkUnmapMemory(device->GetDevice(), memory);
+        vkUnmapMemory(device->GetDevice(), images[index].memory);
         offset += align;
       }
     }

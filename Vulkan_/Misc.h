@@ -41,14 +41,14 @@ namespace Vulkan
     static std::vector<const char *> RequiredLayers;
     static std::vector<const char *> RequiredGraphicDeviceExtensions;
 
-    static VkResult CreateDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger) noexcept;
-    static void DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger) noexcept;
+    static VkResult CreateDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger);
+    static void DestroyDebugerMessenger(VkInstance &instance, VkDebugUtilsMessengerEXT &debug_messenger);
 
-    static SwapChainDetails GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface) noexcept;
+    static SwapChainDetails GetSwapChainDetails(const VkPhysicalDevice &device, const VkSurfaceKHR &surface);
     static size_t SizeOfFormat(const VkFormat format) noexcept;
 
     static VkShaderModule LoadPrecompiledShaderFromFile(const VkDevice dev, const std::string file_name) noexcept;
-    static VkPipelineLayout CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts) noexcept;
+    static VkPipelineLayout CreatePipelineLayout(const VkDevice dev, const std::vector<VkDescriptorSetLayout> desc_layouts);
     static std::string GetExecDirectory(const std::string argc_path) noexcept;
     static std::string GetFileExtention(const std::string file) noexcept;
     static VkDeviceSize Align(const VkDeviceSize value, const VkDeviceSize align) noexcept;

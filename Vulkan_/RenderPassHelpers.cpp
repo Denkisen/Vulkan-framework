@@ -28,21 +28,23 @@ namespace Vulkan::Helpers
 
     Vulkan::ImageArray tmp_buffers(dev);
     VkSampleCountFlagBits multisampling = VK_SAMPLE_COUNT_4_BIT;
-    tmp_buffers.StartConfig(Vulkan::HostVisibleMemory::HostInvisible);
+    tmp_buffers.StartConfig();
     tmp_buffers.AddImage(Vulkan::ImageConfig()
                                    .PreallocateMipLevels(false)
                                    .SetFormat(VK_FORMAT_D32_SFLOAT)
                                    .SetSamplesCount(multisampling)
                                    .SetSize(swapchain->GetExtent().height, swapchain->GetExtent().width)
                                    .SetTiling(Vulkan::ImageTiling::Optimal)
-                                   .SetType(Vulkan::ImageType::DepthBuffer));
+                                   .SetType(Vulkan::ImageType::DepthBuffer)
+                                   .SetMemoryAccess(Vulkan::HostVisibleMemory::HostInvisible));
     tmp_buffers.AddImage(Vulkan::ImageConfig()
                                    .PreallocateMipLevels(false)
                                    .SetFormat(swapchain->GetSurfaceFormat().format)
                                    .SetSamplesCount(multisampling)
                                    .SetSize(swapchain->GetExtent().height, swapchain->GetExtent().width)
                                    .SetTiling(Vulkan::ImageTiling::Optimal)
-                                   .SetType(Vulkan::ImageType::Multisampling));
+                                   .SetType(Vulkan::ImageType::Multisampling)
+                                   .SetMemoryAccess(Vulkan::HostVisibleMemory::HostInvisible));
     tmp_buffers.EndConfig();
 
     Vulkan::RenderPassConfig config;
