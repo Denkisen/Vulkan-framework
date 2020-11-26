@@ -34,6 +34,7 @@ namespace Vulkan
   {
     VkDeviceSize size = 0;
     VkDeviceSize offset = 0;
+    VkDeviceSize elements = 0;
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkBufferView view = VK_NULL_HANDLE;
     std::string tag = "";
@@ -63,13 +64,22 @@ namespace Vulkan
     BufferConfig &AddSubBuffer(const VkDeviceSize length, const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED)
     { 
       sizes.push_back({length, item_size, format});
-
       return *this; 
+    }
+    template <typename T> BufferConfig &AddSubBuffer(const std::vector<T> data, const VkFormat format = VK_FORMAT_UNDEFINED)
+    {
+      sizes.push_back({data.size(), sizeof(T), format});
+      return *this;
     }
     BufferConfig &AddSubBufferRange(const VkDeviceSize buffers_count, const VkDeviceSize length, 
                                     const VkDeviceSize item_size = 1, const VkFormat format = VK_FORMAT_UNDEFINED)
     {
       for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({length, item_size, format});
+      return *this;
+    }
+    template <typename T> BufferConfig &AddSubBufferRange(const VkDeviceSize buffers_count, const std::vector<T> data, const VkFormat format = VK_FORMAT_UNDEFINED)
+    {
+      for (VkDeviceSize i = 0; i < buffers_count; ++i) sizes.push_back({data.size(), sizeof(T), format});
       return *this;
     }
     BufferConfig &SetType(const StorageType type) noexcept { buffer_type = type; return *this; }
@@ -107,6 +117,7 @@ namespace Vulkan
     HostVisibleMemory GetMemoryAccess() const noexcept { return access; }
     size_t SubBuffsCount(const size_t index) const noexcept { return index < buffers.size() ? buffers[index].sub_buffers.size() : 0;}
     buffer_t GetInfo(const size_t index) const { return index < buffers.size() ? buffers[index] : buffer_t(); }
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
     template <typename T>
     VkResult GetBufferData(const size_t index, std::vector<T> &result) const;
     template <typename T>
@@ -137,6 +148,7 @@ namespace Vulkan
     bool IsValid() const noexcept { return impl.get() && impl->device->IsValid(); }
     size_t SubBuffsCount(const size_t index) const noexcept { if (impl.get()) return impl->SubBuffsCount(index); return 0; }
     buffer_t GetInfo(const size_t index) const { if (impl.get()) return impl->GetInfo(index); return {}; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
     HostVisibleMemory GetMemoryAccess() const noexcept { if (impl.get()) return impl->GetMemoryAccess(); return HostVisibleMemory::HostVisible; }
     template <typename T>
     VkResult GetBufferData(const size_t index, std::vector<T> &result) const { if (impl.get()) return impl->GetBufferData(index, result); return VK_ERROR_UNKNOWN; }

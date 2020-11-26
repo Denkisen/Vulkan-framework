@@ -74,7 +74,7 @@ namespace Vulkan
         return *this;
       }
 
-      if (desc_info.size == 0)
+      if (desc_info.buffer_info.buffer != VK_NULL_HANDLE && desc_info.size == 0)
       {
         Logger::EchoError("Size is 0", __func__);
         return *this;
@@ -167,6 +167,7 @@ namespace Vulkan
     VkDescriptorSet GetDescriptorSet(const size_t index) const noexcept { return index < layouts.size() ? layouts[index].set : VK_NULL_HANDLE; }
     std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() const;
     std::vector<VkDescriptorSet> GetDescriptorSets() const;
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
   };
 
   class Descriptors
@@ -191,6 +192,7 @@ namespace Vulkan
     std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() const { if (impl.get()) return impl->GetDescriptorSetLayouts(); return {}; }
     std::vector<VkDescriptorSet> GetDescriptorSets() const { if (impl.get()) return impl->GetDescriptorSets(); return {}; }
     bool IsValid() const noexcept { return impl.get() && impl->descriptor_pool != VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
   };
 
   void swap(Descriptors &lhs, Descriptors &rhs) noexcept;

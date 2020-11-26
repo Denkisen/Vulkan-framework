@@ -44,6 +44,7 @@ namespace Vulkan
     VkExtent2D GetExtent() const noexcept { return extent; }
     uint32_t GetImagesCount() const noexcept { return images_in_swapchain; }
     std::vector<VkImageView> GetImageViews() const { return swapchain_image_views; }
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
   };
 
   class SwapChain
@@ -67,6 +68,7 @@ namespace Vulkan
     VkExtent2D GetExtent() const noexcept { if (impl.get()) return impl->GetExtent(); return {}; }
     uint32_t GetImagesCount() const noexcept { if (impl.get()) return impl->GetImagesCount(); return 0; }
     std::vector<VkImageView> GetImageViews() const { if (impl.get()) return impl->GetImageViews(); return {}; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
     ~SwapChain() noexcept = default;
   };
 

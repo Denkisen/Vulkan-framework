@@ -45,14 +45,14 @@ namespace Vulkan
     Sampler_impl &operator=(Sampler_impl &&obj) = delete;
   private:
     friend class Sampler;
+    VkSampler sampler = VK_NULL_HANDLE;
+    std::shared_ptr<Vulkan::Device> device;
+    SamplerConfig conf;
     Sampler_impl(const std::shared_ptr<Device> dev, const SamplerConfig &params);
     VkSampler GetSampler() const noexcept { return sampler; }
     VkFilter GetMinificationFilter() const noexcept { return conf.min_filter; }
     VkFilter GetMagnificationFilter() const noexcept { return conf.mag_filter; }
-
-    VkSampler sampler = VK_NULL_HANDLE;
-    std::shared_ptr<Vulkan::Device> device;
-    SamplerConfig conf;
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
   };
 
   class Sampler
@@ -72,6 +72,7 @@ namespace Vulkan
     VkSampler GetSampler() const noexcept { if (impl.get()) return impl->GetSampler(); return VK_NULL_HANDLE; }
     VkFilter GetMinificationFilter() const noexcept { if (impl.get()) return impl->GetMinificationFilter(); return VK_FILTER_NEAREST; }
     VkFilter GetMagnificationFilter() const noexcept { if (impl.get()) return impl->GetMagnificationFilter(); return VK_FILTER_NEAREST; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
   };
 
   void swap(Sampler &lhs, Sampler &rhs) noexcept;

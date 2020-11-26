@@ -46,7 +46,7 @@ namespace Vulkan
     format = GetSwapChainFormat();
     present_mode = GetSwapChainPresentMode();
     extent = GetSwapChainExtent();
-    images_in_swapchain = capabilities.capabilities.minImageCount + 2;
+    images_in_swapchain = capabilities.capabilities.minImageCount + 1;
 
     if (capabilities.capabilities.maxImageCount > 0 && images_in_swapchain > capabilities.capabilities.maxImageCount) 
     {

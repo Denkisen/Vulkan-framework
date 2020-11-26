@@ -104,7 +104,7 @@ namespace Vulkan
     return true;
   }
 
-  VkResult CommandPool_impl::ExecuteBuffer(const uint32_t buffer_index)
+  VkResult CommandPool_impl::ExecuteBuffer(const uint32_t buffer_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores)
   {
     if (command_buffers.size() <= buffer_index || !command_buffers[buffer_index].IsReady())
     {
@@ -112,7 +112,7 @@ namespace Vulkan
       return VK_ERROR_UNKNOWN;
     }
     
-    return command_buffers[buffer_index].ExecuteBuffer(family_queue_index);
+    return command_buffers[buffer_index].ExecuteBuffer(family_queue_index, signal_semaphores, wait_dst_stages, wait_semaphores);
   }
 
   VkResult CommandPool_impl::WaitForExecute(const uint32_t buffer_index, const uint64_t timeout)

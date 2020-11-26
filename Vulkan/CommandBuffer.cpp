@@ -109,6 +109,8 @@ namespace Vulkan
 
   void CommandBuffer_impl::ResetCommandBuffer()
   {
+    if (on_execute && state != BufferState::Error) return;
+
     if (auto er = vkResetCommandBuffer(buffer, 0); er != VK_SUCCESS) 
     {
       Logger::EchoError("Failed to reset command buffer", __func__);
@@ -118,17 +120,31 @@ namespace Vulkan
     else
     {
       state = BufferState::NotReady;
+      on_execute = false;
     }
   }
 
-  VkResult CommandBuffer_impl::ExecuteBuffer(const uint32_t family_queue_index)
+  VkResult CommandBuffer_impl::ExecuteBuffer(const uint32_t family_queue_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores)
   {
     if (state != BufferState::Ready) return VK_NOT_READY;
+
+    if (wait_dst_stages.size() != wait_semaphores.size())
+    {
+      Logger::EchoError("wait_dst_stages.size() != wait_semaphores.size()", __func__);
+      state = BufferState::Error;
+      return VK_ERROR_UNKNOWN;
+    }
 
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &buffer;
+
+    submit_info.waitSemaphoreCount = (uint32_t) wait_semaphores.size();
+    submit_info.pWaitSemaphores = wait_semaphores.size() > 0 ? wait_semaphores.data() : nullptr;
+    submit_info.pWaitDstStageMask = wait_semaphores.size() > 0 ? wait_dst_stages.data() : nullptr;
+    submit_info.signalSemaphoreCount = (uint32_t) signal_semaphores.size();
+    submit_info.pSignalSemaphores = signal_semaphores.size() > 0 ? signal_semaphores.data() : nullptr; 
 
     if (auto er = vkResetFences(device->GetDevice(), 1, &exec_fence); er != VK_SUCCESS)
     {
@@ -146,12 +162,16 @@ namespace Vulkan
       return VK_ERROR_UNKNOWN;
     }
 
+    on_execute = true;
+
     return VK_SUCCESS;
   }
 
   VkResult CommandBuffer_impl::WaitForExecute(const uint64_t timeout)
   {
     if (state != BufferState::Ready) return VK_NOT_READY;
+
+    if (!on_execute) return VK_SUCCESS;
     
     if (auto er = vkWaitForFences(device->GetDevice(), 1, &exec_fence, VK_TRUE, timeout); er != VK_SUCCESS)
     {
@@ -168,6 +188,7 @@ namespace Vulkan
       Logger::EchoDebug("Return code = " + std::to_string(er), __func__);
     }
 
+    on_execute = false;
     return VK_SUCCESS;
   }
 
@@ -187,9 +208,7 @@ namespace Vulkan
     render_pass_info.renderArea.offset = offset;
     render_pass_info.renderArea.extent = render_pass->GetExtent();
 
-    std::vector<VkClearValue> clear_colors(1);
-    clear_colors[0].depthStencil = {1.0f, 0};
-    clear_colors[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+    auto clear_colors = render_pass->GetClearColors();
 
     render_pass_info.clearValueCount = (uint32_t) clear_colors.size();
     render_pass_info.pClearValues = clear_colors.data();
@@ -303,6 +322,19 @@ namespace Vulkan
     vkCmdSetViewport(buffer, 0, (uint32_t) viewports.size(), viewports.data());
   }
 
+  void CommandBuffer_impl::SetScissor(const std::vector<VkRect2D> &scissors) noexcept
+  {
+    if (state != BufferState::OnWrite) return;
+
+    if (scissors.empty())
+    {
+      Logger::EchoError("Viewports are empty", __func__);
+      return;
+    }
+
+    vkCmdSetScissor(buffer, 0, (uint32_t) scissors.size(), scissors.data());
+  }
+
   void CommandBuffer_impl::SetDepthBias(const float depth_bias_constant_factor, const float depth_bias_clamp, const float depth_bias_slope_factor) noexcept
   {
     if (state != BufferState::OnWrite) return;
@@ -314,9 +346,10 @@ namespace Vulkan
   {
     if (state != BufferState::OnWrite) return;
 
-    if (!image.IsValid() || image.Count() >= image_index)
+    if (!image.IsValid() || image.Count() <= image_index)
     {
       Logger::EchoError("Image array is not valid or index is out off bounds", __func__);
+      state = BufferState::Error;
       return;
     }
 
@@ -389,7 +422,7 @@ namespace Vulkan
     }
 
     SetMemoryBarrier({}, {}, {barrier}, src_stage, dst_stage);
-    if (image.ChangeLayout(image_index, new_layout) == VK_SUCCESS)
+    if (image.ChangeLayout(image_index, new_layout) != VK_SUCCESS)
     {
       Logger::EchoError("Can't change layout of image", __func__);
       state = BufferState::Error;
@@ -402,22 +435,47 @@ namespace Vulkan
 
     if (src == VK_NULL_HANDLE)
     {
-      Logger::EchoDebug("Invalid buffer", __func__);
+      Logger::EchoError("Invalid buffer", __func__);
+      state = BufferState::Error;
+      return;
     }
 
-    if (!image.IsValid() || image.Count() >= image_index)
+    if (!image.IsValid() || image.Count() <= image_index)
     {
       Logger::EchoError("Image array is not valid or index is out off bounds", __func__);
+      state = BufferState::Error;
       return;
     }
 
     if (regions.empty())
     {
       Logger::EchoError("Image array regions is empty", __func__);
+      state = BufferState::Error;
       return;
     }
 
     vkCmdCopyBufferToImage(buffer, src, image.GetInfo(image_index).image, image.GetInfo(image_index).layout, (uint32_t) regions.size(), regions.data());
+  }
+
+  void CommandBuffer_impl::CopyBufferToBuffer(const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions) noexcept
+  {
+    if (state != BufferState::OnWrite) return;
+
+    if (src == VK_NULL_HANDLE || dst == VK_NULL_HANDLE)
+    {
+      Logger::EchoError("Invalid buffer", __func__);
+      state = BufferState::Error;
+      return;
+    }
+
+    if (regions.empty())
+    {
+      Logger::EchoError("Image array regions is empty", __func__);
+      state = BufferState::Error;
+      return;
+    }
+
+    vkCmdCopyBuffer(buffer, src, dst, (uint32_t) regions.size(), regions.data());
   }
 
   CommandBuffer &CommandBuffer::operator=(CommandBuffer &&obj) noexcept

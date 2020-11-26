@@ -56,6 +56,7 @@ namespace Vulkan
   VkResult RenderPass_impl::Create()
   {
     Clear();
+    clear_colors.clear();
 
     std::vector<VkAttachmentDescription> attachments(conf.attach_configs.size());
     std::vector<VkImageView> attachment_views(conf.attach_configs.size());
@@ -64,6 +65,20 @@ namespace Vulkan
     {
       attachments[i] = conf.attach_configs[i].description;
       attachment_views[i] = conf.attach_configs[i].view;
+      if (attachments[i].loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR)
+      {
+        VkClearValue val = {};
+        if (attachments[i].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+        {
+          val.depthStencil = {1.0f, 0};
+        }
+        else
+        {
+          val.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        }
+        
+        clear_colors.push_back(val);
+      }
     }
 
     std::vector<VkSubpassDescription> subpasses(conf.subpass_consfig.size());
@@ -81,6 +96,8 @@ namespace Vulkan
 
       subpasses[i].preserveAttachmentCount = (uint32_t)conf.subpass_consfig[i].preserve.size();
       subpasses[i].pPreserveAttachments = subpasses[i].preserveAttachmentCount > 0 ? conf.subpass_consfig[i].preserve.data() : nullptr;
+
+      subpasses[i].pDepthStencilAttachment = &conf.subpass_consfig[i].depth_ref;
     }
 
     VkRenderPassCreateInfo render_pass_info = {};

@@ -35,11 +35,13 @@ namespace Vulkan
     CommandBuffer &GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     void ResetCommandBuffer(const uint32_t buffer_index);
     void PopLastCommandBuffer() noexcept;
-    VkResult ExecuteBuffer(const uint32_t buffer_index);
+    VkResult ExecuteBuffer(const uint32_t buffer_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores);
     VkResult WaitForExecute(const uint32_t buffer_index, const uint64_t timeout = UINT64_MAX);
     bool IsError(const uint32_t buffer_index) const noexcept;
     bool IsReady(const uint32_t buffer_index) const noexcept;
     bool IsReset(const uint32_t buffer_index) const noexcept;
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
+    uint32_t GetFamilyQueueIndex() const noexcept { return family_queue_index; }
   };
 
   class CommandPool
@@ -64,11 +66,13 @@ namespace Vulkan
     CommandBuffer& GetCommandBuffer(const uint32_t buffer_index, const VkCommandBufferLevel new_buffer_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) { if (impl.get()) return impl->GetCommandBuffer(buffer_index, new_buffer_level); return dummy_buffer; }
     void ResetCommandBuffer(const uint32_t buffer_index) { if (impl.get()) impl->ResetCommandBuffer(buffer_index); }
     void PopLastCommandBuffer() noexcept { if (impl.get()) impl->PopLastCommandBuffer(); }
-    VkResult ExecuteBuffer(const uint32_t buffer_index) { if (impl.get()) return impl->ExecuteBuffer(buffer_index); return VK_ERROR_UNKNOWN; }
+    VkResult ExecuteBuffer(const uint32_t buffer_index, const std::vector<VkSemaphore> signal_semaphores = {}, const std::vector<VkPipelineStageFlags> wait_dst_stages = {}, const std::vector<VkSemaphore> wait_semaphores = {}) { if (impl.get()) return impl->ExecuteBuffer(buffer_index, signal_semaphores, wait_dst_stages, wait_semaphores); return VK_ERROR_UNKNOWN; }
     VkResult WaitForExecute(const uint32_t buffer_index, const uint64_t timeout = UINT64_MAX) { if (impl.get()) return impl-> WaitForExecute(buffer_index, timeout); return VK_ERROR_UNKNOWN; }
     bool IsError(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsError(buffer_index); return true; }
     bool IsReady(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReady(buffer_index); return false; }
     bool IsReset(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReset(buffer_index); return true; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::optional<uint32_t> GetFamilyQueueIndex() const noexcept { if (impl.get()) return impl->GetFamilyQueueIndex(); return {}; }
   };
 
   void swap(CommandPool &lhs, CommandPool &rhs) noexcept;

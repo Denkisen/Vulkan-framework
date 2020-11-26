@@ -32,6 +32,7 @@ namespace Vulkan
       Error,
       OnWrite
     } state = BufferState::NotReady;
+    bool on_execute = false;
 
     CommandBuffer_impl(const std::shared_ptr<Device> dev, const VkCommandPool pool, const VkCommandBufferLevel level);
     void SetMemoryBarrier(const std::vector<VkBufferMemoryBarrier> buffer_barriers,
@@ -43,11 +44,13 @@ namespace Vulkan
     bool IsError() const noexcept { return state == BufferState::Error; }
     bool IsReady() const noexcept { return state == BufferState::Ready; }
     bool IsReset() const noexcept { return state == BufferState::NotReady; }
+    bool IsOnExecute() const noexcept { return on_execute; }
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
 
     void BeginCommandBuffer();
     void EndCommandBuffer();
     void ResetCommandBuffer();
-    VkResult ExecuteBuffer(const uint32_t family_queue_index);
+    VkResult ExecuteBuffer(const uint32_t family_queue_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores);
     VkResult WaitForExecute(const uint64_t timeout);
 
     void BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0});
@@ -64,11 +67,13 @@ namespace Vulkan
     void BindIndexBuffer(const VkBuffer buffer, const VkIndexType index_type, const VkDeviceSize offset = 0) noexcept;
 
     void SetViewport(const std::vector<VkViewport> &viewports) noexcept;
+    void SetScissor(const std::vector<VkRect2D> &scissors) noexcept;
     void SetDepthBias(const float depth_bias_constant_factor, const float depth_bias_clamp, const float depth_bias_slope_factor) noexcept;
 
     void ImageLayoutTransition(ImageArray &image, const size_t image_index, const VkImageLayout new_layout, const uint32_t mip_level = 0, const bool transit_all_mip_levels = true);
 
     void CopyBufferToImage(const VkBuffer src, ImageArray &image, const size_t image_index, const std::vector<VkBufferImageCopy> regions) noexcept;
+    void CopyBufferToBuffer(const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions) noexcept;
   };
   
   class CommandBuffer
@@ -78,9 +83,6 @@ namespace Vulkan
     friend class CommandPool;
     std::unique_ptr<CommandBuffer_impl> impl;
     CommandBuffer() noexcept = default;
-    VkResult ExecuteBuffer(const uint32_t family_queue_index) { if (impl.get()) return impl->ExecuteBuffer(family_queue_index); return VK_ERROR_UNKNOWN; }
-    VkResult WaitForExecute(const uint64_t timeout = UINT64_MAX) { if (impl.get()) return impl->WaitForExecute(timeout); return VK_ERROR_UNKNOWN; }
-    void ResetCommandBuffer() { if (impl.get()) impl->ResetCommandBuffer(); }
   public:
     ~CommandBuffer() noexcept = default;
     CommandBuffer(const CommandBuffer &obj) = delete;
@@ -94,6 +96,11 @@ namespace Vulkan
     bool IsError() const noexcept { return !impl.get() || impl->IsError(); }
     bool IsReady() const noexcept { return impl.get() && impl->IsReady(); }
     bool IsReset() const noexcept { return impl.get() && impl->IsReset(); }
+    bool IsOnExecute() const noexcept { return impl.get() && impl->IsOnExecute(); }
+    VkResult ExecuteBuffer(const uint32_t family_queue_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores) { if (impl.get()) return impl->ExecuteBuffer(family_queue_index, signal_semaphores, wait_dst_stages, wait_semaphores); return VK_ERROR_UNKNOWN; }
+    VkResult WaitForExecute(const uint64_t timeout = UINT64_MAX) { if (impl.get()) return impl->WaitForExecute(timeout); return VK_ERROR_UNKNOWN; }
+    void ResetCommandBuffer() { if (impl.get()) impl->ResetCommandBuffer(); }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
     auto &BeginCommandBuffer() { if (impl.get()) impl->BeginCommandBuffer(); return *this; }
     auto &EndCommandBuffer() { if (impl.get()) impl->EndCommandBuffer(); return *this; }
     auto &BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0}) { if (impl.get()) impl->BeginRenderPass(render_pass, frame_buffer_index, offset); return *this; }
@@ -107,9 +114,11 @@ namespace Vulkan
     auto &BindVertexBuffers(const std::vector<VkBuffer> buffers, const std::vector<VkDeviceSize> offsets, const uint32_t first_binding, const uint32_t binding_count) noexcept { if (impl.get()) impl->BindVertexBuffers(buffers, offsets, first_binding, binding_count); return *this; }
     auto &BindIndexBuffer(const VkBuffer buffer, const VkIndexType index_type, const VkDeviceSize offset = 0) noexcept { if (impl.get()) impl->BindIndexBuffer(buffer, index_type, offset); return *this; }
     auto &SetViewport(const std::vector<VkViewport> &viewports) noexcept { if (impl.get()) impl->SetViewport(viewports); return *this; }
+    auto &SetScissor(const std::vector<VkRect2D> &scissors) noexcept { if (impl.get()) impl->SetScissor(scissors); return *this; }
     auto &SetDepthBias(const float depth_bias_constant_factor, const float depth_bias_clamp, const float depth_bias_slope_factor) noexcept { if (impl.get()) impl->SetDepthBias(depth_bias_constant_factor, depth_bias_clamp, depth_bias_slope_factor); return *this; }
     auto &ImageLayoutTransition(ImageArray &image, const size_t image_index, const VkImageLayout new_layout, const uint32_t mip_level = 0, const bool transit_all_mip_levels = true) { if (impl.get()) impl->ImageLayoutTransition(image, image_index, new_layout, mip_level, transit_all_mip_levels); return *this; }
     auto &CopyBufferToImage(const VkBuffer src, ImageArray &image, const size_t image_index, const std::vector<VkBufferImageCopy> regions) noexcept { if (impl.get()) impl->CopyBufferToImage(src, image, image_index, regions); return *this; }
+    auto &CopyBufferToBuffer(const VkBuffer src, const VkBuffer dst, std::vector<VkBufferCopy> regions) noexcept { if (impl.get()) impl->CopyBufferToBuffer(src, dst, regions); return *this; }
   };
 
   void swap(CommandBuffer &lhs, CommandBuffer &rhs) noexcept;

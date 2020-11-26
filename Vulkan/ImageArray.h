@@ -39,12 +39,16 @@ namespace Vulkan
 
   struct image_t
   {
+  private:
+    friend class ImageArray_impl;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+  public:
     VkImage image = VK_NULL_HANDLE;
     VkImageView image_view = VK_NULL_HANDLE;
     ImageType type = ImageType::Storage;
     VkDeviceSize size = 0;
     HostVisibleMemory access = HostVisibleMemory::HostVisible;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
+    
     uint32_t channels = 4;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageAspectFlags aspect_flags = 0;
@@ -106,6 +110,7 @@ namespace Vulkan
     void Clear() noexcept;
     size_t Count() const noexcept { return images.size(); }
     image_t GetInfo(const size_t index) const { return index < images.size() ? images[index] : image_t(); }
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
     VkResult ChangeLayout(const size_t index, VkImageLayout layout) noexcept 
     { 
       if (index >= images.size()) return VK_ERROR_UNKNOWN;
@@ -138,6 +143,7 @@ namespace Vulkan
     VkResult ChangeLayout(const size_t index, VkImageLayout layout) noexcept { if (impl.get()) return impl->ChangeLayout(index, layout); return VK_ERROR_UNKNOWN; }
     void Clear() noexcept { impl->Clear(); }
     size_t Count() const noexcept { return impl->Count(); return 0; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
     image_t GetInfo(const size_t index) { if (impl.get()) return impl->GetInfo(index); return {}; }
     template <typename T>
     VkResult GetImageData(const size_t index, std::vector<T> &result) const { if (impl.get()) return impl->GetImageData(index, result); return VK_ERROR_UNKNOWN; }

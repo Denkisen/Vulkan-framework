@@ -108,8 +108,6 @@ namespace Vulkan
 
     std::vector<buffer_t> tmp_buffers;
     tmp_buffers.reserve(prebuild_config.size());
-    VkDeviceSize mem_size = 0;
-    VkDeviceSize b_offset = 0;
     for (auto& p : prebuild_config)
     {
       buffer_t tmp_b = {};
@@ -137,27 +135,21 @@ namespace Vulkan
         continue;
       }
 
-      VkDeviceSize v_offset = 0;
       tmp_b.sub_buffers.reserve(p.sizes.size());
+      VkDeviceSize raw_buff_size = 0;
       for (auto& b : p.sizes)
       {
         sub_buffer_t tmp_v = {};
+        tmp_v.elements = std::get<0>(b);
         tmp_v.format = std::get<2>(b);
         tmp_v.size = Misc::Align(std::get<0>(b) * std::get<1>(b), tmp_b.sub_buffer_align);
-        tmp_v.offset = v_offset;
-        tmp_b.size += tmp_v.size;
-        v_offset += tmp_b.size;
+        raw_buff_size += tmp_v.size;
         tmp_b.sub_buffers.push_back(tmp_v);
       }
 
-      tmp_b.size = Misc::Align(tmp_b.size, align);
-      mem_size += tmp_b.size;
-      tmp_b.offset = b_offset;
-      b_offset += tmp_b.size;
-
       VkBufferCreateInfo buffer_create_info = {};
       buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-      buffer_create_info.size = tmp_b.size;
+      buffer_create_info.size = raw_buff_size;
       buffer_create_info.usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT) | (VkBufferUsageFlags)tmp_b.type;
       buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -187,7 +179,7 @@ namespace Vulkan
 
     VkDeviceSize req_mem_size = 0;
     VkMemoryRequirements mem_req = VkMemoryRequirements{ 0, 0, 0 };
-
+    VkDeviceSize offset = 0;
     for (auto& obj : tmp_buffers)
     {
       VkMemoryRequirements mem_req_tmp = {};
@@ -196,8 +188,18 @@ namespace Vulkan
       {
         Logger::EchoWarning("Memory types are not equal", __func__);
       }
+      obj.offset = offset;
+      obj.size = mem_req_tmp.size;
+      VkDeviceSize v_offset = 0;
+      for (auto &s : obj.sub_buffers)
+      {
+        s.offset = v_offset;
+        v_offset += s.size;
+      }
+      offset += mem_req_tmp.size;
+
       mem_req = mem_req_tmp;
-      req_mem_size += mem_req.size;
+      req_mem_size += mem_req_tmp.size;
     }
 
     VkPhysicalDeviceMemoryProperties properties;
@@ -215,7 +217,7 @@ namespace Vulkan
       }
     }
 
-    if (!mem_index.has_value() || req_mem_size != mem_size)
+    if (!mem_index.has_value())
     {
       Logger::EchoError("No memory index", __func__);
       Abort(tmp_buffers);
@@ -274,7 +276,7 @@ namespace Vulkan
 
     buffers.swap(tmp_buffers);
     access = prebuild_access_config;
-    size = mem_size;
+    size = req_mem_size;
 
     return VK_SUCCESS;
   }

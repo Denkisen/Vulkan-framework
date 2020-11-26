@@ -95,6 +95,7 @@ namespace Vulkan
     std::shared_ptr<Device> device;
     std::shared_ptr<SwapChain> swapchain;
     std::vector<VkFramebuffer> frame_buffers;
+    std::vector<VkClearValue> clear_colors;
     VkRenderPass render_pass = VK_NULL_HANDLE;
     RenderPassConfig conf;
 
@@ -107,6 +108,8 @@ namespace Vulkan
     std::vector<VkFramebuffer> GetFrameBuffers() const { return frame_buffers; }
     uint32_t GetSubpassCount() const noexcept { return conf.subpass_consfig.size(); }
     std::shared_ptr<SwapChain> GetSwapChain() const { return swapchain; }
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
+    std::vector<VkClearValue> GetClearColors() const noexcept { return clear_colors; }
   };
 
   class RenderPass
@@ -128,6 +131,8 @@ namespace Vulkan
     std::vector<VkFramebuffer> GetFrameBuffers() const { if (impl.get()) return impl->GetFrameBuffers(); return {}; }
     uint32_t GetSubpassCount() const noexcept { if (impl.get()) return impl->GetSubpassCount(); return 0; }
     VkExtent2D GetExtent() const noexcept { if (impl.get()) return impl->swapchain->GetExtent(); return {}; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::vector<VkClearValue> GetClearColors() const noexcept { if (impl.get()) return impl->GetClearColors(); return {}; }
     ~RenderPass() noexcept = default;
   };
 
@@ -139,6 +144,8 @@ namespace Vulkan
                                                               const std::shared_ptr<SwapChain> swapchain,
                                                               ImageArray &buffers,
                                                               const VkSampleCountFlagBits samples_count);
+    std::shared_ptr<RenderPass> CreateOneSubpassRenderPass(const std::shared_ptr<Device> dev, 
+                                                            const std::shared_ptr<SwapChain> swapchain);
   }
 }
 

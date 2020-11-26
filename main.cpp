@@ -128,7 +128,7 @@ TEST (Vulkan, ComputePipeline)
   
   Vulkan::StorageArray array1(dev);
   EXPECT_EQ(array1.StartConfig(), VK_SUCCESS);
-  EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig().AddSubBufferRange(2, input.size(), sizeof(float))), VK_SUCCESS);
+  EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig().AddSubBufferRange(2, input)), VK_SUCCESS);
   EXPECT_EQ(array1.AddBuffer(Vulkan::BufferConfig().AddSubBuffer(1, sizeof(UniformData)).SetType(Vulkan::StorageType::Uniform)), VK_SUCCESS);
   EXPECT_EQ(array1.EndConfig(), VK_SUCCESS);
   EXPECT_EQ(array1.SetSubBufferData(0, 0, input), VK_SUCCESS);
