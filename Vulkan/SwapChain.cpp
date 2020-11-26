@@ -23,7 +23,7 @@ namespace Vulkan
     }
   }
 
-  SwapChain_impl::SwapChain_impl(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode)
+  SwapChain_impl::SwapChain_impl(const std::shared_ptr<Device> dev, const SwapChainConfig &params)
   {
     if (dev.get() == nullptr || !dev->IsValid())
     {
@@ -32,7 +32,8 @@ namespace Vulkan
     }
 
     device = dev;
-    present_mode = mode;
+    present_mode = params.mode;
+    images_in_swapchain = params.images_count;
     if (auto er = Create(); er != VK_SUCCESS)
     {
       Logger::EchoError("Can't create swapchain", __func__);
@@ -46,7 +47,9 @@ namespace Vulkan
     format = GetSwapChainFormat();
     present_mode = GetSwapChainPresentMode();
     extent = GetSwapChainExtent();
-    images_in_swapchain = capabilities.capabilities.minImageCount + 1;
+
+    if (images_in_swapchain < capabilities.capabilities.minImageCount)
+      images_in_swapchain = capabilities.capabilities.minImageCount;
 
     if (capabilities.capabilities.maxImageCount > 0 && images_in_swapchain > capabilities.capabilities.maxImageCount) 
     {

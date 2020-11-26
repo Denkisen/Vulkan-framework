@@ -22,7 +22,6 @@ namespace Vulkan
     friend class CommandBuffer;
     std::shared_ptr<Device> device;
     VkCommandBuffer buffer = VK_NULL_HANDLE;
-    VkFence exec_fence = VK_NULL_HANDLE;
     VkCommandPool pool = VK_NULL_HANDLE;
     VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     enum class BufferState
@@ -32,7 +31,6 @@ namespace Vulkan
       Error,
       OnWrite
     } state = BufferState::NotReady;
-    bool on_execute = false;
 
     CommandBuffer_impl(const std::shared_ptr<Device> dev, const VkCommandPool pool, const VkCommandBufferLevel level);
     void SetMemoryBarrier(const std::vector<VkBufferMemoryBarrier> buffer_barriers,
@@ -44,14 +42,16 @@ namespace Vulkan
     bool IsError() const noexcept { return state == BufferState::Error; }
     bool IsReady() const noexcept { return state == BufferState::Ready; }
     bool IsReset() const noexcept { return state == BufferState::NotReady; }
-    bool IsOnExecute() const noexcept { return on_execute; }
     std::shared_ptr<Device> GetDevice() const noexcept { return device; }
 
     void BeginCommandBuffer();
     void EndCommandBuffer();
     void ResetCommandBuffer();
-    VkResult ExecuteBuffer(const uint32_t family_queue_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores);
-    VkResult WaitForExecute(const uint64_t timeout);
+    VkResult ExecuteBuffer(const uint32_t family_queue_index,
+                           VkFence exec_fence,
+                           std::vector<VkSemaphore> signal_semaphores, 
+                           const std::vector<VkPipelineStageFlags> wait_dst_stages, 
+                           const std::vector<VkSemaphore> wait_semaphores);
 
     void BeginRenderPass(const std::shared_ptr<Vulkan::RenderPass> render_pass, const uint32_t frame_buffer_index, const VkOffset2D offset = {0, 0});
     void EndRenderPass() noexcept;
@@ -96,9 +96,7 @@ namespace Vulkan
     bool IsError() const noexcept { return !impl.get() || impl->IsError(); }
     bool IsReady() const noexcept { return impl.get() && impl->IsReady(); }
     bool IsReset() const noexcept { return impl.get() && impl->IsReset(); }
-    bool IsOnExecute() const noexcept { return impl.get() && impl->IsOnExecute(); }
-    VkResult ExecuteBuffer(const uint32_t family_queue_index, const std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores) { if (impl.get()) return impl->ExecuteBuffer(family_queue_index, signal_semaphores, wait_dst_stages, wait_semaphores); return VK_ERROR_UNKNOWN; }
-    VkResult WaitForExecute(const uint64_t timeout = UINT64_MAX) { if (impl.get()) return impl->WaitForExecute(timeout); return VK_ERROR_UNKNOWN; }
+    VkResult ExecuteBuffer(const uint32_t family_queue_index, VkFence exec_fence, std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores) { if (impl.get()) return impl->ExecuteBuffer(family_queue_index, exec_fence, signal_semaphores, wait_dst_stages, wait_semaphores); return VK_ERROR_UNKNOWN; }
     void ResetCommandBuffer() { if (impl.get()) impl->ResetCommandBuffer(); }
     std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
     auto &BeginCommandBuffer() { if (impl.get()) impl->BeginCommandBuffer(); return *this; }

@@ -185,8 +185,17 @@ TEST (Vulkan, ComputePipeline)
 
   EXPECT_EQ(pool.IsReady(0), true);
 
-  EXPECT_EQ(pool.ExecuteBuffer(0), VK_SUCCESS);
-  EXPECT_EQ(pool.WaitForExecute(0, UINT64_MAX), VK_SUCCESS);
+  VkFence f = VK_NULL_HANDLE;
+  VkFenceCreateInfo inf = {};
+  inf.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  vkCreateFence(dev->GetDevice(), &inf, nullptr, &f);
+
+  if (f != VK_NULL_HANDLE)
+  {
+    EXPECT_EQ(pool.ExecuteBuffer(0, f), VK_SUCCESS);
+    vkWaitForFences(dev->GetDevice(), 1, &f, VK_TRUE, UINT64_MAX);
+    vkDestroyFence(dev->GetDevice(), f, nullptr);
+  }
 
   std::vector<float> output(256, 0.0);
   EXPECT_EQ(array1.GetSubBufferData(0, 1, output), VK_SUCCESS);
@@ -211,7 +220,7 @@ TEST (Vulkan, RenderPass)
                                           .SetSurface(surf)
                                           .SetRequiredDeviceFeatures(f));
 
-  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, VK_PRESENT_MODE_FIFO_KHR);
+  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, Vulkan::SwapChainConfig());
 
   Vulkan::ImageArray buffers(dev);
   std::shared_ptr<Vulkan::RenderPass> render_pass = Vulkan::Helpers::CreateOneSubpassRenderPassMultisamplingDepth(dev, swapchain, buffers, VK_SAMPLE_COUNT_4_BIT);
@@ -231,7 +240,7 @@ TEST (Vulkan, DISABLED_GraphicPipeline)
                                           .SetSurface(surf)
                                           .SetRequiredDeviceFeatures(f));
 
-  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, VK_PRESENT_MODE_FIFO_KHR);
+  std::shared_ptr<Vulkan::SwapChain> swapchain = std::make_shared<Vulkan::SwapChain>(dev, Vulkan::SwapChainConfig());
 
   Vulkan::ImageArray buffers(dev);
   std::shared_ptr<Vulkan::RenderPass> render_pass = Vulkan::Helpers::CreateOneSubpassRenderPassMultisamplingDepth(dev, swapchain, buffers, VK_SAMPLE_COUNT_4_BIT);

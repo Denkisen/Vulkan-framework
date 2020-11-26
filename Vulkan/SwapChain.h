@@ -9,6 +9,19 @@
 
 namespace Vulkan
 {
+  class SwapChainConfig
+  {  
+  private:
+    friend class SwapChain_impl;
+    VkPresentModeKHR mode = VK_PRESENT_MODE_FIFO_KHR;
+    uint32_t images_count = 2;
+  public:
+    SwapChainConfig() = default;
+    ~SwapChainConfig() noexcept = default;
+    auto &SetPresentMode(const VkPresentModeKHR val) noexcept { mode = val; return *this; }
+    auto &SetImagesCount(const uint32_t val) noexcept { images_count = val; return *this; }
+  };
+
   class SwapChain_impl
   {
   public:
@@ -30,7 +43,7 @@ namespace Vulkan
     std::shared_ptr<Device> device;
     uint32_t images_in_swapchain = 0;
 
-    SwapChain_impl(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode);
+    SwapChain_impl(const std::shared_ptr<Device> dev, const SwapChainConfig &params);
     VkResult Create();
     VkSurfaceFormatKHR GetSwapChainFormat() const;
     VkPresentModeKHR GetSwapChainPresentMode() const;
@@ -55,8 +68,8 @@ namespace Vulkan
     SwapChain() = delete;
     SwapChain(const SwapChain &obj) = delete;
     SwapChain(SwapChain &&obj) noexcept : impl(std::move(obj.impl)) {};
-    SwapChain(const std::shared_ptr<Device> dev, const VkPresentModeKHR mode = VK_PRESENT_MODE_FIFO_KHR)  :
-      impl(std::unique_ptr<SwapChain_impl>(new SwapChain_impl(dev, mode))) {};
+    SwapChain(const std::shared_ptr<Device> dev, const SwapChainConfig &params)  :
+      impl(std::unique_ptr<SwapChain_impl>(new SwapChain_impl(dev, params))) {};
     SwapChain &operator=(const SwapChain &obj) = delete;
     SwapChain &operator=(SwapChain &&obj) noexcept;
     void swap(SwapChain &obj) noexcept;
