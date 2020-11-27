@@ -143,7 +143,7 @@ namespace Vulkan
     VkResult ChangeLayout(const size_t index, VkImageLayout layout) noexcept { if (impl.get()) return impl->ChangeLayout(index, layout); return VK_ERROR_UNKNOWN; }
     void Clear() noexcept { impl->Clear(); }
     size_t Count() const noexcept { return impl->Count(); return 0; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     image_t GetInfo(const size_t index) { if (impl.get()) return impl->GetInfo(index); return {}; }
     template <typename T>
     VkResult GetImageData(const size_t index, std::vector<T> &result) const { if (impl.get()) return impl->GetImageData(index, result); return VK_ERROR_UNKNOWN; }

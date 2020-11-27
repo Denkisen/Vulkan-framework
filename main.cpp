@@ -14,6 +14,7 @@
 #include "Vulkan/Misc.h"
 #include "Vulkan/RenderPass.h"
 #include "Vulkan/ImageArray.h"
+#include "Vulkan/Fence.h"
 
 struct UniformData
 {
@@ -185,16 +186,20 @@ TEST (Vulkan, ComputePipeline)
 
   EXPECT_EQ(pool.IsReady(0), true);
 
-  VkFence f = VK_NULL_HANDLE;
-  VkFenceCreateInfo inf = {};
-  inf.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  vkCreateFence(dev->GetDevice(), &inf, nullptr, &f);
-
-  if (f != VK_NULL_HANDLE)
+  if (Vulkan::Fence f(dev); f.IsValid())
   {
-    EXPECT_EQ(pool.ExecuteBuffer(0, f), VK_SUCCESS);
-    vkWaitForFences(dev->GetDevice(), 1, &f, VK_TRUE, UINT64_MAX);
-    vkDestroyFence(dev->GetDevice(), f, nullptr);
+    EXPECT_EQ(pool.ExecuteBuffer(0, f.GetFence()), VK_SUCCESS);
+    EXPECT_EQ(f.Wait(), VK_SUCCESS);
+  }
+
+  {
+    Vulkan::FenceArray f(dev);
+    EXPECT_EQ(f.Add(), VK_SUCCESS);
+    if (auto ptr = f.GetFence(0); ptr != nullptr)
+    {
+      EXPECT_EQ(pool.ExecuteBuffer(0, ptr->GetFence()), VK_SUCCESS);
+      EXPECT_EQ(f.WaitFor(), VK_SUCCESS);
+    }
   }
 
   std::vector<float> output(256, 0.0);

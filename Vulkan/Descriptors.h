@@ -192,7 +192,7 @@ namespace Vulkan
     std::vector<VkDescriptorSetLayout> GetDescriptorSetLayouts() const { if (impl.get()) return impl->GetDescriptorSetLayouts(); return {}; }
     std::vector<VkDescriptorSet> GetDescriptorSets() const { if (impl.get()) return impl->GetDescriptorSets(); return {}; }
     bool IsValid() const noexcept { return impl.get() && impl->descriptor_pool != VK_NULL_HANDLE; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
   };
 
   void swap(Descriptors &lhs, Descriptors &rhs) noexcept;

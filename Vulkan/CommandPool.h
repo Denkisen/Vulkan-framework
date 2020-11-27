@@ -73,7 +73,7 @@ namespace Vulkan
     bool IsError(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsError(buffer_index); return true; }
     bool IsReady(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReady(buffer_index); return false; }
     bool IsReset(const uint32_t buffer_index) const noexcept { if (impl.get()) return impl->IsReset(buffer_index); return true; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     std::optional<uint32_t> GetFamilyQueueIndex() const noexcept { if (impl.get()) return impl->GetFamilyQueueIndex(); return {}; }
   };
 

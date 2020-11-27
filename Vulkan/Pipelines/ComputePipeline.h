@@ -76,7 +76,7 @@ namespace Vulkan
     VkPipeline GetPipeline() const noexcept { if (impl.get()) return impl->GetPipeline(); return VK_NULL_HANDLE; }
     VkPipelineLayout GetLayout() const noexcept { if (impl.get()) return impl->GetLayout(); return VK_NULL_HANDLE; }
     bool IsValid() const noexcept { return impl.get() && impl->pipeline != VK_NULL_HANDLE; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     ~ComputePipeline() noexcept = default;
   };
 

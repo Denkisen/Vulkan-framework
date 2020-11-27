@@ -196,7 +196,7 @@ namespace Vulkan
     VkResult AddInputBinding(const GraphicPipelineConfig::InputBinding conf) { if (impl.get()) return impl->AddInputBinding(conf); return VK_ERROR_UNKNOWN; }
     VkResult ClearInputBindings() noexcept { if (impl.get()) return impl->ClearInputBindings(); return VK_ERROR_UNKNOWN; }
     VkResult AddDynamicState(const VkDynamicState state) { if (impl.get()) return impl->AddDynamicState(state); return VK_ERROR_UNKNOWN; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     ~GraphicPipeline() noexcept = default;
   };
 

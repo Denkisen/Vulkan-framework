@@ -131,7 +131,7 @@ namespace Vulkan
     std::vector<VkFramebuffer> GetFrameBuffers() const { if (impl.get()) return impl->GetFrameBuffers(); return {}; }
     uint32_t GetSubpassCount() const noexcept { if (impl.get()) return impl->GetSubpassCount(); return 0; }
     VkExtent2D GetExtent() const noexcept { if (impl.get()) return impl->swapchain->GetExtent(); return {}; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     std::vector<VkClearValue> GetClearColors() const noexcept { if (impl.get()) return impl->GetClearColors(); return {}; }
     ~RenderPass() noexcept = default;
   };

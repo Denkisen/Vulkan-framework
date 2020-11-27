@@ -72,7 +72,7 @@ namespace Vulkan
     VkSampler GetSampler() const noexcept { if (impl.get()) return impl->GetSampler(); return VK_NULL_HANDLE; }
     VkFilter GetMinificationFilter() const noexcept { if (impl.get()) return impl->GetMinificationFilter(); return VK_FILTER_NEAREST; }
     VkFilter GetMagnificationFilter() const noexcept { if (impl.get()) return impl->GetMagnificationFilter(); return VK_FILTER_NEAREST; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
   };
 
   void swap(Sampler &lhs, Sampler &rhs) noexcept;

@@ -148,7 +148,7 @@ namespace Vulkan
     bool IsValid() const noexcept { return impl.get() && impl->device->IsValid(); }
     size_t SubBuffsCount(const size_t index) const noexcept { if (impl.get()) return impl->SubBuffsCount(index); return 0; }
     buffer_t GetInfo(const size_t index) const { if (impl.get()) return impl->GetInfo(index); return {}; }
-    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return VK_NULL_HANDLE; }
+    std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     HostVisibleMemory GetMemoryAccess() const noexcept { if (impl.get()) return impl->GetMemoryAccess(); return HostVisibleMemory::HostVisible; }
     template <typename T>
     VkResult GetBufferData(const size_t index, std::vector<T> &result) const { if (impl.get()) return impl->GetBufferData(index, result); return VK_ERROR_UNKNOWN; }
