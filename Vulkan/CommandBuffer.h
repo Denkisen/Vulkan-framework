@@ -43,6 +43,7 @@ namespace Vulkan
     bool IsReady() const noexcept { return state == BufferState::Ready; }
     bool IsReset() const noexcept { return state == BufferState::NotReady; }
     std::shared_ptr<Device> GetDevice() const noexcept { return device; }
+    VkCommandBuffer GetBuffer() const noexcept { return buffer; }
 
     void BeginCommandBuffer();
     void EndCommandBuffer();
@@ -98,6 +99,7 @@ namespace Vulkan
     bool IsReset() const noexcept { return impl.get() && impl->IsReset(); }
     VkResult ExecuteBuffer(const uint32_t family_queue_index, VkFence exec_fence, std::vector<VkSemaphore> signal_semaphores, const std::vector<VkPipelineStageFlags> wait_dst_stages, const std::vector<VkSemaphore> wait_semaphores) { if (impl.get()) return impl->ExecuteBuffer(family_queue_index, exec_fence, signal_semaphores, wait_dst_stages, wait_semaphores); return VK_ERROR_UNKNOWN; }
     void ResetCommandBuffer() { if (impl.get()) impl->ResetCommandBuffer(); }
+    VkCommandBuffer GetBuffer() const noexcept { if (impl.get()) return impl->GetBuffer(); return VK_NULL_HANDLE; }
     std::shared_ptr<Device> GetDevice() const noexcept { if (impl.get()) return impl->GetDevice(); return nullptr; }
     auto &BeginCommandBuffer() { if (impl.get()) impl->BeginCommandBuffer(); return *this; }
     auto &EndCommandBuffer() { if (impl.get()) impl->EndCommandBuffer(); return *this; }
