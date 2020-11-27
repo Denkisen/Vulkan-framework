@@ -76,4 +76,136 @@ namespace Vulkan
 
     lhs.swap(rhs);
   }
+
+  SemaphoreArray::SemaphoreArray(const std::shared_ptr<Device> dev)
+  {
+    if (dev.get() == nullptr || !dev->IsValid())
+    {
+      Logger::EchoError("Device is empty", __func__);
+      return;
+    }
+
+    device = dev;
+  }
+
+  SemaphoreArray::SemaphoreArray(const SemaphoreArray &obj)
+  {
+    if (!obj.IsValid())
+    {
+      Logger::EchoError("SemaphoreArray is not valid", __func__);
+      return;
+    } 
+
+    device = obj.device;
+    for (auto &p : semaphores)
+    {
+      if (Add(p->impl->flags) != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't add semaphore", __func__);
+        Clear();
+        return;
+      }
+    }
+  }
+
+  SemaphoreArray::SemaphoreArray(SemaphoreArray &&obj) noexcept
+  {
+    device = std::move(obj.device);
+    p_semaphores = std::move(obj.p_semaphores);
+    semaphores = std::move(obj.semaphores);
+  }
+
+  SemaphoreArray &SemaphoreArray::operator=(const SemaphoreArray &obj)
+  {
+    if (!obj.IsValid())
+    {
+      Logger::EchoError("SemaphoreArray is not valid", __func__);
+      return *this;
+    } 
+
+    device = obj.device;
+    for (auto &p : semaphores)
+    {
+      if (Add(p->impl->flags) != VK_SUCCESS)
+      {
+        Logger::EchoError("Can't add semaphore", __func__);
+        Clear();
+        return *this;
+      }
+    }
+
+    return *this;
+  }
+
+  SemaphoreArray &SemaphoreArray::operator=(SemaphoreArray &&obj) noexcept
+  {
+    if (&obj == this) return *this;
+
+    device = std::move(obj.device);
+    p_semaphores = std::move(obj.p_semaphores);
+    semaphores = std::move(obj.semaphores);
+
+    return *this;
+  }
+
+  void SemaphoreArray::swap(SemaphoreArray &obj) noexcept
+  {
+    if (&obj == this) return;
+
+    device.swap(obj.device);
+    p_semaphores.swap(obj.p_semaphores);
+    semaphores.swap(obj.semaphores);
+  }
+
+  void swap(SemaphoreArray &lhs, SemaphoreArray &rhs) noexcept
+  {
+    if (&lhs == &rhs) return;
+
+    lhs.swap(rhs);
+  }
+
+  VkResult SemaphoreArray::Add(const VkSemaphoreCreateFlags flags)
+  {
+    auto ptr = std::shared_ptr<Semaphore>(new Semaphore(device, flags));
+    if (ptr->IsValid())
+    {
+      semaphores.push_back(ptr);
+      p_semaphores.push_back(ptr->impl->sem);
+      return VK_SUCCESS;
+    }
+
+    Logger::EchoError("Fence is not valid", __func__);
+
+    return VK_ERROR_UNKNOWN;
+  }
+
+  VkResult SemaphoreArray::Add(const std::shared_ptr<Semaphore> &obj)
+  {
+    if (obj->IsValid() && obj->impl->device == device)
+    {
+      semaphores.push_back(obj);
+      p_semaphores.push_back(obj->impl->sem);
+      return VK_SUCCESS;
+    }
+
+    Logger::EchoError("Fence is not valid", __func__);
+
+    return VK_ERROR_UNKNOWN;
+  }
+
+  VkResult SemaphoreArray::Add(Semaphore &&obj)
+  {
+    auto ptr = std::shared_ptr<Semaphore>(new Semaphore(obj));
+    if (ptr->IsValid() && obj.impl->device == device)
+    {
+      semaphores.push_back(ptr);
+      p_semaphores.push_back(ptr->impl->sem);
+      return VK_SUCCESS;
+    }
+
+    obj = std::move(*ptr);
+    Logger::EchoError("Fence is not valid", __func__);
+
+    return VK_ERROR_UNKNOWN;
+  }
 }

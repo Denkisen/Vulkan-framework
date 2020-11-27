@@ -20,7 +20,7 @@ namespace Vulkan
     ~Semaphore_impl() noexcept;
   private:
     friend class Semaphore;
-
+    friend class SemaphoreArray;
     std::shared_ptr<Device> device;
     VkSemaphore sem = VK_NULL_HANDLE;
     VkSemaphoreCreateFlags flags = 0;
@@ -33,7 +33,7 @@ namespace Vulkan
   class Semaphore
   {
   private:
-    friend class FenceArray;
+    friend class SemaphoreArray;
     std::unique_ptr<Semaphore_impl> impl;
   public:
     Semaphore() = delete;
@@ -49,7 +49,33 @@ namespace Vulkan
     ~Semaphore() noexcept = default;
   };
 
+  class SemaphoreArray
+  {
+  private:
+    std::shared_ptr<Device> device;
+    std::vector<VkSemaphore> p_semaphores;
+    std::vector<std::shared_ptr<Semaphore>> semaphores;
+  public:
+    SemaphoreArray() = delete;
+    SemaphoreArray(const std::shared_ptr<Device> dev);
+    SemaphoreArray(const SemaphoreArray &obj);
+    SemaphoreArray(SemaphoreArray &&obj) noexcept;
+    SemaphoreArray &operator=(const SemaphoreArray &obj);
+    SemaphoreArray &operator=(SemaphoreArray &&obj) noexcept;
+    void swap(SemaphoreArray &obj) noexcept;
+    VkResult Add(const VkSemaphoreCreateFlags flags = 0);
+    VkResult Add(const std::shared_ptr<Semaphore> &obj);
+    VkResult Add(Semaphore &&obj);
+    size_t Count() const noexcept { return semaphores.size(); }
+    void Clear() noexcept { p_semaphores.clear(); semaphores.clear(); };
+    std::shared_ptr<Semaphore> GetSemaphore(const size_t index) const noexcept { return index < semaphores.size() ? semaphores[index] : nullptr; };
+    std::shared_ptr<Device> GetDevice() const noexcept { return device; }
+    bool IsValid() const noexcept { return device->IsValid(); }
+    ~SemaphoreArray() noexcept = default;
+  };
+
   void swap(Semaphore &lhs, Semaphore &rhs) noexcept;
+  void swap(SemaphoreArray &lhs, SemaphoreArray &rhs) noexcept;
 }
 
 #endif
