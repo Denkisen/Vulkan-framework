@@ -1,6 +1,7 @@
 #ifndef __VULKAN_FENCE_H
 #define __VULKAN_FENCE_H
 
+#include "Logger.h"
 #include "Device.h"
 
 #include <memory>
@@ -69,6 +70,7 @@ namespace Vulkan
     FenceArray(FenceArray &&obj) noexcept;
     FenceArray &operator=(const FenceArray &obj);
     FenceArray &operator=(FenceArray &&obj) noexcept;
+    VkFence operator[](const size_t index) noexcept { return index < p_fences.size() ? p_fences[index] : VK_NULL_HANDLE; }
     void swap(FenceArray &obj) noexcept;
     VkResult Add(const VkFenceCreateFlags flags = 0);
     VkResult Add(const std::shared_ptr<Fence> &obj);

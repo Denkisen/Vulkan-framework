@@ -1,5 +1,4 @@
 #include "GraphicPipeline.h"
-#include "../Misc.h"
 
 namespace Vulkan
 {

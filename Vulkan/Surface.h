@@ -1,6 +1,9 @@
 #ifndef __VULKAN_SURFACE_H
 #define __VULKAN_SURFACE_H
 
+#include "Instance.h"
+#include "Logger.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <string>
@@ -20,7 +23,7 @@ namespace Vulkan
   public:
     SurfaceConfig() = default;
     ~SurfaceConfig() noexcept = default;
-    auto &SetAppTitle(const std::string text) { app_title = text; return *this; }
+    auto &SetAppTitle(const std::string &text) { app_title = text; return *this; }
     auto &SetWidght(const int32_t w) noexcept { widght = w; return *this; }
     auto &SetHeight(const int32_t h) noexcept { height = h; return *this; }
   };
@@ -47,6 +50,7 @@ namespace Vulkan
     void SetKeyCallback(GLFWkeyfun callback) { glfwSetKeyCallback(window, callback); }
     void SetFramebufferSizeCallback(GLFWframebuffersizefun callback) { glfwSetFramebufferSizeCallback(window, callback); }
     void SetWindowUserPointer(void *p) { glfwSetWindowUserPointer(window, p); }
+    void SetWindowTitle(const std::string &title) { glfwSetWindowTitle(window, title.c_str()); }
     void *GetWindowUserPointer() const { return glfwGetWindowUserPointer(window); }
     std::pair<int32_t, int32_t> GetFramebufferSize() const;
     VkBool32 IsWindowShouldClose() const { return glfwWindowShouldClose(window); }
@@ -73,6 +77,7 @@ namespace Vulkan
     void SetKeyCallback(GLFWkeyfun callback) { if (impl.get()) impl->SetKeyCallback(callback); }
     void SetFramebufferSizeCallback(GLFWframebuffersizefun callback) { if (impl.get()) impl->SetFramebufferSizeCallback(callback); }
     void SetWindowUserPointer(void *p) { if (impl.get()) impl->SetWindowUserPointer(p); }
+    void SetWindowTitle(const std::string &title) { if (impl.get()) impl->SetWindowTitle(title); } 
     void *GetWindowUserPointer() const { if (impl.get()) return impl->GetWindowUserPointer(); return nullptr; }
     std::pair<int32_t, int32_t> GetFramebufferSize() const { if (impl.get()) return impl->GetFramebufferSize(); return {0, 0};}
     VkBool32 IsWindowShouldClose() const { if (impl.get()) return impl->IsWindowShouldClose(); return VK_TRUE; }

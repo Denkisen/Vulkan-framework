@@ -1,5 +1,4 @@
 #include "Fence.h"
-#include "Logger.h"
 
 namespace Vulkan
 {

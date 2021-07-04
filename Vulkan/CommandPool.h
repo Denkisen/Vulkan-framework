@@ -1,14 +1,15 @@
 #ifndef __VULKAN_COMMAND_POOL_H
 #define __VULKAN_COMMAND_POOL_H
 
+#include "Logger.h"
+#include "Device.h"
+#include "CommandBuffer.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
 #include <mutex>
 #include <optional>
-
-#include "Device.h"
-#include "CommandBuffer.h"
 
 namespace Vulkan
 {

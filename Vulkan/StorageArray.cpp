@@ -1,7 +1,4 @@
 #include "StorageArray.h"
-#include "Misc.h"
-
-#include <algorithm>
 
 namespace Vulkan
 {

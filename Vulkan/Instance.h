@@ -1,6 +1,9 @@
 #ifndef __VULKAN_INSTANCE_H
 #define __VULKAN_INSTANCE_H
 
+#include "Misc.h"
+#include "Logger.h"
+
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>

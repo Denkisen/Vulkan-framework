@@ -1,6 +1,10 @@
 #ifndef __VULKAN_IMAGEARRAY_H
 #define __VULKAN_IMAGEARRAY_H
 
+#include "Logger.h"
+#include "Device.h"
+#include "StorageArray.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
@@ -8,10 +12,7 @@
 #include <mutex>
 #include <cstring>
 #include <tuple>
-
-#include "Device.h"
-#include "Logger.h"
-#include "StorageArray.h"
+#include <algorithm>
 
 namespace Vulkan
 {

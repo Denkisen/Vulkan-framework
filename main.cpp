@@ -1,20 +1,20 @@
+#include "Vulkan/Misc.h"
+#include "Vulkan/Surface.h"
+#include "Vulkan/Instance.h"
+#include "Vulkan/Device.h"
+#include "Vulkan/StorageArray.h"
+#include "Vulkan/Descriptors.h"
+#include "Vulkan/CommandPool.h"
+#include "Vulkan/Pipelines.h"
+#include "Vulkan/RenderPass.h"
+#include "Vulkan/ImageArray.h"
+#include "Vulkan/Fence.h"
+
 #include <iostream>
 #include <vector>
 #include <memory>
 #include <optional>
 #include <gtest/gtest.h>
-
-#include "Vulkan/Instance.h"
-#include "Vulkan/Device.h"
-#include "Vulkan/Surface.h"
-#include "Vulkan/StorageArray.h"
-#include "Vulkan/Descriptors.h"
-#include "Vulkan/CommandPool.h"
-#include "Vulkan/Pipelines.h"
-#include "Vulkan/Misc.h"
-#include "Vulkan/RenderPass.h"
-#include "Vulkan/ImageArray.h"
-#include "Vulkan/Fence.h"
 
 struct UniformData
 {

@@ -1,17 +1,18 @@
 #ifndef __VULKAN_GRAPHIC_PIPELINE_H
 #define __VULKAN_GRAPHIC_PIPELINE_H
 
+#include "../Misc.h"
+#include "../Logger.h"
+#include "../Device.h"
+#include "../SwapChain.h"
+#include "../RenderPass.h"
+#include "Types.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <map>
 #include <set>
 #include <algorithm>
-
-#include "../Device.h"
-#include "../Logger.h"
-#include "../SwapChain.h"
-#include "../RenderPass.h"
-#include "Types.h"
 
 namespace Vulkan
 {

@@ -1,6 +1,7 @@
 #ifndef __VULKAN_SEMAPHORE_H
 #define __VULKAN_SEMAPHORE_H
 
+#include "Logger.h"
 #include "Device.h"
 
 #include <memory>
@@ -62,6 +63,7 @@ namespace Vulkan
     SemaphoreArray(SemaphoreArray &&obj) noexcept;
     SemaphoreArray &operator=(const SemaphoreArray &obj);
     SemaphoreArray &operator=(SemaphoreArray &&obj) noexcept;
+    VkSemaphore operator[](const size_t index) noexcept { return index < p_semaphores.size() ? p_semaphores[index] : VK_NULL_HANDLE; }
     void swap(SemaphoreArray &obj) noexcept;
     VkResult Add(const VkSemaphoreCreateFlags flags = 0);
     VkResult Add(const std::shared_ptr<Semaphore> &obj);

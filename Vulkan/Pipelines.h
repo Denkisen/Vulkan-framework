@@ -1,17 +1,18 @@
 #ifndef __VULKAN_PIPELINES_H
 #define __VULKAN_PIPELINES_H
 
+#include "Misc.h"
+#include "Logger.h"
+#include "Device.h"
+#include "RenderPass.h"
+#include "Pipelines/ComputePipeline.h"
+#include "Pipelines/GraphicPipeline.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <mutex>
 #include <variant>
 #include <filesystem>
-
-#include "Device.h"
-#include "Logger.h"
-#include "RenderPass.h"
-#include "Pipelines/ComputePipeline.h"
-#include "Pipelines/GraphicPipeline.h"
 
 namespace Vulkan
 {

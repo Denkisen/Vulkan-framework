@@ -1,6 +1,12 @@
 #ifndef __VULKAN_MISC_H
 #define __VULKAN_MISC_H
 
+#include "Logger.h"
+
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <string>

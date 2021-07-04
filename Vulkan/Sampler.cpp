@@ -1,7 +1,4 @@
 #include "Sampler.h"
-#include "Logger.h"
-
-#include <algorithm>
 
 namespace Vulkan
 {

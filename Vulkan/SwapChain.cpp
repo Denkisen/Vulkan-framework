@@ -1,8 +1,4 @@
 #include "SwapChain.h"
-#include "Logger.h"
-#include "Instance.h"
-
-#include <algorithm>
 
 namespace Vulkan
 {

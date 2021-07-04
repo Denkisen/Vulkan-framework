@@ -1,9 +1,4 @@
 #include "Device.h"
-#include "Logger.h"
-#include "Instance.h"
-#include "Misc.h"
-
-#include <map>
 
 namespace Vulkan
 {

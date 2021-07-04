@@ -1,13 +1,17 @@
 #ifndef __VULKAN_DEVICE_H
 #define __VULKAN_DEVICE_H
 
+#include "Logger.h"
+#include "Misc.h"
+#include "Instance.h"
+#include "Surface.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <optional>
 #include <vector>
 #include <iostream>
-
-#include "Surface.h"
+#include <map>
 
 namespace Vulkan
 { 

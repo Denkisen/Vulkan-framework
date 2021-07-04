@@ -1,10 +1,4 @@
 #include "Misc.h"
-#include "Logger.h"
-
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-#include <cmath>
 
 namespace Vulkan
 {

@@ -1,5 +1,4 @@
 #include "ComputePipeline.h"
-#include "../Misc.h"
 
 namespace Vulkan
 {

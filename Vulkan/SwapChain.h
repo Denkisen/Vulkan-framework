@@ -1,11 +1,14 @@
 #ifndef __VULKAN_SWAPCHAIN_H
 #define __VULKAN_SWAPCHAIN_H
 
+#include "Logger.h"
+#include "Misc.h"
+#include "Instance.h"
+#include "Device.h"
+
+#include <algorithm>
 #include <vulkan/vulkan.h>
 #include <memory>
-
-#include "Device.h"
-#include "Misc.h"
 
 namespace Vulkan
 {

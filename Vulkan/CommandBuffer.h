@@ -1,11 +1,12 @@
 #ifndef __VULKAN_COMMAND_BUFFER_H
 #define __VULKAN_COMMAND_BUFFER_H
 
-#include <vulkan/vulkan.h>
-#include <memory>
-
+#include "Logger.h"
 #include "Device.h"
 #include "RenderPass.h"
+
+#include <vulkan/vulkan.h>
+#include <memory>
 
 namespace Vulkan
 {

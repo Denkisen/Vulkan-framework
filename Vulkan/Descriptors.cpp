@@ -1,5 +1,4 @@
 #include "Descriptors.h"
-#include "Logger.h"
 
 namespace Vulkan
 {

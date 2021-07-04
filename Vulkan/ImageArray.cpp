@@ -1,7 +1,5 @@
 #include "ImageArray.h"
 
-#include <algorithm>
-
 namespace Vulkan
 {
   ImageArray_impl::~ImageArray_impl() noexcept

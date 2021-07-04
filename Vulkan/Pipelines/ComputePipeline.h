@@ -1,13 +1,14 @@
 #ifndef __VULKAN_COMPUTE_PIPELINE_H
 #define __VULKAN_COMPUTE_PIPELINE_H
 
+#include "../Misc.h"
+#include "../Logger.h"
+#include "../Device.h"
+#include "Types.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <algorithm>
-
-#include "../Device.h"
-#include "../Logger.h"
-#include "Types.h"
 
 namespace Vulkan
 {

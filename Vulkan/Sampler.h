@@ -1,11 +1,14 @@
 #ifndef __VULKAN_SAMPLER_H
 #define __VULKAN_SAMPLER_H
 
+#include "Device.h"
+#include "Logger.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
+#include <algorithm>
 
-#include "Device.h"
 
 namespace Vulkan
 {

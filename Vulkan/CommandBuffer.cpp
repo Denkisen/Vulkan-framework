@@ -1,5 +1,4 @@
 #include "CommandBuffer.h"
-#include "Logger.h"
 
 namespace Vulkan
 {

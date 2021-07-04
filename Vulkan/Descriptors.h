@@ -1,14 +1,15 @@
 #ifndef __VULKAN_DESCRIPTORS_H
 #define __VULKAN_DESCRIPTORS_H
 
+#include "Logger.h"
+#include "Device.h"
+#include "StorageArray.h"
+
 #include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
 #include <mutex>
 #include <iostream>
-
-#include "Device.h"
-#include "StorageArray.h"
 
 namespace Vulkan
 {

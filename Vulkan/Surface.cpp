@@ -1,6 +1,4 @@
 #include "Surface.h"
-#include "Logger.h"
-#include "Instance.h"
 
 namespace Vulkan
 {

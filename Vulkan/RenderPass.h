@@ -1,13 +1,14 @@
 #ifndef __VULKAN_RENDERPASS_H
 #define __VULKAN_RENDERPASS_H
 
-#include <vulkan/vulkan.h>
-#include <memory>
-#include <mutex>
-
+#include "Logger.h"
 #include "Device.h"
 #include "SwapChain.h"
 #include "ImageArray.h"
+
+#include <vulkan/vulkan.h>
+#include <memory>
+#include <mutex>
 
 namespace Vulkan
 {

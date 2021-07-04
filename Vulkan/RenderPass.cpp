@@ -1,5 +1,4 @@
 #include "RenderPass.h"
-#include "Logger.h"
 
 namespace Vulkan
 {
